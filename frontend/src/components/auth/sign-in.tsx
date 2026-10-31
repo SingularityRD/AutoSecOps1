@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import type { AuthDiscoverResponse } from "@/client"
 import { ApiError, authDiscoverAuthMethod } from "@/client"
+import { CheckInbox } from "@/components/auth/check-inbox"
 import { OidcOAuthButton } from "@/components/auth/oauth-buttons"
 import { SamlSSOButton } from "@/components/auth/saml"
 import { Icons } from "@/components/icons"
@@ -35,6 +36,7 @@ import { toast } from "@/components/ui/use-toast"
 import { useAuthActions } from "@/hooks/use-auth"
 import { setPostAuthReturnUrlCookie, startOidcLogin } from "@/lib/auth-login"
 import { sanitizeReturnUrl } from "@/lib/auth-return-url"
+import { isEmailNotVerifiedError } from "@/lib/email-verification"
 import { getApiErrorDetail } from "@/lib/errors"
 import { useAppInfo } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -286,6 +288,7 @@ type BasicLoginFormValues = z.infer<typeof basicLoginSchema>
 
 export function BasicLoginForm({ initialEmail }: { initialEmail?: string }) {
   const [isLoading, setIsLoading] = useState(false)
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
   const { login } = useAuthActions()
   const form = useForm<BasicLoginFormValues>({
     resolver: zodResolver(basicLoginSchema),
@@ -311,6 +314,11 @@ export function BasicLoginForm({ initialEmail }: { initialEmail?: string }) {
         },
       })
     } catch (error) {
+      if (isEmailNotVerifiedError(error)) {
+        form.resetField("password")
+        setUnverifiedEmail(values.email)
+        return
+      }
       console.error("Error signing in", error)
       const forbiddenDetail =
         error instanceof ApiError && error.status === 403
@@ -325,6 +333,15 @@ export function BasicLoginForm({ initialEmail }: { initialEmail?: string }) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (unverifiedEmail) {
+    return (
+      <CheckInbox
+        email={unverifiedEmail}
+        onBack={() => setUnverifiedEmail(null)}
+      />
+    )
   }
 
   return (

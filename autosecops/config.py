@@ -6,7 +6,7 @@ import re
 import uuid
 from collections.abc import Mapping
 from enum import StrEnum
-from ipaddress import IPv4Network, IPv6Network, ip_network
+from ipaddress import IPv4Network, IPv6Network, ip_address, ip_network
 from typing import Literal, cast
 from urllib.parse import urlsplit
 
@@ -470,9 +470,15 @@ AUTOSECOPS__AUTH_TYPES = _parse_auth_types()
 """The set of allowed auth types on the platform. If an auth type is not in this set,
 it cannot be enabled."""
 
-AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION = env_bool(
-    "AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION", default=False
+AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS = bound_env(
+    "AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS",
+    3600,
+    lower=300,
+    upper=86400,
 )
+"""Lifetime of an emailed verification link. Password sign-in always requires a
+verified email; accounts that existed before email verification shipped were
+marked verified by migration."""
 SESSION_EXPIRE_TIME_SECONDS = int(
     os.environ.get("SESSION_EXPIRE_TIME_SECONDS") or 86400 * 7
 )  # 7 days
@@ -497,7 +503,7 @@ AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH = int(
 AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED = env_bool(
     "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", default=True
 )
-"""Rate limit login, registration, password reset, invitation tokens, and API-key failures."""
+"""Rate limit login, registration, password reset, email verification, invitation tokens, and API-key failures."""
 AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP = bound_env(
     "AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP", 50, lower=0
 )
@@ -526,6 +532,18 @@ AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP = bound_env(
     "AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP", 30, lower=0
 )
 """Invitation lookups and acceptances by token per client IP per minute."""
+AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_IP", 20, lower=0
+)
+"""Verification email requests per client IP per hour."""
+AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_ACCOUNT = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_ACCOUNT", 5, lower=0
+)
+"""Verification email requests per email per hour, across all clients."""
+AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_PER_IP", 10, lower=0
+)
+"""Email verification token submissions per client IP per minute."""
 AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP = bound_env(
     "AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP", 20, lower=0
 )
@@ -676,7 +694,10 @@ TEMPORAL__TASK_TIMEOUT = os.environ.get("TEMPORAL__TASK_TIMEOUT") or "900"
 """Temporal workflow task timeout in seconds (default 900 seconds)."""
 
 TEMPORAL__METRICS_PORT = os.environ.get("TEMPORAL__METRICS_PORT")
-"""Port for the Temporal metrics server."""
+"""Port for the Temporal SDK Prometheus exporter; unset or blank disables it.
+
+The exporter binds ``TEMPORAL__METRICS_HOST`` and serves ``/metrics``.
+"""
 
 
 TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION = env_bool(
@@ -1079,6 +1100,79 @@ def env_no_proxy(name: str) -> tuple[str | IPv4Network | IPv6Network, ...]:
             raise ValueError(f"{name} contains an invalid entry: {stripped!r}")
         entries.append(hostname)
     return tuple(entries)
+
+
+def env_port(name: str, *, default: int) -> int:
+    """Parse one TCP port from an environment variable.
+
+    Raises:
+        ValueError: If the value is not an integer from 1 to 65535.
+    """
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    stripped = raw_value.strip()
+    try:
+        port = int(stripped)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a port number: {stripped!r}") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError(f"{name} must be a port number: {stripped!r}")
+    return port
+
+
+def env_bind_host(name: str, *, default: str) -> str:
+    """Parse a listen address for an internal server from an environment variable.
+
+    Only IP literals are accepted, so a typo cannot silently bind a server to a
+    hostname that resolves to a public interface.
+
+    Raises:
+        ValueError: If the value is not an IPv4 or IPv6 address.
+    """
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    stripped = raw_value.strip().removeprefix("[").removesuffix("]")
+    try:
+        return str(ip_address(stripped))
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an IP address: {stripped!r}") from exc
+
+
+def format_bind_address(host: str, port: int) -> str:
+    """Join a host and port, bracketing IPv6 hosts (``[::]:9090``)."""
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+
+
+AUTOSECOPS__API_METRICS_ENABLED = env_bool(
+    "AUTOSECOPS__API_METRICS_ENABLED", default=False
+)
+"""Serve Prometheus metrics for the API process on a separate internal listener.
+
+Off by default. The listener is separate from the public API port, so Caddy and
+the Helm ingress never route to it; it is reachable only on the container or
+pod network.
+"""
+
+AUTOSECOPS__API_METRICS_HOST = env_bind_host(
+    "AUTOSECOPS__API_METRICS_HOST", default="0.0.0.0"
+)
+"""IP address the API metrics listener binds to.
+
+Use ``127.0.0.1`` for a sidecar scraper, or the default ``0.0.0.0`` for a
+scraper on the container or pod network. Never publish this port.
+"""
+
+AUTOSECOPS__API_METRICS_PORT = env_port("AUTOSECOPS__API_METRICS_PORT", default=9100)
+"""Port of the API metrics listener (``/metrics``)."""
+
+TEMPORAL__METRICS_HOST = env_bind_host("TEMPORAL__METRICS_HOST", default="0.0.0.0")
+"""IP address the Temporal SDK Prometheus exporter binds to.
+
+Only used when ``TEMPORAL__METRICS_PORT`` is set. The default keeps the exporter
+reachable on the container or pod network, as before this setting existed.
+"""
 
 
 AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS = env_networks(
@@ -1649,6 +1743,15 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 
 REDIS_URL__ARN = os.environ.get("REDIS_URL__ARN")
 """(AWS only) ARN of the secret containing the Redis URL."""
+
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD") or None
+"""Password for Redis AUTH when the Redis URL carries none.
+
+Docker Compose sets it for the bundled Redis, which requires a password. A
+password in the URL takes precedence, so an external Redis keeps the
+credentials in its URL. Pass it as the ``password`` argument of
+``Redis.from_url``: redis-py applies URL credentials over keyword arguments.
+"""
 
 AUTOSECOPS__CASE_TRIGGERS_ENABLED = env_bool(
     "AUTOSECOPS__CASE_TRIGGERS_ENABLED", default=True

@@ -20980,6 +20980,56 @@
         }
       }
     },
+    "/admin/users/{user_id}/verify": {
+      "post": {
+        "tags": [
+          "admin",
+          "admin:users"
+        ],
+        "summary": "Verify User Email",
+        "description": "Mark a user's email address verified.",
+        "operationId": "admin-verify_user_email",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/users/{user_id}/demote": {
       "post": {
         "tags": [
@@ -39429,6 +39479,15 @@
                     "value": {
                       "detail": "VERIFY_USER_ALREADY_VERIFIED"
                     }
+                  },
+                  "VERIFY_USER_INVALID_PASSWORD": {
+                    "summary": "Password validation failed.",
+                    "value": {
+                      "detail": {
+                        "code": "VERIFY_USER_INVALID_PASSWORD",
+                        "reason": "Password should be at least 12 characters"
+                      }
+                    }
                   }
                 }
               }
@@ -52434,11 +52493,16 @@
           "token": {
             "type": "string",
             "title": "Token"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
           }
         },
         "type": "object",
         "required": [
-          "token"
+          "token",
+          "password"
         ],
         "title": "Body_auth-verify:verify"
       },

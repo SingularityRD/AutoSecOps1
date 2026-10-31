@@ -239,10 +239,12 @@ SDK-backed or not.
   ```python
   _VENDOR_HOST_SUFFIXES = ("vendor.com", "vendor.cn")
 
+
   def _validate_vendor_url(url: str) -> None:
       hostname = urlsplit(url).hostname or ""
       if not any(hostname.endswith(suffix) for suffix in _VENDOR_HOST_SUFFIXES):
           raise ValueError("Unsupported vendor URL")
+
 
   def _get_client(base_url: str) -> VendorClient:
       _validate_vendor_url(base_url)
@@ -396,6 +398,7 @@ SDK-backed or not.
 
   ```python
   _ALLOWED_SERVICES = frozenset({"clusters", "jobs", "warehouses"})
+
 
   def _get_sdk_method(client: Any, service: str, method_name: str) -> Any:
       if service not in _ALLOWED_SERVICES:

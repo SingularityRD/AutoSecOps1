@@ -90,6 +90,8 @@ module "ecs" {
   temporal_payload_encryption_enabled           = var.temporal_payload_encryption_enabled
   temporal_payload_encryption_cache_ttl_seconds = var.temporal_payload_encryption_cache_ttl_seconds
   temporal_payload_encryption_cache_max_items   = var.temporal_payload_encryption_cache_max_items
+  metrics_enabled                               = var.metrics_enabled
+  metrics_scraper_security_group_ids            = var.metrics_scraper_security_group_ids
   result_externalization_enabled                = var.result_externalization_enabled
   collection_manifests_enabled                  = var.collection_manifests_enabled
   result_externalization_threshold_bytes        = var.result_externalization_threshold_bytes
@@ -112,17 +114,20 @@ module "ecs" {
   # RDS settings
   restore_from_snapshot            = var.restore_from_snapshot
   rds_backup_retention_period      = var.rds_backup_retention_period
+  rds_multi_az                     = var.rds_multi_az
   rds_performance_insights_enabled = var.rds_performance_insights_enabled
   rds_database_insights_mode       = var.rds_database_insights_mode
   core_db_snapshot_name            = var.core_db_snapshot_name
   temporal_db_snapshot_name        = var.temporal_db_snapshot_name
 
   # Secrets from AWS Secrets Manager
-  autosecops_db_encryption_key_arn           = var.autosecops_db_encryption_key_arn
-  autosecops_db_encryption_previous_keys_arn = var.autosecops_db_encryption_previous_keys_arn
-  autosecops_service_key_arn                 = var.autosecops_service_key_arn
-  autosecops_signing_secret_arn              = var.autosecops_signing_secret_arn
-  temporal_payload_encryption_keyring_arn    = var.temporal_payload_encryption_keyring_arn
+  autosecops_db_encryption_key_arn                      = var.autosecops_db_encryption_key_arn
+  autosecops_db_encryption_previous_keys_arn            = var.autosecops_db_encryption_previous_keys_arn
+  autosecops_service_key_arn                            = var.autosecops_service_key_arn
+  autosecops_signing_secret_arn                         = var.autosecops_signing_secret_arn
+  temporal_payload_encryption_keyring_arn               = var.temporal_payload_encryption_keyring_arn
+  temporal_payload_encryption_generate_keyring          = var.temporal_payload_encryption_generate_keyring
+  temporal_payload_encryption_assume_keyring_rolled_out = var.temporal_payload_encryption_assume_keyring_rolled_out
 
   # Authentication
   auth_types               = var.auth_types
@@ -208,6 +213,7 @@ module "ecs" {
 
   ui_cpu                                   = var.ui_cpu
   ui_memory                                = var.ui_memory
+  ui_desired_count                         = var.ui_desired_count
   temporal_cpu                             = var.temporal_cpu
   temporal_memory                          = var.temporal_memory
   temporal_num_history_shards              = var.temporal_num_history_shards
@@ -217,12 +223,15 @@ module "ecs" {
   temporal_db_force_ssl                    = var.temporal_db_force_ssl
   caddy_cpu                                = var.caddy_cpu
   caddy_memory                             = var.caddy_memory
+  caddy_desired_count                      = var.caddy_desired_count
   autosecops_db_instance_class             = local.autosecops_db_instance_class
   temporal_db_instance_class               = local.temporal_db_instance_class
   autosecops_db_allocated_storage          = local.autosecops_db_allocated_storage
   temporal_db_allocated_storage            = local.temporal_db_allocated_storage
   db_engine_version                        = var.db_engine_version
   redis_node_type                          = var.redis_node_type
+  redis_num_cache_clusters                 = var.redis_num_cache_clusters
+  log_retention_in_days                    = var.log_retention_in_days
 
   # LiteLLM Service
   litellm_cpu           = var.litellm_cpu

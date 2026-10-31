@@ -35,7 +35,7 @@ SingularityRD supports the latest two minor release trains, each for 12 months a
 5. On a multi-tenant deployment, check that `AUTOSECOPS__LICENSE_KEY` is set on every service and grants `multi_tenant`. With `AUTOSECOPS__EE_MULTI_TENANT=true`, more than one organization, and no such license, the `api` service refuses to start. See [Multi-tenant deployments](/self-hosting/license#multi-tenant-deployments).
 
 <Warning>
-  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, and `USER_AUTH_SECRET` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable.
+  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, `USER_AUTH_SECRET`, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable, and a keyring missing a key makes the workflow history encrypted under it unreadable.
 </Warning>
 
 ## Docker Compose
@@ -57,13 +57,17 @@ SingularityRD supports the latest two minor release trains, each for 12 months a
     ```
   </Step>
   <Step title="Migrate the environment variables">
-    Copy the environment variables migration script `env-migration.sh` and
-    template `.env.example` into your deployment directory, then run the
-    script. It backs up your `.env` and adds any new or changed variables.
+    Copy the environment variables migration script `env-migration.sh`, the
+    `env.sh` helper, and the template `.env.example` into your deployment
+    directory, then run the script. It backs up your `.env`, adds any new or
+    changed variables, and generates the database runtime role password and
+    the [Redis password](#redis-password) when `.env` has none.
+    `./env.sh --check` then confirms no placeholder remains.
 
     ```bash
-    cp autosecops-<version>/env-migration.sh autosecops-<version>/.env.example .
-    chmod +x env-migration.sh && ./env-migration.sh
+    cp autosecops-<version>/env-migration.sh autosecops-<version>/env.sh autosecops-<version>/.env.example .
+    chmod +x env-migration.sh env.sh && ./env-migration.sh
+    ./env.sh --check
     ```
   </Step>
   <Step title="Replace the Compose files, Caddyfile, and scripts">
@@ -80,17 +84,11 @@ SingularityRD supports the latest two minor release trains, each for 12 months a
 
     If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to `<version>`.
   </Step>
-  <Step title="Set the database runtime role password">
-    Installs created before the runtime role have an empty
-    `AUTOSECOPS__DB_RUNTIME_PASSWORD` after the migration script. Set it so the
-    services connect as `autosecops_app` and tenant row-level security applies:
-
-    ```bash
-    sed -i "s/^AUTOSECOPS__DB_RUNTIME_PASSWORD=.*/AUTOSECOPS__DB_RUNTIME_PASSWORD=$(openssl rand -hex 24)/" .env
-    ```
-
-    Left empty, AutoSecOps keeps working as the owner role, logs a warning,
-    and row-level security stays inactive.
+  <Step title="Check your override file">
+    If you have a `docker-compose.override.yml`, check it against
+    [Resource limits and log rotation](#resource-limits-and-log-rotation)
+    before you restart. A `mem_limit`, `cpus`, or `pids_limit` setting there
+    stops `docker compose up`.
   </Step>
   <Step title="Pull the images and restart">
     ```bash
@@ -103,6 +101,30 @@ SingularityRD supports the latest two minor release trains, each for 12 months a
     services start. Then [verify isolation](/self-hosting/security#verify-isolation).
   </Step>
 </Steps>
+
+## Redis password
+
+The bundled Redis (Valkey) requires a password from the release that adds `REDIS_PASSWORD` to `.env.example`. Earlier installs accepted unauthenticated connections from every container on the `core` network.
+
+- `./env-migration.sh` sets `REDIS_PASSWORD` in `.env`. If you skipped it, run `./env.sh --upgrade`: it backs up `.env` and adds the password, and running it again changes nothing.
+- Both reuse the password from `REDIS_URL` when it has one, so installs that added a password to `REDIS_URL` by hand keep it. Otherwise they generate one. Remove any `redis` `command` override with `--requirepass` from `docker-compose.override.yml`: the `redis` service now sets the password itself.
+- Without `REDIS_PASSWORD`, `docker compose up` stops with `REDIS_PASSWORD is not set. Run ./env.sh --upgrade`. With the `.env.example` placeholder, the `redis` container exits with the same instruction.
+- Redis keeps its data: the password does not change the `valkey-data` volume. `docker compose up -d` recreates `redis` and every service with the new setting.
+- If `REDIS_URL` points to an external Redis without a password, both scripts also add `REDIS_CLIENT_PASSWORD=` (empty) to `.env` and print a warning. The services then keep connecting to that Redis without a password, as before the upgrade. Without that line they would send `REDIS_PASSWORD`, which a Redis without authentication rejects. Prefer enabling authentication on that Redis: put its password in `REDIS_URL`, which takes precedence, and remove `REDIS_CLIENT_PASSWORD`.
+
+## Database runtime role password
+
+`./env-migration.sh` and `./env.sh --upgrade` generate `AUTOSECOPS__DB_RUNTIME_PASSWORD` when `.env` has none or still has the `.env.example` placeholder. On the next start, the `migrations` service creates the `autosecops_app` role with it, or resets the role's password, and the services connect as that role, so tenant row-level security applies. An `.env` that sets it to an empty value on purpose keeps it empty: AutoSecOps then runs as the owner role, logs a warning, and row-level security stays inactive.
+
+## Resource limits and log rotation
+
+The release that adds `REDIS_PASSWORD` also adds [memory limits](/self-hosting/docker-compose#resource-limits) and [log rotation](/self-hosting/docker-compose#log-rotation) to every Compose service. `docker compose up -d` recreates the containers, which applies both. Check these before you restart:
+
+- A service that used more memory than its new limit before the upgrade restarts with `OOMKilled: true` in `docker inspect`; raise its `AUTOSECOPS__<SERVICE>_MEMORY_LIMIT` in `.env`. Redis now refuses writes with `OOM command not allowed` at 75% of its limit instead of growing without bound; raise `AUTOSECOPS__REDIS_MEMORY_LIMIT` if its dataset is larger.
+- The limits live under `deploy.resources.limits`. A `deploy.resources.limits` block in `docker-compose.override.yml`, as earlier versions of [Scaling action throughput](/self-hosting/scaling) suggested, keeps working: Compose merges it over the defaults. A `mem_limit`, `cpus`, or `pids_limit` setting on the same service stops `docker compose up` with `can't set distinct values on 'mem_limit' and 'deploy.resources.limits.memory'`. Remove it and set the value through `AUTOSECOPS__<SERVICE>_MEMORY_LIMIT` and `AUTOSECOPS__<SERVICE>_CPU_LIMIT` in `.env`, or through `deploy.resources.limits`.
+- Every service now sets the `json-file` log driver, which overrides `log-driver` in the Docker daemon's `daemon.json`. If the daemon ships container logs to journald, syslog, a collector, or a SIEM, add the [daemon log driver override](/self-hosting/docker-compose#log-rotation) before you restart, or those logs stop reaching it.
+
+On Kubernetes, the chart now refuses an inline `externalRedis.auth.url` without a password. Add the password to the URL, or set `externalRedis.auth.allowUnauthenticated: true` to keep an unauthenticated Redis.
 
 ## Upgrade the Temporal database
 
@@ -243,12 +265,40 @@ Run these checks right after every upgrade:
 5. A case with an attachment opens and the attachment downloads.
 6. Scheduled workflows fire on their next interval.
 
+### Worker health checks
+
+From this release, the Temporal workers report health. Docker Compose shows `worker`, `background-worker`, `executor`, `agent-worker`, and `agent-executor` as `healthy` once they poll Temporal, and the Helm chart adds exec startup, liveness, and readiness probes to their pods, so `helm upgrade` waits for new worker pods to become ready.
+A worker that stays `unhealthy` or not ready cannot reach Temporal; check its logs.
+The chart's default worker probes live in the new `workerProbes` value. A probe you already set on a worker component (for example `worker.readinessProbe`) replaces the matching default; it is never merged with it. If you mounted a volume at `/var/run/autosecops` through `extraVolumeMounts`, remove it: the chart now mounts an in-memory `emptyDir` there for the health files, and a duplicate mount path fails the upgrade.
+On AWS Fargate, worker tasks get an ECS container health check, and the new `metrics_enabled` and `metrics_scraper_security_group_ids` module variables turn on metrics. See [Monitoring](/self-hosting/monitoring).
+
+## Email verification for password accounts
+
+Releases with email verification require a verified email for password sign-in. The upgrade migration marks every existing account verified, so nobody is locked out. After the upgrade:
+
+- A new self-registration must open an emailed link before it can sign in. Invitation links, the first superadmin, superadmin-created accounts, and SSO and SCIM accounts are verified on creation. See [email verification](/authentication/basic#email-verification).
+- Without the SMTP settings, `POST /auth/register` refuses self-registration with `403`. Configure SMTP to keep open sign-up, or invite users instead.
+- An account created while the old version was still serving, during a rolling upgrade, starts unverified. That includes invitation sign-ups, which the old version did not mark verified. The user requests a new email from the sign-in page, or, without SMTP, a superadmin marks the account verified in `/admin/users`.
+- Opening an emailed verification link now asks for the account password and sets it. `POST /auth/verify` takes `{"token", "password"}`; a client that sends only the token gets `422`.
+- A superadmin changing an account's email no longer unverifies it.
+- `AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION` no longer has an effect. Remove it from your environment.
+
+The migration verified accounts that self-registered under the old policy without proving their address. If your deployment allowed open sign-up, review those accounts in `/admin/users` and delete any you do not recognize.
+
 ## Agent workers during a rolling upgrade
 
 Kubernetes and Fargate replace agent worker replicas one at a time, so for a few minutes old and new agent workers share the same Temporal task queue. A new release can add an agent activity, such as the [model lookup by name](/agents/custom-llm-providers#credentials) for agent configurations without a `catalog_id`. When an old worker receives that activity, it fails the attempt as not registered, and AutoSecOps retries it for up to 10 minutes until an upgraded worker takes it.
 
 - Let the agent worker rollout finish within 10 minutes. `kubectl -n autosecops rollout status deployment/autosecops-agent-worker` reports progress on Kubernetes.
 - An agent run whose activity is not picked up within 10 minutes fails with an activity timeout. Rerun it after the rollout completes.
+
+## Agent runtime hardening
+
+From the release that hardens the agent runtime, three agent behaviors change:
+
+- The `agent-executor` worker marks itself non-dumpable at startup, as the executor worker already does. It writes no core dumps, and attaching `py-spy` or `gdb` to it needs `CAP_SYS_PTRACE`.
+- Tool results and tool errors that the trusted MCP proxy returns for remote MCP integrations show `***` in place of that integration's own credentials. AutoSecOps masks the values of credential headers such as `Authorization`, `Cookie`, and `X-Api-Key`, each word of 8 characters or more in a value such as `Bearer <token>`, and the password in any header URL. Other header values, such as `Accept` or a base URL, stay as they are. Stdio MCP servers that the agent runtime starts itself, which includes every stdio server with the built-in runner, return results straight to the agent, so AutoSecOps does not mask their output. Treat a stdio server that can echo its environment as able to reveal those credentials to the model and the transcript.
+- On the `direct` backend, stdio MCP connection probes no longer use the worker's home directory, and resolve the server command on the same `PATH` as agent runs, `/usr/local/bin:/usr/bin:/bin`. `python` and `python3` in a stdio MCP command now run the image's system Python during the connection test too, instead of the AutoSecOps virtual environment. The probe also caps CPU time, file size, and open files. It does not cap address space, so Node, Java, and .NET servers start as they do in agent runs.
 
 ## Roll back
 
@@ -278,6 +328,42 @@ Upgrade with `helm upgrade` and the new chart version. See [Upgrade the Helm cha
 ## Terraform deployments
 
 AWS Fargate deployments of AutoSecOps are configured using Terraform. Take manual RDS snapshots first, as described in [Backup and restore](/self-hosting/backup-restore#aws-fargate). Then extract the Terraform stack from the new image version, set the Terraform variable `autosecops_image_tag` to that version, and run `terraform apply`. See [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) for the full steps.
+
+## Temporal payload encryption
+
+New installs encrypt Temporal payloads by default (see [Temporal payload encryption](/self-hosting/security#temporal-payload-encryption)). An existing install behaves differently on the next upgrade depending on the platform:
+
+| Deployment | What happens on upgrade |
+| --- | --- |
+| Docker Compose | Nothing changes. An `.env` without `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED` keeps the `false` default, and `env-migration.sh` writes `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false` with an empty keyring. `./env.sh --check` warns about plaintext payloads in production mode. |
+| Kubernetes | `autosecops.temporal.payloadEncryption.enabled` now defaults to `true`. With chart-created secrets, `helm upgrade` fails with `no keyring is configured` until you choose, and nothing is deployed. With `secrets.existingSecret`, `helm upgrade` looks up the Secret and fails the same way, before the migration hook, when it lacks the `temporalPayloadEncryptionKeyring` key. `helm template` and GitOps renders cannot see the Secret, so with those, new pods wait in `CreateContainerConfigError` until the Secret has the key. Set `enabled: false` for this upgrade, then follow the steps below. |
+| AWS Fargate | `temporal_payload_encryption_enabled` now defaults to `true`. The next `terraform apply` generates a keyring and gives it to every service with encryption still off; the apply after that, once the services are stable, turns encryption on. See [How encryption turns on](/self-hosting/aws-fargate#how-encryption-turns-on). Set `temporal_payload_encryption_enabled = false` to stay on plaintext. |
+
+### Turn encryption on for an existing install
+
+Turn encryption on in two deployments, the same way you [rotate the keyring](/self-hosting/security#rotate-the-keyring). While a deployment rolls out, services on the old configuration run next to upgraded ones. If an upgraded service encrypted a payload that a service without the keyring then picks up, the Temporal SDK fails that activity attempt, and AutoSecOps runs many activities with a single attempt, so the workflow fails. Giving every service the keyring first avoids this, because decoding uses the keyring even while encryption is off.
+
+1. Generate a keyring and back it up with your other platform secrets:
+
+   ```bash
+   printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
+   ```
+
+2. Give every service the keyring, with encryption still off:
+   - Docker Compose: add `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING='<keyring>'` (single-quoted) to `.env`, keep `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false`, and run `docker compose up -d`.
+   - Kubernetes: add the `temporalPayloadEncryptionKeyring` key to the core Secret (or set `secrets.temporalPayloadEncryptionKeyring`) and `helm upgrade` with `autosecops.temporal.payloadEncryption.enabled=false`. With `secrets.existingSecret`, pods do not restart on a Secret change, so also run `kubectl rollout restart deployment -l app.kubernetes.io/instance=<release>`.
+   - Fargate: `terraform apply` does this step for you.
+
+   Wait until every API, worker, executor, agent, and MCP instance runs the new configuration.
+
+3. Turn encryption on and deploy again:
+   - Docker Compose: set `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true` and run `docker compose up -d`.
+   - Kubernetes: `helm upgrade` with `autosecops.temporal.payloadEncryption.enabled=true`.
+   - Fargate: run `terraform apply` again.
+
+   With encryption on, the API, MCP server, and workers refuse to start without a usable keyring, so a configuration mistake shows up at startup rather than as failed workflows.
+
+Workflow history written before the change stays plaintext and stays readable; running workflows continue and replay normally. To turn encryption off again, set it to `false` but keep the keyring configured until encrypted history expires.
 
 ## Update integrations
 

@@ -277,6 +277,28 @@ def register_per_ip() -> RateLimit:
     )
 
 
+def verify_request_per_ip() -> RateLimit:
+    return RateLimit(
+        "verify_request_ip",
+        config.AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_IP,
+        HOUR,
+    )
+
+
+def verify_request_per_account() -> RateLimit:
+    return RateLimit(
+        "verify_request_account",
+        config.AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_ACCOUNT,
+        HOUR,
+    )
+
+
+def verify_per_ip() -> RateLimit:
+    return RateLimit(
+        "verify_ip", config.AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_PER_IP, MINUTE
+    )
+
+
 def invitation_per_ip() -> RateLimit:
     return RateLimit(
         "invitation_ip", config.AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP, MINUTE
@@ -320,6 +342,19 @@ async def limit_reset_password(request: Request) -> None:
 async def limit_register(request: Request) -> None:
     """Limit ``POST /auth/register`` per client IP."""
     await enforce(request, (register_per_ip(), client_ip(request)))
+
+
+async def limit_request_verify_token(request: Request) -> None:
+    """Limit ``POST /auth/request-verify-token`` per client IP and per email."""
+    checks = [(verify_request_per_ip(), client_ip(request))]
+    if email := await _json_email(request):
+        checks.append((verify_request_per_account(), email))
+    await enforce(request, *checks)
+
+
+async def limit_verify(request: Request) -> None:
+    """Limit ``POST /auth/verify`` per client IP."""
+    await enforce(request, (verify_per_ip(), client_ip(request)))
 
 
 async def limit_invitation_token(request: Request) -> None:

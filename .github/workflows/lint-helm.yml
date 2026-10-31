@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -93,6 +93,10 @@ jobs:
           expect_failure "externalRedis.auth.url is required" -f "$minimal" --set externalRedis.auth.url=
           expect_failure "externalTemporal.clusterUrl is required" -f "$minimal" --set externalTemporal.clusterUrl=
           expect_failure "tunnels.gateway.blockedCidrs is required" -f "$minimal" --set tunnels.enabled=true
+          expect_failure "no keyring is configured" -f "$minimal" --set secrets.temporalPayloadEncryptionKeyring=
+          expect_failure "secrets.temporalPayloadEncryptionKeyring must be JSON" -f "$minimal" --set secrets.temporalPayloadEncryptionKeyring=not-json
+          helm template autosecops "$CHART" -f "$minimal" --set secrets.temporalPayloadEncryptionKeyring= \
+            --set autosecops.temporal.payloadEncryption.enabled=false > /dev/null
           expect_failure "Additional property tracecat is not allowed" -f "$minimal" --set tracecat.auth.types=basic
 
       - name: Install uv

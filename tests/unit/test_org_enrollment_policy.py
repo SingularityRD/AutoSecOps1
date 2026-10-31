@@ -118,6 +118,7 @@ async def test_registration_does_not_enroll(
     manager = UserManager.__new__(UserManager)
     manager.logger = MagicMock()
     manager._pending_invitation_token = None
+    manager._pending_bootstrap_registration = False
     monkeypatch.setattr(manager, "_emit_user_create_audit", AsyncMock())
 
     await manager.on_after_register(user)

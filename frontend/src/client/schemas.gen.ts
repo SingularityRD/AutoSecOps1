@@ -7759,9 +7759,13 @@ export const $Body_auth_verify_verify = {
       type: "string",
       title: "Token",
     },
+    password: {
+      type: "string",
+      title: "Password",
+    },
   },
   type: "object",
-  required: ["token"],
+  required: ["token", "password"],
   title: "Body_auth-verify:verify",
 } as const
 

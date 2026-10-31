@@ -371,6 +371,7 @@
               "self-hosting/docker-compose",
               "self-hosting/local-evaluation",
               "self-hosting/scaling",
+              "self-hosting/monitoring",
               "self-hosting/aws-fargate",
               "self-hosting/kubernetes",
               "self-hosting/air-gapped",

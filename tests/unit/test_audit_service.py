@@ -508,6 +508,7 @@ async def test_auth_success_audit_emits_to_platform_and_org_sinks(
     user = MagicMock()
     user.id = user_id
     user.is_superuser = False
+    user.is_verified = True
     calls: list[dict[str, object]] = []
 
     @asynccontextmanager
@@ -907,6 +908,7 @@ async def test_on_after_register_emits_user_create_audit(
     manager = UserManager.__new__(UserManager)
     manager.logger = MagicMock()
     manager._pending_invitation_token = None
+    manager._pending_bootstrap_registration = False
 
     await manager.on_after_register(user)
 

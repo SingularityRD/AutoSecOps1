@@ -766,6 +766,14 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    email_verified_via: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        doc=(
+            "How the email was verified (see EmailVerificationMethod); NULL for "
+            "accounts created verified or that predate email verification"
+        ),
+    )
 
     # Relationships
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship(
@@ -902,6 +910,34 @@ class MfaRecoveryCode(Base, TimestampMixin):
     )
     code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
+
+class EmailVerificationOutbox(Base):
+    """A pending verification email for one account: its own outbox row.
+
+    No token is stored. The sender mints a signed, short-lived token when it
+    claims the row, so a database read never yields a usable verification link.
+    """
+
+    __tablename__ = "email_verification_outbox"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        doc="When a sender claimed the row; NULL while it waits to be sent",
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
 

@@ -16,10 +16,12 @@ from sqlalchemy.orm import Mapped
 from autosecops import config
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
+from autosecops.auth.enums import EmailVerificationMethod
 from autosecops.auth.schemas import UserRole
 from autosecops.auth.types import PlatformRole
 from autosecops.db.models import (
     AccessToken,
+    EmailVerificationOutbox,
     LegacyMembership,
     Membership,
     Organization,
@@ -29,6 +31,7 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.db.models import Role as DBRole
+from autosecops.exceptions import AutoSecOpsNotFoundError
 from tests.support.membership import grant_org_membership, grant_workspace_membership
 
 pytestmark = pytest.mark.usefixtures("db")
@@ -370,3 +373,44 @@ async def test_delete_user_rejects_last_superuser(
 
     with pytest.raises(ValueError, match="Cannot delete the last superuser"):
         await service.delete_user(user.id, current_user_id=platform_role.user_id)
+
+
+@pytest.mark.anyio
+async def test_verify_user_email_marks_verified_and_clears_outbox(
+    session: AsyncSession, platform_role: PlatformRole
+) -> None:
+    user = User(
+        email=f"unverified-{uuid.uuid4().hex[:8]}@example.com",
+        hashed_password="x",
+        is_active=True,
+        is_verified=False,
+    )
+    session.add(user)
+    await session.flush()
+    session.add(EmailVerificationOutbox(user_id=user.id))
+    await session.commit()
+    service = AdminUserService(session, role=platform_role)
+
+    result = await service.verify_user_email(user.id)
+
+    assert result.is_verified is True
+    await session.refresh(user)
+    assert user.email_verified_via == EmailVerificationMethod.ADMIN
+    remaining = await session.execute(
+        select(func.count())
+        .select_from(EmailVerificationOutbox)
+        .where(EmailVerificationOutbox.user_id == user.id)
+    )
+    assert remaining.scalar_one() == 0
+    # Idempotent.
+    assert (await service.verify_user_email(user.id)).is_verified is True
+
+
+@pytest.mark.anyio
+async def test_verify_user_email_rejects_unknown_user(
+    session: AsyncSession, platform_role: PlatformRole
+) -> None:
+    service = AdminUserService(session, role=platform_role)
+
+    with pytest.raises(AutoSecOpsNotFoundError):
+        await service.verify_user_email(uuid.uuid4())

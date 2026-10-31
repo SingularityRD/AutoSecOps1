@@ -33,6 +33,33 @@ dotenv_replace() {
     eval sed $sed_option "s$delimiter^${env_var_name}=.*$delimiter${env_var_name}=${new_value}$delimiter" $file_path
 }
 
+# Replace a whole `NAME=value` line without passing the value through sed or
+# eval, so values with quotes, braces, or `#` (such as a JSON keyring) stay
+# intact. Keeps the file's permissions.
+dotenv_replace_literal() {
+    local env_var_name=$1
+    local new_value=$2
+    local file_path=$3
+    local tmp_file
+    tmp_file=$(mktemp "${file_path}.XXXXXX")
+    ENV_NAME="$env_var_name" ENV_VALUE="$new_value" awk '
+        BEGIN { name = ENVIRON["ENV_NAME"]; value = ENVIRON["ENV_VALUE"] }
+        index($0, name "=") == 1 { print name "=" value; next }
+        { print }
+    ' "$file_path" > "$tmp_file" && cat "$tmp_file" > "$file_path"
+    rm -f "$tmp_file"
+}
+
+# Print a Temporal payload encryption keyring with one random 256-bit root
+# secret. Single-quoted so Docker Compose reads the JSON literally.
+generate_temporal_payload_keyring() {
+    local key_id=$1
+    local root_secret
+    root_secret=$(openssl rand -hex 32)
+    printf "'{\"current_key_id\":\"%s\",\"keys\":{\"%s\":\"%s\"}}'" \
+        "$key_id" "$key_id" "$root_secret"
+}
+
 # Placeholder values shipped in .env.example. A .env that still contains one of
 # these must never be deployed. `your-*` values are placeholders from older
 # releases of .env.example.
@@ -51,6 +78,120 @@ dotenv_get() {
     local env_var_name=$1
     local file_path=$2
     grep -E "^${env_var_name}=" "$file_path" | tail -n 1 | cut -d '=' -f 2- | sed -E 's/^["'"'"'](.*)["'"'"']$/\1/'
+}
+
+# Print the password embedded in a redis:// or rediss:// URL, percent-decoded,
+# or nothing when the URL carries none.
+redis_url_password() {
+    local password
+    password=$(sed -nE 's#^rediss?://[^:/@]*:([^@]+)@.*$#\1#p' <<< "$1")
+    if [ -n "$password" ]; then
+        printf '%b' "$(sed 's/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g' <<< "$password")"
+    fi
+}
+
+# Set KEY=VALUE in a file, replacing an existing line or appending one with a
+# comment. awk, not sed: a password taken from REDIS_URL may hold sed
+# metacharacters.
+dotenv_set() {
+    local key=$1 value=$2 file_path=$3 comment=$4
+    if grep -qE "^${key}=" "$file_path"; then
+        local tmp_file
+        tmp_file=$(mktemp)
+        ENV_KEY="$key" ENV_VALUE="$value" awk '
+            index($0, ENVIRON["ENV_KEY"] "=") == 1 { print ENVIRON["ENV_KEY"] "=" ENVIRON["ENV_VALUE"]; next }
+            { print }
+        ' "$file_path" > "$tmp_file"
+        cat "$tmp_file" > "$file_path"
+        rm -f "$tmp_file"
+    else
+        printf '\n# %s Added by ./env.sh --upgrade.\n%s=%s\n' "$comment" "$key" "$value" >> "$file_path"
+    fi
+}
+
+# Print the host of a redis:// or rediss:// URL, after expanding ${REDIS_HOST}.
+redis_url_host() {
+    local url=$1 redis_host=${2:-redis}
+    url=${url//\$\{REDIS_HOST\}/$redis_host}
+    url=${url//\$REDIS_HOST/$redis_host}
+    sed -nE 's#^rediss?://([^@/]*@)?\[?([^]:/?]+).*$#\2#p' <<< "$url"
+}
+
+# Bring an existing env file up to date with settings that later releases
+# require. Idempotent; backs the file up before the first change.
+#   AUTOSECOPS__DB_RUNTIME_PASSWORD: generated when missing or a placeholder.
+#   An explicitly empty value is kept (the operator opted out of the role).
+#   REDIS_PASSWORD: the bundled Redis requires a password. Reuse the password
+#   from REDIS_URL when it has one (installs that followed the earlier Redis
+#   hardening steps), otherwise generate one. When REDIS_URL points to an
+#   external Redis without a password, also set REDIS_CLIENT_PASSWORD empty so
+#   the services keep connecting to it without AUTH, as before.
+upgrade_env_file() {
+    local file_path=$1
+    if [ ! -f "$file_path" ]; then
+        echo -e "${RED}No env file found at ${file_path}. Run ./env.sh to create one.${NC}"
+        return 1
+    fi
+
+    local runtime_password redis_password needs_runtime=false needs_redis=false
+    runtime_password=$(dotenv_get "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$file_path")
+    if ! grep -qE "^AUTOSECOPS__DB_RUNTIME_PASSWORD=" "$file_path" || [[ "$runtime_password" == change-me-* ]]; then
+        needs_runtime=true
+    fi
+    redis_password=$(dotenv_get "REDIS_PASSWORD" "$file_path")
+    if [ -z "$redis_password" ] || [[ "$redis_password" == change-me-* ]]; then
+        needs_redis=true
+    fi
+    if [ "$needs_runtime" = false ] && [ "$needs_redis" = false ]; then
+        echo -e "${GREEN}${file_path} is up to date.${NC}"
+        return 0
+    fi
+
+    local backup
+    backup="${file_path}.backup_$(date "+%Y%m%d_%H%M%S")"
+    cp -p "$file_path" "$backup"
+    echo -e "${YELLOW}Backed up ${file_path} to ${backup}.${NC}"
+
+    if [ "$needs_runtime" = true ]; then
+        dotenv_set "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$(openssl rand -hex 24)" "$file_path" \
+            "Password of the database runtime role, which enforces row-level security."
+        echo -e "${GREEN}Generated AUTOSECOPS__DB_RUNTIME_PASSWORD. The migrations service applies it on the next start.${NC}"
+    fi
+
+    if [ "$needs_redis" = true ]; then
+        local source="generated"
+        local value redis_url url_host
+        redis_url=$(dotenv_get "REDIS_URL" "$file_path")
+        redis_password=$(redis_url_password "$redis_url")
+        if [[ "$redis_password" == *"'"* ]]; then
+            echo -e "${YELLOW}The REDIS_URL password contains a single quote, which .env cannot hold literally. Generating a new password; remove the credentials from REDIS_URL.${NC}"
+            redis_password=""
+        fi
+        if [ -n "$redis_password" ]; then
+            source="taken from REDIS_URL"
+        else
+            redis_password=$(openssl rand -hex 24)
+        fi
+        value=$redis_password
+        # Single quotes keep Docker Compose from interpolating `$` and the like.
+        if [[ ! "$value" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            value="'${value}'"
+        fi
+        dotenv_set "REDIS_PASSWORD" "$value" "$file_path" "Password the bundled Redis (Valkey) requires."
+        echo -e "${GREEN}Set REDIS_PASSWORD (${source}).${NC}"
+
+        url_host=$(redis_url_host "$redis_url" "$(dotenv_get "REDIS_HOST" "$file_path")")
+        if [ "$source" = "generated" ] && [ -n "$url_host" ] && [ "$url_host" != "redis" ] \
+            && ! grep -qE "^REDIS_CLIENT_PASSWORD=" "$file_path"; then
+            dotenv_set "REDIS_CLIENT_PASSWORD" "" "$file_path" \
+                "The services connect to the external Redis in REDIS_URL without AUTH."
+            echo -e "${YELLOW}Warning: REDIS_URL points to an external Redis (${url_host}) without a password.${NC}"
+            echo -e "${YELLOW}Set REDIS_CLIENT_PASSWORD= (empty) so the services keep connecting without AUTH, as before.${NC}"
+            echo -e "${YELLOW}Enable AUTH on that Redis, put its password in REDIS_URL, then remove REDIS_CLIENT_PASSWORD:${NC}"
+            echo -e "${YELLOW}https://docs.singularityrd.com/self-hosting/updating#redis-password${NC}"
+        fi
+    fi
+    echo -e "${GREEN}Recreate the stack with docker compose up -d.${NC}"
 }
 
 # Validate an env file. Exits non-zero when placeholders remain; warns about
@@ -73,6 +214,11 @@ check_env_file() {
         status=1
     fi
 
+    if [ -z "$(dotenv_get "REDIS_PASSWORD" "$file_path")" ]; then
+        echo -e "${RED}${file_path} has no REDIS_PASSWORD. The bundled Redis requires one: run ./env.sh --upgrade${NC}"
+        status=1
+    fi
+
     local app_env
     app_env=$(dotenv_get "AUTOSECOPS__APP_ENV" "$file_path")
     if [ "$app_env" = "production" ]; then
@@ -85,6 +231,10 @@ check_env_file() {
         done
         if [ "$(dotenv_get "TEMPORAL__UI_VERSION" "$file_path")" = "latest" ]; then
             echo -e "${YELLOW}Warning: TEMPORAL__UI_VERSION=latest is not pinned. Set it to a specific Temporal UI release.${NC}"
+        fi
+        if [ "$(dotenv_get "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED" "$file_path")" != "true" ]; then
+            echo -e "${YELLOW}Warning: TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED is not true, so workflow inputs and results are stored in plaintext in the Temporal database.${NC}"
+            echo -e "${YELLOW}Enable it: https://docs.singularityrd.com/self-hosting/security#temporal-payload-encryption${NC}"
         fi
         if [ -z "$(dotenv_get "AUTOSECOPS__AUTH_ALLOWED_DOMAINS" "$file_path")" ]; then
             echo -e "${YELLOW}Note: AUTOSECOPS__AUTH_ALLOWED_DOMAINS is blank, so any email domain can sign up. Set it to your organization's domains.${NC}"
@@ -102,10 +252,21 @@ if [ "${1:-}" = "--check" ]; then
     exit $?
 fi
 
+if [ "${1:-}" = "--upgrade" ]; then
+    if ! openssl version &> /dev/null; then
+        echo -e "${RED}Could not run openssl. Please check if openssl is correctly installed.${NC}"
+        exit 1
+    fi
+    upgrade_env_file "${2:-.env}" || exit $?
+    check_env_file "${2:-.env}"
+    exit $?
+fi
+
 if [ -n "${1:-}" ]; then
     echo -e "${RED}Unknown argument: $1${NC}"
     echo "Usage: ./env.sh            Create .env from .env.example"
     echo "       ./env.sh --check [file]  Refuse an env file that still has placeholder secrets"
+    echo "       ./env.sh --upgrade [file]  Add settings a newer release requires (backs the file up first)"
     exit 2
 fi
 
@@ -147,6 +308,9 @@ echo -e "${YELLOW}Generating a Fernet encryption key for the database...${NC}"
 # Use a cross-platform base64 command (works on both Linux and macOS)
 db_fernet_key=$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')
 
+echo -e "${YELLOW}Generating a Temporal payload encryption keyring...${NC}"
+temporal_payload_keyring=$(generate_temporal_payload_keyring "v1")
+
 echo -e "${YELLOW}Creating new .env from .env.example...${NC}"
 cp .env.example .env
 
@@ -155,6 +319,8 @@ dotenv_replace "AUTOSECOPS__SERVICE_KEY" "$service_key" "$env_file"
 dotenv_replace "AUTOSECOPS__SIGNING_SECRET" "$signing_secret" "$env_file"
 dotenv_replace "AUTOSECOPS__DB_ENCRYPTION_KEY" "$db_fernet_key" "$env_file"
 dotenv_replace "USER_AUTH_SECRET" "$user_auth_secret" "$env_file"
+dotenv_replace_literal "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING" "$temporal_payload_keyring" "$env_file"
+dotenv_replace "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED" "true" "$env_file"
 
 # Prompt user for environment mode
 while true; do
@@ -204,6 +370,12 @@ dotenv_replace "MINIO_ROOT_PASSWORD" "$minio_root_password" "$env_file"
 echo -e "${YELLOW}Generating the database runtime role password...${NC}"
 db_runtime_password=$(openssl rand -hex 24)
 dotenv_replace "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$db_runtime_password" "$env_file"
+
+# The bundled Redis requires a password in every mode. Always random: host
+# tooling and tests read it from .env.
+echo -e "${YELLOW}Generating the Redis password...${NC}"
+redis_password=$(openssl rand -hex 24)
+dotenv_replace "REDIS_PASSWORD" "$redis_password" "$env_file"
 
 # Prompt for the public address. Keep a typed http:// or https:// scheme.
 # Without one, production mode uses https:// for any host but a loopback

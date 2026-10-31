@@ -6,6 +6,7 @@ secrets:
   serviceKey: placeholder-service-key
   signingSecret: placeholder-signing-secret
   userAuthSecret: placeholder-user-auth-secret
+  temporalPayloadEncryptionKeyring: '{"current_key_id":"v1","keys":{"v1":"placeholder-temporal-payload-root-secret"}}'
 externalPostgres:
   host: postgres.example.internal
   auth:
@@ -14,6 +15,6 @@ externalPostgres:
     runtimePassword: placeholder-runtime-password
 externalRedis:
   auth:
-    url: redis://redis.example.internal:6379
+    url: redis://:placeholder-redis-password@redis.example.internal:6379
 externalTemporal:
   clusterUrl: temporal-frontend.temporal.svc:7233

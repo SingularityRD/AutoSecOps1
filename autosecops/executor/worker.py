@@ -80,7 +80,10 @@ with workflow.unsafe.imports_passed_through():
     )
     from autosecops.sandbox.cgroup import sandbox_cgroup
     from autosecops.storage.blob import close_storage_client_cache
-    from autosecops.temporal.worker_lifecycle import run_worker_entrypoint
+    from autosecops.temporal.worker_lifecycle import (
+        run_worker_entrypoint,
+        temporal_worker_readiness_check,
+    )
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -203,20 +206,23 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
             )
 
             with ThreadPoolExecutor(max_workers=threadpool_max_workers) as executor:
+                temporal_worker = Worker(
+                    client,
+                    task_queue=task_queue,
+                    workflows=workflows,
+                    activities=activities,
+                    activity_executor=executor,
+                    max_concurrent_activities=max_concurrent,
+                    workflow_runner=new_sandbox_runner(),
+                    interceptors=interceptors,
+                    graceful_shutdown_timeout=timedelta(minutes=5),
+                )
                 async with (
-                    Worker(
-                        client,
-                        task_queue=task_queue,
-                        workflows=workflows,
-                        activities=activities,
-                        activity_executor=executor,
-                        max_concurrent_activities=max_concurrent,
-                        workflow_runner=new_sandbox_runner(),
-                        interceptors=interceptors,
-                        graceful_shutdown_timeout=timedelta(minutes=5),
-                    ),
+                    temporal_worker,
                     # LIFO exit removes readiness before Temporal drains activities.
-                    readiness,
+                    readiness(
+                        check=temporal_worker_readiness_check(temporal_worker, client)
+                    ),
                 ):
                     logger.info(
                         "ExecutorWorker started, ctrl+c to exit",

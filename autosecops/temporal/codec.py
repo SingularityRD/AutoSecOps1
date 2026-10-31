@@ -44,8 +44,16 @@ _AUTOSECOPS_TEMPORAL_ENCRYPTION_METADATA_KEYS: Final[frozenset[str]] = frozenset
 )
 
 
+_MIN_ROOT_SECRET_BYTES: Final[int] = 32
+"""Root secrets shorter than this many bytes log a weak-key warning."""
+
+
 class TemporalPayloadCodecError(RuntimeError):
     """Raised when Temporal payload encryption/decryption fails."""
+
+
+class TemporalPayloadEncryptionConfigError(TemporalPayloadCodecError):
+    """Raised at startup when payload encryption is enabled but unusable."""
 
 
 class TemporalPayloadKeyring(BaseModel):
@@ -99,6 +107,7 @@ _KEYRING_CACHE: TemporalPayloadKeyring | None = None
 _KEYRING_CACHE_EXPIRES_AT = 0.0
 _KEYRING_CACHE_GENERATION = 0
 _KEYRING_REFRESH_FAILURE_BACKOFF_SECONDS: Final[float] = 30.0
+_DISABLED_WARNING_LOGGED = False
 
 
 class CompressionPayloadCodec(PayloadCodec):
@@ -110,19 +119,13 @@ class CompressionPayloadCodec(PayloadCodec):
         algorithm: str | None = None,
         enabled: bool | None = None,
     ):
-        from cramjam import (
-            brotli as cramjam_brotli,  # pyright: ignore[reportAttributeAccessIssue]
-        )
-        from cramjam import (
-            gzip as cramjam_gzip,  # pyright: ignore[reportAttributeAccessIssue]
-        )
-        from cramjam import (
-            zstd as cramjam_zstd,  # pyright: ignore[reportAttributeAccessIssue]
-        )
+        # The codec submodules live in cramjam's compiled extension; reach them
+        # as attributes so type checkers resolve them from cramjam's stubs.
+        import cramjam
 
-        self._brotli = cramjam_brotli
-        self._gzip = cramjam_gzip
-        self._zstd = cramjam_zstd
+        self._brotli = cramjam.brotli
+        self._gzip = cramjam.gzip
+        self._zstd = cramjam.zstd
         self.enabled = (
             enabled
             if enabled is not None
@@ -267,7 +270,7 @@ class TemporalEncryptionKeyring:
     """Derive and cache workspace-scoped Temporal payload keys."""
 
     def __init__(self) -> None:
-        self._cache: TTLCache[tuple[str, str, int], bytes] = TTLCache(
+        self._cache = TTLCache[tuple[str, str, int], bytes, float](
             maxsize=config.TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS,
             ttl=config.TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS,
         )
@@ -388,6 +391,11 @@ class TemporalEncryptionKeyring:
                 return cached
             self._cache[cache_key] = key
             return key
+
+    async def get_keyring(self) -> TemporalPayloadKeyring:
+        """Return the validated keyring, loading it if the cache is cold."""
+        keyring, _generation = await self._retrieve_keyring()
+        return keyring
 
     async def get_current_key_id(self) -> str:
         """Return the current Temporal payload key id for new encryptions."""
@@ -635,6 +643,119 @@ async def decode_payloads(payloads: Sequence[Payload]) -> list[Payload]:
     """Decode payloads using all codecs, regardless of current config."""
     codec = get_payload_codec(compression_enabled=True)
     return await codec.decode(payloads)
+
+
+def _describe_keyring_validation_error(error: ValidationError) -> str:
+    """Summarize keyring validation errors without echoing secret input values."""
+    problems = []
+    for item in error.errors(include_input=False, include_url=False):
+        location = ".".join(str(part) for part in item["loc"]) or "keyring"
+        problems.append(f"{location}: {item['msg']}")
+    return "; ".join(problems)
+
+
+def validate_temporal_payload_encryption_config() -> None:
+    """Check the payload encryption settings without contacting AWS.
+
+    Raises:
+        TemporalPayloadEncryptionConfigError: Encryption is enabled but no
+            keyring is configured, or the inline keyring is malformed.
+    """
+    if not config.TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED:
+        return
+
+    arn = config.TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN
+    keyring_json = config.TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING
+    if not arn and not keyring_json:
+        raise TemporalPayloadEncryptionConfigError(
+            "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED is true but neither "
+            "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING nor "
+            "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN is set. Configure a keyring, "
+            "or set TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false to keep storing "
+            "Temporal payloads in plaintext. See "
+            "https://docs.singularityrd.com/self-hosting/security#temporal-payload-encryption"
+        )
+    if arn:
+        if keyring_json:
+            logger.warning(
+                "Both TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN and "
+                "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING are set; using the ARN"
+            )
+        # The ARN keyring is fetched and validated by
+        # ensure_temporal_payload_encryption_ready().
+        return
+
+    try:
+        TemporalPayloadKeyring.model_validate_json(keyring_json or "")
+    except ValidationError as e:
+        raise TemporalPayloadEncryptionConfigError(
+            "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING is not a valid keyring. Expected "
+            'JSON like {"current_key_id": "v1", "keys": {"v1": "<random secret>"}} '
+            f"({_describe_keyring_validation_error(e)})"
+        ) from None
+
+
+def _warn_on_weak_root_secrets(keyring: TemporalPayloadKeyring) -> None:
+    weak_key_ids = sorted(
+        key_id
+        for key_id, secret in keyring.keys.items()
+        if len(secret.get_secret_value().encode("utf-8")) < _MIN_ROOT_SECRET_BYTES
+    )
+    if weak_key_ids:
+        logger.warning(
+            "Temporal payload encryption keyring has root secrets shorter than "
+            f"{_MIN_ROOT_SECRET_BYTES} bytes. Rotate to a key generated with "
+            "`openssl rand -hex 32`.",
+            key_ids=weak_key_ids,
+        )
+
+
+async def ensure_temporal_payload_encryption_ready() -> None:
+    """Fail fast at process startup when payload encryption cannot work.
+
+    Validates the settings and, when encryption is enabled, loads the keyring
+    once (from AWS Secrets Manager for an ARN) so a missing secret or IAM
+    permission stops the process instead of failing the first workflow.
+
+    Raises:
+        TemporalPayloadEncryptionConfigError: The keyring is missing, malformed,
+            or cannot be retrieved.
+    """
+    global _DISABLED_WARNING_LOGGED
+    if not config.TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED:
+        if _DISABLED_WARNING_LOGGED:
+            return
+        _DISABLED_WARNING_LOGGED = True
+        logger.warning(
+            "Temporal payload encryption is disabled: workflow inputs, results, "
+            "and failures are stored in plaintext in the Temporal database. "
+            "Set TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true with a keyring to "
+            "encrypt them."
+        )
+        return
+
+    validate_temporal_payload_encryption_config()
+    try:
+        keyring = await TemporalEncryptionKeyring().get_keyring()
+    except TemporalPayloadCodecError as e:
+        cause = f": {e.__cause__}" if e.__cause__ else ""
+        if isinstance(e.__cause__, ValidationError):
+            cause = f": {_describe_keyring_validation_error(e.__cause__)}"
+        raise TemporalPayloadEncryptionConfigError(
+            f"Temporal payload encryption is enabled but the keyring could not be "
+            f"loaded ({e}{cause}). Check TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN "
+            "and that this service's role may call secretsmanager:GetSecretValue "
+            "on it."
+        ) from None
+    _warn_on_weak_root_secrets(keyring)
+    logger.info(
+        "Temporal payload encryption is enabled",
+        current_key_id=keyring.current_key_id,
+        key_count=len(keyring.keys),
+        source="aws_secrets_manager"
+        if config.TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN
+        else "environment",
+    )
 
 
 def reset_temporal_payload_secret_cache() -> None:

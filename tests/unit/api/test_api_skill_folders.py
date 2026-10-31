@@ -3,6 +3,7 @@
 import uuid
 from enum import StrEnum
 from types import ModuleType
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -142,7 +143,7 @@ async def test_folder_validation_errors_map_to_http_status(
     error_codes: type[StrEnum],
     method: str,
     suffix: str,
-    kwargs: dict[str, dict[str, str]],
+    kwargs: dict[str, Any],
     service_method: str,
     message: str,
     code: str,

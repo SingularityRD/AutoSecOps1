@@ -14,6 +14,19 @@ locals {
     }
   } : {}
 
+  # Container health check for the Temporal workers, which serve no HTTP. It
+  # checks the liveness marker the worker's event loop refreshes every 10s
+  # (autosecops/temporal/healthcheck.py). ECS replaces unhealthy tasks, so this
+  # uses liveness rather than readiness: a Temporal outage must not restart
+  # every worker. startPeriod covers image start and registry warm-up.
+  worker_health_check = {
+    command     = ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "live"]
+    interval    = 30
+    timeout     = 10
+    retries     = 3
+    startPeriod = 300
+  }
+
   # WAF regex pattern set names. Default to "${name_prefix}-..." so each stack
   # gets uniquely-named pattern sets within a shared AWS account; explicit
   # variable values override (e.g. legacy stacks that already own bare names).
@@ -91,9 +104,26 @@ locals {
     AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS = var.audit_trusted_proxy_cidrs
   }
 
+  # Opt-in Prometheus metrics (docs/self-hosting/monitoring.mdx). Without a
+  # scraper security group nothing outside the task can reach the listeners,
+  # so they bind to loopback for a sidecar; with one, the core security group
+  # admits only those scrapers on 9090 and 9100.
+  metrics_bind_host = length(var.metrics_scraper_security_group_ids) > 0 ? "0.0.0.0" : "127.0.0.1"
+
+  autosecops_worker_metrics_env = {
+    TEMPORAL__METRICS_PORT = var.metrics_enabled ? "9090" : null
+    TEMPORAL__METRICS_HOST = var.metrics_enabled ? local.metrics_bind_host : null
+  }
+
+  autosecops_api_metrics_env = {
+    AUTOSECOPS__API_METRICS_ENABLED = var.metrics_enabled
+    AUTOSECOPS__API_METRICS_PORT    = var.metrics_enabled ? "9100" : null
+    AUTOSECOPS__API_METRICS_HOST    = var.metrics_enabled ? local.metrics_bind_host : null
+  }
+
   autosecops_temporal_payload_encryption_env = {
-    TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED           = var.temporal_payload_encryption_enabled
-    TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN       = var.temporal_payload_encryption_keyring_arn
+    TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED           = local.temporal_payload_encryption_active
+    TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN       = local.temporal_payload_encryption_keyring_arn
     TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS = var.temporal_payload_encryption_cache_ttl_seconds
     TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS   = var.temporal_payload_encryption_cache_max_items
   }
@@ -124,6 +154,7 @@ locals {
       local.autosecops_temporal_payload_encryption_env,
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
+      local.autosecops_api_metrics_env,
       {
         AUTOSECOPS__ALLOW_ORIGINS                    = local.allow_origins
         AUTOSECOPS__API_ROOT_PATH                    = "/api"
@@ -160,6 +191,7 @@ locals {
       local.autosecops_temporal_payload_encryption_env,
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_ROOT_PATH           = "/api"
         AUTOSECOPS__API_URL                 = local.internal_api_url
@@ -192,6 +224,7 @@ locals {
       local.autosecops_temporal_payload_encryption_env,
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_ROOT_PATH                   = "/api"
         AUTOSECOPS__API_URL                         = local.internal_api_url
@@ -216,6 +249,7 @@ locals {
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
       local.autosecops_db_configs_executor,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_URL                             = local.internal_api_url
         AUTOSECOPS__DB_ENDPOINT                         = local.core_db_hostname
@@ -247,6 +281,7 @@ locals {
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
       local.autosecops_db_configs_executor,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_URL                                  = local.internal_api_url
         AUTOSECOPS__DB_ENDPOINT                              = local.core_db_hostname

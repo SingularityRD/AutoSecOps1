@@ -56,7 +56,7 @@ Minimal values (see `ci/minimal-values.yaml`):
 urls:
   publicApp: https://autosecops.example.com
 secrets:
-  existingSecret: autosecops-secrets          # dbEncryptionKey, serviceKey, signingSecret, userAuthSecret
+  existingSecret: autosecops-secrets          # dbEncryptionKey, serviceKey, signingSecret, userAuthSecret, temporalPayloadEncryptionKeyring
 externalPostgres:
   host: postgres.example.internal
   auth:
@@ -85,7 +85,9 @@ leftover keys from other charts fail early.
 | `externalPostgres`, `externalRedis`, `externalS3`, `externalTemporal` | Connection settings and credentials for the external services. |
 | `serviceAccount`, `<component>.serviceAccount` | Shared and per-component service accounts, with annotations for IRSA. |
 | `<component>.*` | Replicas, resources, probes, HPA, PDB, scheduling, extra env and volumes. |
+| `workerProbes` | Default exec startup, readiness, and liveness probes for the Temporal workers. A component's own probe replaces the matching default. |
 | `migrations` | `alembic upgrade head` Job, run as a `pre-install,pre-upgrade` hook by default. |
+| `metrics` | Opt-in API metrics port, `prometheus.io/*` scrape annotations, and optional Prometheus Operator PodMonitor/ServiceMonitor. Metrics ports are never on a public Service or the ingress. |
 | `ingress` | One Ingress with the Caddyfile routing: `/api` to api, MCP routes to mcp, `/` to ui. |
 | `tunnels` | RBAC, namespace, NetworkPolicy, and admission policy for managed tunnel gateways. |
 
@@ -96,12 +98,45 @@ Every credential supports either a chart-created Secret (values) or an
 
 | Values | Secret created by the chart | Keys |
 | :----- | :-------------------------- | :--- |
-| `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, `temporalPayloadEncryptionKeyring` |
+| `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`; `temporalPayloadEncryptionKeyring` is required while payload encryption is on without `keyringArn` |
 | `externalPostgres.auth` | `<fullname>-postgres-credentials` | `username`, `password`, optional `runtime-password` |
 | `externalRedis.auth` | `<fullname>-redis-credentials` | `url` |
 | `externalS3.auth` | `<fullname>-s3-credentials` | `accessKeyId`, `secretAccessKey` |
 | `externalTemporal.auth` | `<fullname>-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `<fullname>-pangolin-credentials` | `apiKey` |
+
+The Redis `url` must carry a password, e.g. `rediss://:password@redis:6379`:
+the chart refuses an inline URL without one unless
+`externalRedis.auth.allowUnauthenticated` is `true`.
+
+Temporal payload encryption is on by default, so the core Secret also needs
+`temporalPayloadEncryptionKeyring` unless you set
+`autosecops.temporal.payloadEncryption.keyringArn`. Generate it once and keep
+it with the other core secrets:
+
+```bash
+printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
+```
+
+The chart never generates or rotates the keyring, because a value generated
+at render time would change on every `helm upgrade` or GitOps sync and make
+encrypted workflow history unreadable.
+
+Releases installed before encryption was the default turn it on in two
+upgrades. First upgrade with the keyring in place and
+`autosecops.temporal.payloadEncryption.enabled=false`, so every pod restarts
+with the keyring (with `secrets.existingSecret`, pods do not restart on a
+Secret change: run `kubectl rollout restart deployment -l
+app.kubernetes.io/instance=<release>` and wait for it to finish); then
+upgrade again with `enabled=true`. Turning it on in a
+single upgrade lets an upgraded pod encrypt a payload that a pod still on the
+old configuration cannot decode, and an activity that runs with one attempt
+fails its workflow. Until you add a keyring, the upgrade fails to render with
+chart-created secrets. With `secrets.existingSecret`, `helm upgrade` checks
+the live Secret with `lookup` and fails before the migration hook when the key
+is missing; `helm template` and GitOps renders cannot see the Secret, so add
+the key before you sync or new pods wait in `CreateContainerConfigError`.
+Existing plaintext history stays readable after you enable encryption.
 
 With the release name `autosecops`, `<fullname>` is `autosecops`. Each service
 receives only the secrets its Fargate task definition receives:
@@ -125,6 +160,27 @@ PostgreSQL exempts from row-level security, and log a warning.
 When migrations run as hooks, chart-created Secrets are hooks too, so they
 exist before the migrations Job. Helm keeps hook resources on
 `helm uninstall`; delete them by hand when you discard an installation.
+
+## Health probes and metrics
+
+The API, MCP, LiteLLM, and UI use HTTP probes. The Temporal workers (`worker`,
+`background-worker`, `executor`, `agent-worker`, `agent-executor`) serve no
+HTTP, so their default probes run `python -m autosecops.temporal.healthcheck`:
+liveness checks a marker file the worker's event loop refreshes every 10
+seconds, and readiness checks a marker that stays fresh only while the worker
+is polling Temporal. Readiness gates rolling updates. The markers live in an
+in-memory `emptyDir` at `/var/run/autosecops`, so the probes also work with a
+read-only root filesystem.
+
+The defaults are in `workerProbes`. A probe set on a component, such as
+`worker.readinessProbe`, replaces the matching default rather than merging into
+it. Set a `workerProbes` entry to `null` to drop that probe for every worker.
+
+Metrics are off by default. `autosecops.temporal.metrics.enabled` starts the
+Temporal SDK Prometheus exporter in every worker; `metrics.api.enabled` serves
+API metrics on a separate container port. Scrape them with the `prometheus.io/*`
+annotations, `metrics.podMonitor.enabled`, or `metrics.serviceMonitor.enabled`.
+See the [monitoring guide](https://docs.singularityrd.com/self-hosting/monitoring).
 
 ## Sandboxing
 

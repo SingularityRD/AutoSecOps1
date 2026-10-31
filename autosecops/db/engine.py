@@ -12,6 +12,7 @@ from sqlalchemy import event, text
 from sqlalchemy.engine import Result, make_url
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.selectable import TypedReturnsRows
 
 from autosecops import config
@@ -29,6 +30,7 @@ from autosecops.db.locks import (
     require_lock_holder_on_commit,
 )
 from autosecops.db.rls import set_rls_context, set_rls_context_from_role
+from autosecops.db.types import DbPoolName, DbPoolUsage
 
 # Global so we don't create more than one engine per process.
 # Outside of being best practice, this is needed so we can properly pool
@@ -412,6 +414,40 @@ def get_async_auth_engine() -> AsyncEngine:
     if _async_auth_engine is None:
         _async_auth_engine = _create_async_auth_db_engine()
     return _async_auth_engine
+
+
+def get_pool_usage() -> list[DbPoolUsage]:
+    """Report usage of the connection pools this process has created.
+
+    Pools are created lazily, so an engine that has not been used yet is
+    omitted rather than created here.
+    """
+    pools: tuple[tuple[DbPoolName, AsyncEngine | None, int], ...] = (
+        (
+            "main",
+            _async_engine,
+            config.AUTOSECOPS__DB_POOL_SIZE + config.AUTOSECOPS__DB_MAX_OVERFLOW,
+        ),
+        (
+            "auth",
+            _async_auth_engine,
+            config.AUTOSECOPS__DB_AUTH_POOL_SIZE
+            + config.AUTOSECOPS__DB_AUTH_MAX_OVERFLOW,
+        ),
+    )
+    usage: list[DbPoolUsage] = []
+    for name, engine, max_connections in pools:
+        if engine is None or not isinstance(pool := engine.pool, QueuePool):
+            continue
+        usage.append(
+            DbPoolUsage(
+                pool=name,
+                in_use=pool.checkedout(),
+                idle=pool.checkedin(),
+                max_connections=max_connections,
+            )
+        )
+    return usage
 
 
 def reset_async_engine() -> None:
