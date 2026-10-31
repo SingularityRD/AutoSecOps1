@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 import yaml
+from check_pr_title import check_title
+from commit_conventions import load_conventions
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILES = [
@@ -87,9 +89,38 @@ def test_dependabot_covers_every_ecosystem_with_a_cooldown() -> None:
         assert update["cooldown"]["default-days"] >= 7, ecosystem
         assert update["groups"], ecosystem
         prefix = update["commit-message"]["prefix"]
-        if ecosystem == "github-actions":
-            # GitHub Actions work is a bare `ci:` title.
-            assert prefix == "ci" and "include" not in update["commit-message"]
-        else:
-            assert prefix == "build"
-            assert update["commit-message"]["include"] == "scope"
+        # GitHub Actions work is a bare `ci:` title; the rest are build(deps).
+        assert prefix == ("ci" if ecosystem == "github-actions" else "build(deps)")
+
+
+def _dependabot_titles(update: dict[str, object]) -> list[str]:
+    """Titles Dependabot writes for an update entry, production and dev.
+
+    Dependabot appends `: ` to a prefix ending in a letter or `)`. With
+    `include: scope` it inserts `(deps)` or `(deps-dev)`, and
+    `prefix-development` replaces the prefix for development dependencies.
+    """
+    message = update["commit-message"]
+    assert isinstance(message, dict)
+    titles = []
+    for dev in (False, True):
+        prefix = str(message.get("prefix-development", "") if dev else "")
+        prefix = prefix or str(message["prefix"])
+        if message.get("include") == "scope":
+            prefix = f"{prefix}({'deps-dev' if dev else 'deps'})"
+        titles += [
+            f"{prefix}: bump example-package from 1.2.3 to 1.2.4",
+            f"{prefix}: bump the example group with 3 updates",
+        ]
+    return titles
+
+
+@pytest.mark.parametrize("ecosystem", ["uv", "npm", "docker", "github-actions"])
+def test_dependabot_titles_pass_the_pr_title_check(ecosystem: str) -> None:
+    config = yaml.safe_load((ROOT / ".github/dependabot.yml").read_text())
+    (update,) = [u for u in config["updates"] if u["package-ecosystem"] == ecosystem]
+    conventions = load_conventions()
+    for title in _dependabot_titles(update):
+        report = check_title(title, conventions)
+        assert report.ok, (title, [v.code for v in report.violations])
+

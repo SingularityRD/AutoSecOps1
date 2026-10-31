@@ -7,7 +7,10 @@
 # cooldown and still open immediately.
 #
 # Commit messages follow .github/commit-conventions.toml: dependency bumps are
-# `build(deps): ...`, and GitHub Actions bumps are a bare `ci: ...`.
+# `build(deps): ...`, and GitHub Actions bumps are a bare `ci: ...`. The scope
+# is spelled into the prefix instead of `include: scope`, which would write
+# `build(deps-dev): ...` for development dependencies, and `deps-dev` is not a
+# scope.
 #
 # Base images are pinned as `name:tag@sha256:<digest>` in every Dockerfile.
 # Dependabot refreshes the digest (and the tag, within the same release line)
@@ -26,8 +29,7 @@ updates:
       default-days: 7
     open-pull-requests-limit: 10
     commit-message:
-      prefix: build
-      include: scope
+      prefix: build(deps)
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]
@@ -43,8 +45,7 @@ updates:
       default-days: 7
     open-pull-requests-limit: 10
     commit-message:
-      prefix: build
-      include: scope
+      prefix: build(deps)
     groups:
       frontend-minor-and-patch:
         update-types: [minor, patch]
@@ -62,8 +63,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: build
-      include: scope
+      prefix: build(deps)
     ignore:
       # A major base-image move (for example Node 22 to 24) changes the
       # runtime and needs a deliberate, tested migration PR instead.
