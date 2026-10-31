@@ -18,6 +18,7 @@ from autosecops.auth.audit import AuthAuditFailureReason
 from autosecops.auth.credentials import _authenticate_api_key
 from autosecops.authz.seeding import seed_system_scopes
 from autosecops.contexts import ctx_service_account_api_key_id
+from autosecops.db import engine as engine_module
 from autosecops.db.models import (
     Organization,
     Scope,
@@ -398,18 +399,41 @@ async def test_expired_api_key_is_refused_and_audited(
         scope_names=("org:read",),
         expires_at=datetime.now(UTC) - timedelta(seconds=1),
     )
-    _use_auth_session(monkeypatch, session)
+
+    @asynccontextmanager
+    async def _auth_pool_session():
+        # Mark the auth pool held, as the real accessor does.
+        token = engine_module._ctx_auth_pool_session.set(session)
+        try:
+            yield session
+        finally:
+            engine_module._ctx_auth_pool_session.reset(token)
+
+    monkeypatch.setattr(
+        credentials, "get_async_session_auth_context_manager", _auth_pool_session
+    )
     events: list[dict[str, Any]] = []
 
     async def fake_emit(**kwargs: Any) -> None:
+        # The audit writer takes a main-pool session, which the engine refuses
+        # while the auth pool is held, so it must run after its release.
+        assert engine_module._ctx_auth_pool_session.get() is None
         events.append(kwargs)
 
     monkeypatch.setattr(credentials, "emit_api_key_rejected_event", fake_emit)
+    first_in_window = AsyncMock(side_effect=[True, False])
+    monkeypatch.setattr(
+        credentials, "first_expired_api_key_refusal_in_window", first_in_window
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         await _authenticate_api_key(api_key=api_key, workspace_id=None)
-
     assert exc_info.value.status_code == 401
+    # A client that keeps polling is refused every time, audited once.
+    with pytest.raises(HTTPException) as exc_info:
+        await _authenticate_api_key(api_key=api_key, workspace_id=None)
+    assert exc_info.value.status_code == 401
+    assert isinstance(exc_info.value, credentials.ExpiredApiKeyError)
     record = (
         await session.execute(
             select(ServiceAccountApiKey).where(
@@ -427,6 +451,7 @@ async def test_expired_api_key_is_refused_and_audited(
             "failure_reason": AuthAuditFailureReason.EXPIRED,
         }
     ]
+    first_in_window.assert_awaited_with(record.id)
 
 
 @pytest.mark.anyio

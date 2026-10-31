@@ -109,7 +109,7 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 | `service_account` | `update` | A service account was renamed, re-scoped, disabled, or enabled. |
 | `service_account_api_key` | `create` | An API key was issued for a service account. |
 | `service_account_api_key` | `revoke` | A service account API key was revoked. |
-| `service_account_api_key` | `sign_in` | An expired API key was refused (`FAILURE`, `data.failure_reason` `expired`). |
+| `service_account_api_key` | `sign_in` | An expired API key was refused (`FAILURE`, `data.failure_reason` `expired`); recorded at most once per key per hour. |
 | `table` | `create` | A lookup table was created. |
 | `table` | `delete` | A lookup table was deleted. |
 | `table` | `update` | A lookup table was updated. |

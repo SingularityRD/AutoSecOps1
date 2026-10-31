@@ -17,6 +17,7 @@ refused requests cannot flood the audit sink.
 from __future__ import annotations
 
 import hashlib
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -344,3 +345,26 @@ async def record_api_key_failure(request: Request) -> None:
     decision = await consume(rate_limit, client_ip(request))
     if _is_active(rate_limit) and decision.count == rate_limit.limit:
         await audit_rate_limit_tripped(rate_limit)
+
+
+def expired_api_key_audit_window() -> RateLimit:
+    """One audited refusal per expired key per hour."""
+    return RateLimit("api_key_expired_audit", 1, HOUR)
+
+
+async def first_expired_api_key_refusal_in_window(api_key_id: uuid.UUID) -> bool:
+    """Whether this refusal of an expired key is the first in its window.
+
+    An integration that keeps polling with an expired key would otherwise
+    write an audit event per request. Unlike the rate limits, this applies
+    even when rate limiting is disabled. When Redis is unreachable it
+    answers ``True``: an extra audit event beats a lost one.
+
+    Args:
+        api_key_id: The expired key that was refused.
+
+    Returns:
+        True when the refusal should be audited.
+    """
+    counter = await _eval(_CONSUME_LUA, expired_api_key_audit_window(), str(api_key_id))
+    return counter is None or counter[0] == 1

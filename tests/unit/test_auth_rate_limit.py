@@ -383,6 +383,75 @@ async def test_successful_api_key_auth_is_not_counted(
     assert await redis_client.keys("auth:rate_limit:*") == []
 
 
+def _expired_key_error() -> credentials.ExpiredApiKeyError:
+    return credentials.ExpiredApiKeyError(
+        organization_id=uuid.uuid4(),
+        workspace_id=None,
+        service_account_id=uuid.uuid4(),
+        api_key_id=uuid.uuid4(),
+    )
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_does_not_lock_out_the_client_ip(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One expired integration behind a shared egress IP must not block others."""
+    _limits(monkeypatch, API_KEY_FAILURES_PER_IP=2)
+    monkeypatch.setattr(
+        credentials,
+        "_authenticate_api_key",
+        AsyncMock(side_effect=_expired_key_error()),
+    )
+
+    for _ in range(5):
+        with pytest.raises(HTTPException) as exc_info:
+            await credentials._authenticate_api_key_rate_limited(
+                request=_request(), api_key="tc_org_sk_expired", workspace_id=None
+            )
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    assert await redis_client.keys("auth:rate_limit:api_key_failures_ip:*") == []
+    role = Mock()
+    monkeypatch.setattr(
+        credentials, "_authenticate_api_key", AsyncMock(return_value=role)
+    )
+    assert (
+        await credentials._authenticate_api_key_rate_limited(
+            request=_request(), api_key="tc_org_sk_other", workspace_id=None
+        )
+        is role
+    )
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_refusal_is_audited_once_per_window(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Applies even with rate limiting off: it bounds audit volume, not access.
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", False)
+    key_id, other_key_id = uuid.uuid4(), uuid.uuid4()
+
+    assert await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert not await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert not await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert await rl.first_expired_api_key_refusal_in_window(other_key_id)
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_refusal_is_audited_when_redis_is_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _broken() -> Any:
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr(rl, "get_redis_client", _broken)
+    key_id = uuid.uuid4()
+
+    assert await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert await rl.first_expired_api_key_refusal_in_window(key_id)
+
+
 # === Audit === #
 
 
