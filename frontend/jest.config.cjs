@@ -19,7 +19,9 @@ module.exports = {
   },
   testPathIgnorePatterns: ["/node_modules/", "/.next/", "/tests/smoke/"],
   transformIgnorePatterns: [
-    "/node_modules/(?!(\\.pnpm|yaml|ai|@ai-sdk|@shadcn|@workflow)/)",
+    // rehype-harden and rehype-sanitize ship ESM only; the markdown URL
+    // hardening tests run them for real.
+    "/node_modules/(?!(\\.pnpm|yaml|ai|@ai-sdk|@shadcn|@workflow|rehype-harden|rehype-sanitize|hast-util-sanitize|unist-util-[^/]+)/)",
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",

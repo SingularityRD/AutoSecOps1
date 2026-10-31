@@ -3,19 +3,12 @@
 import { type ComponentProps, memo } from "react"
 import type { Streamdown } from "streamdown"
 import { MarkdownWithFrontmatter } from "@/components/ai-elements/markdown-with-frontmatter"
-import {
-  ALLOWED_MARKDOWN_IMAGE_PREFIXES,
-  ALLOWED_MARKDOWN_LINK_PREFIXES,
-  DEFAULT_MARKDOWN_ORIGIN,
-  getStreamdownRehypePlugins,
-} from "@/lib/sanitize-markdown"
+import { getStreamdownRehypePlugins } from "@/lib/sanitize-markdown"
 import { cn } from "@/lib/utils"
 
 type ResponseProps = ComponentProps<typeof Streamdown>
 
-const responseRehypePlugins = getStreamdownRehypePlugins() as NonNullable<
-  ResponseProps["rehypePlugins"]
->
+const responseRehypePlugins = getStreamdownRehypePlugins()
 
 export const Response = memo(
   ({ className, children, ...props }: ResponseProps) => (
@@ -26,9 +19,6 @@ export const Response = memo(
         className
       )}
       enableFrontmatter={false}
-      allowedImagePrefixes={ALLOWED_MARKDOWN_IMAGE_PREFIXES}
-      allowedLinkPrefixes={ALLOWED_MARKDOWN_LINK_PREFIXES}
-      defaultOrigin={DEFAULT_MARKDOWN_ORIGIN}
       rehypePlugins={responseRehypePlugins}
     >
       {children}

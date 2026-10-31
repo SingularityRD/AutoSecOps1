@@ -1,9 +1,13 @@
 "use client"
 
 import type { ComponentProps, ReactNode } from "react"
+import { defaultRemarkPlugins } from "streamdown"
 import { MarkdownWithFrontmatter } from "@/components/ai-elements/markdown-with-frontmatter"
 import { isSafeFormLink, remarkFormMarkdown } from "@/lib/forms/markdown"
-import { DEFAULT_MARKDOWN_ORIGIN } from "@/lib/sanitize-markdown"
+import {
+  getStreamdownRehypePlugins,
+  type MarkdownUrlPolicy,
+} from "@/lib/sanitize-markdown"
 import { cn } from "@/lib/utils"
 
 type MarkdownProps = ComponentProps<typeof MarkdownWithFrontmatter>
@@ -32,18 +36,29 @@ export function FormMarkdownLink({
   )
 }
 
-const REMARK_PLUGINS = [remarkFormMarkdown] as NonNullable<
-  MarkdownProps["remarkPlugins"]
->
+// A custom list replaces Streamdown's defaults, so keep GFM and math parsing
+// and run the form filter after them.
+const REMARK_PLUGINS = [
+  ...Object.values(defaultRemarkPlugins),
+  remarkFormMarkdown,
+] as NonNullable<MarkdownProps["remarkPlugins"]>
 
 const COMPONENTS = {
   a: FormMarkdownLink,
   img: () => null,
 } as NonNullable<MarkdownProps["components"]>
 
-// The wildcard only hands every link to `FormMarkdownLink`, which decides.
-const ALLOWED_LINK_PREFIXES = ["*"]
-const ALLOWED_IMAGE_PREFIXES: string[] = []
+/**
+ * URL policy for form markdown. The link wildcard only hands `http(s)` and
+ * `mailto` links on to `FormMarkdownLink`, which decides. No image URL is
+ * allowed.
+ */
+export const FORM_MARKDOWN_URL_POLICY: MarkdownUrlPolicy = {
+  allowedLinkPrefixes: ["*"],
+  allowedImagePrefixes: [],
+}
+
+const REHYPE_PLUGINS = getStreamdownRehypePlugins(FORM_MARKDOWN_URL_POLICY)
 
 /**
  * Markdown written by a form author: a description, a text block or a notice.
@@ -70,9 +85,7 @@ export function FormMarkdown({
       controls={false}
       remarkPlugins={REMARK_PLUGINS}
       components={COMPONENTS}
-      allowedLinkPrefixes={ALLOWED_LINK_PREFIXES}
-      allowedImagePrefixes={ALLOWED_IMAGE_PREFIXES}
-      defaultOrigin={DEFAULT_MARKDOWN_ORIGIN}
+      rehypePlugins={REHYPE_PLUGINS}
     >
       {children}
     </MarkdownWithFrontmatter>

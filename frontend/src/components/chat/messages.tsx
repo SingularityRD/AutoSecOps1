@@ -4,19 +4,13 @@ import { MessageSquare } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
 import AutoSecOpsIcon from "public/icon.png"
-import { type ComponentProps, useEffect, useRef } from "react"
-import type { Streamdown } from "streamdown"
+import { useEffect, useRef } from "react"
 import { MarkdownWithFrontmatter } from "@/components/ai-elements/markdown-with-frontmatter"
 import { Dots } from "@/components/loading/dots"
 import { invalidateCaseCommentQueries } from "@/lib/cases/comment-queries"
 import { invalidateCaseActivityQueries } from "@/lib/cases/invalidation"
 import { useQueryClient } from "@/lib/query"
-import {
-  ALLOWED_MARKDOWN_IMAGE_PREFIXES,
-  ALLOWED_MARKDOWN_LINK_PREFIXES,
-  DEFAULT_MARKDOWN_ORIGIN,
-  getStreamdownRehypePlugins,
-} from "@/lib/sanitize-markdown"
+import { getStreamdownRehypePlugins } from "@/lib/sanitize-markdown"
 
 /**
  * Model message part types for the legacy chat messages component.
@@ -97,9 +91,8 @@ const caseUpdateActions = [
 const assistantMarkdownStyle =
   "text-sm max-w-full text-foreground dark:prose-invert"
 
-const chatMessageRehypePlugins = getStreamdownRehypePlugins() as NonNullable<
-  ComponentProps<typeof Streamdown>["rehypePlugins"]
->
+// Raw HTML, KaTeX, sanitizing and link and image hardening, in one list.
+const chatMessageRehypePlugins = getStreamdownRehypePlugins()
 
 export function Messages({
   messages,
@@ -213,9 +206,6 @@ export function Messages({
             className="size-4 mt-1"
           />
           <MarkdownWithFrontmatter
-            allowedImagePrefixes={ALLOWED_MARKDOWN_IMAGE_PREFIXES}
-            allowedLinkPrefixes={ALLOWED_MARKDOWN_LINK_PREFIXES}
-            defaultOrigin={DEFAULT_MARKDOWN_ORIGIN}
             rehypePlugins={chatMessageRehypePlugins}
             className={`${assistantMarkdownStyle} flex-1`}
             enableFrontmatter={false}
@@ -281,9 +271,6 @@ function AgentChatMessage({ message }: { message: ModelResponse }) {
       <div className="flex flex-1 flex-col gap-3 text-sm text-foreground">
         {textContent && (
           <MarkdownWithFrontmatter
-            allowedImagePrefixes={ALLOWED_MARKDOWN_IMAGE_PREFIXES}
-            allowedLinkPrefixes={ALLOWED_MARKDOWN_LINK_PREFIXES}
-            defaultOrigin={DEFAULT_MARKDOWN_ORIGIN}
             rehypePlugins={chatMessageRehypePlugins}
             className={assistantMarkdownStyle}
             enableFrontmatter={false}

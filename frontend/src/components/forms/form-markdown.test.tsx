@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react"
 import {
+  FORM_MARKDOWN_URL_POLICY,
   FormMarkdown,
   FormMarkdownLink,
 } from "@/components/forms/form-markdown"
 import { remarkFormMarkdown } from "@/lib/forms/markdown"
+import { getStreamdownRehypePlugins } from "@/lib/sanitize-markdown"
 
 const streamdownProps = jest.fn()
 
@@ -12,6 +14,8 @@ jest.mock("streamdown", () => ({
     streamdownProps(props)
     return <div data-testid="streamdown">{props.children as string}</div>
   },
+  defaultRehypePlugins: {},
+  defaultRemarkPlugins: {},
 }))
 
 describe("FormMarkdownLink", () => {
@@ -46,12 +50,15 @@ describe("FormMarkdown", () => {
       "Request a **laptop**."
     )
     const props = streamdownProps.mock.calls.at(-1)?.[0]
-    // Remark plugins run before the raw-HTML parser Streamdown adds as a
-    // rehype plugin, so dropped HTML never reaches it.
-    expect(props.remarkPlugins).toEqual([remarkFormMarkdown])
-    expect(props.rehypePlugins).toBeUndefined()
+    // Remark plugins run before the raw-HTML parser in the rehype list, so
+    // dropped HTML never reaches it. The form filter runs last.
+    expect(props.remarkPlugins.at(-1)).toBe(remarkFormMarkdown)
+    // Our list replaces Streamdown's default rehype plugins, including its
+    // permissive URL hardening.
+    expect(props.rehypePlugins).toEqual(
+      getStreamdownRehypePlugins(FORM_MARKDOWN_URL_POLICY)
+    )
     expect(props.components.a).toBe(FormMarkdownLink)
     expect(props.components.img({})).toBeNull()
-    expect(props.allowedImagePrefixes).toEqual([])
   })
 })
