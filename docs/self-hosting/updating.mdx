@@ -279,6 +279,14 @@ Kubernetes and Fargate replace agent worker replicas one at a time, so for a few
 - Let the agent worker rollout finish within 10 minutes. `kubectl -n autosecops rollout status deployment/autosecops-agent-worker` reports progress on Kubernetes.
 - An agent run whose activity is not picked up within 10 minutes fails with an activity timeout. Rerun it after the rollout completes.
 
+## Agent runtime hardening
+
+From the release that hardens the agent runtime, three agent behaviors change:
+
+- The `agent-executor` worker marks itself non-dumpable at startup, as the executor worker already does. It writes no core dumps, and attaching `py-spy` or `gdb` to it needs `CAP_SYS_PTRACE`.
+- Tool results and tool errors that the trusted MCP proxy returns for remote MCP integrations show `***` in place of that integration's own credentials. AutoSecOps masks the values of credential headers such as `Authorization`, `Cookie`, and `X-Api-Key`, each word of 8 characters or more in a value such as `Bearer <token>`, and the password in any header URL. Other header values, such as `Accept` or a base URL, stay as they are. Stdio MCP servers that the agent runtime starts itself, which includes every stdio server with the built-in runner, return results straight to the agent, so AutoSecOps does not mask their output. Treat a stdio server that can echo its environment as able to reveal those credentials to the model and the transcript.
+- On the `direct` backend, stdio MCP connection probes no longer use the worker's home directory, and resolve the server command on the same `PATH` as agent runs, `/usr/local/bin:/usr/bin:/bin`. `python` and `python3` in a stdio MCP command now run the image's system Python during the connection test too, instead of the AutoSecOps virtual environment. The probe also caps CPU time, file size, and open files. It does not cap address space, so Node, Java, and .NET servers start as they do in agent runs.
+
 ## Roll back
 
 AutoSecOps migrations are forward-only. A release that ran migrations cannot run on an older image: the older migrations step fails with `Can't locate revision identified by '<revision>'`, and the API never starts.

@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from typing import get_args
 from unittest.mock import AsyncMock, MagicMock
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,7 +71,7 @@ def _post_attachment(
     content: bytes = b"hello",
     filename: str = "notes.txt",
     content_type: str = "text/plain",
-) -> httpx.Response:
+):
     return client.post(
         f"/internal/cases/{CASE_ID}/attachments",
         json={

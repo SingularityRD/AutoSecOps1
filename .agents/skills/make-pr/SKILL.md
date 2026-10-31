@@ -170,6 +170,9 @@ Removing something takes three PRs, usually across three releases:
   fail the notices check until then, on purpose; check out the bot branch,
   regenerate, and push a `build(deps): regenerate third-party notices`
   commit. See the Dependencies section of `CONTRIBUTING.md`.
+- Dependabot version updates skip semver-major releases for Python, frontend,
+  and base images. A major upgrade is a deliberate, tested migration PR (for
+  example `build(deps): upgrade <package> to <major>`), not a bot bump.
 
 ## Labels
 

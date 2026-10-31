@@ -49,12 +49,13 @@ from autosecops_registry.core.table import insert_rows
 
 BATCH_SIZE = 1000
 
+
 async def main(domain_items: list[dict]) -> dict:
     inserted = 0
     errors = []
 
     for start in range(0, len(domain_items), BATCH_SIZE):
-        batch = domain_items[start:start + BATCH_SIZE]
+        batch = domain_items[start : start + BATCH_SIZE]
         rows = [
             {
                 "domain_id": item["id"],
@@ -97,6 +98,7 @@ effects reduces graph noise:
 ```python
 from autosecops_registry.core.table import create_table, insert_rows, lookup, update_row
 
+
 async def main(rows):
     await create_table(
         name="automation_inventory",
@@ -111,7 +113,7 @@ async def main(rows):
     for start in range(0, len(rows), 1000):
         inserted += await insert_rows(
             table="automation_inventory",
-            rows_data=rows[start:start + 1000],
+            rows_data=rows[start : start + 1000],
             upsert=False,
         )
     return {"input_rows": len(rows), "inserted": inserted}

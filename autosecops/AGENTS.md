@@ -65,13 +65,13 @@ Route auth pattern:
 ```python
 from autosecops.auth.dependencies import OrgAdminUser, WorkspaceUserRole
 
+
 @router.get("/endpoint")
-async def handler(role: WorkspaceUserRole) -> ResponseSchema:
-    ...
+async def handler(role: WorkspaceUserRole) -> ResponseSchema: ...
+
 
 @router.get("/admin")
-async def admin_handler(role: OrgAdminUser) -> ResponseSchema:
-    ...
+async def admin_handler(role: OrgAdminUser) -> ResponseSchema: ...
 ```
 
 Common role types:
