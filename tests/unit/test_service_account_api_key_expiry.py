@@ -17,6 +17,8 @@ from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.service_accounts import service as sa_service
 from autosecops.service_accounts.service import (
     OrganizationServiceAccountService,
+    get_active_service_account_key,
+    get_current_service_account_key,
     get_service_account_api_key_counts,
     resolve_api_key_expiry,
 )
@@ -92,6 +94,41 @@ def test_key_counts_separate_expired_from_active() -> None:
         1,
         1,
     )
+
+
+def _account_with_keys(*keys: SimpleNamespace) -> ServiceAccount:
+    return cast(ServiceAccount, SimpleNamespace(api_keys=list(keys)))
+
+
+def _key(
+    *, created_days_ago: int, expires_at: datetime | None, revoked: bool = False
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        created_at=NOW - timedelta(days=created_days_ago),
+        revoked_at=NOW if revoked else None,
+        expires_at=expires_at,
+    )
+
+
+def test_expired_only_key_is_not_the_active_key() -> None:
+    """The account status must agree with ``api_key_counts.active``."""
+    expired = _key(created_days_ago=10, expires_at=NOW - timedelta(seconds=1))
+    service_account = _account_with_keys(expired)
+
+    assert get_active_service_account_key(service_account, now=NOW) is None
+    assert get_service_account_api_key_counts(service_account, now=NOW).active == 0
+    # Rotation still finds it, so the replacement revokes it.
+    assert get_current_service_account_key(service_account) is expired
+
+
+def test_unexpired_newest_key_is_the_active_key() -> None:
+    old = _key(created_days_ago=10, expires_at=None, revoked=True)
+    current = _key(created_days_ago=1, expires_at=NOW + timedelta(days=1))
+    service_account = _account_with_keys(old, current)
+
+    assert get_active_service_account_key(service_account, now=NOW) is current
+    assert get_service_account_api_key_counts(service_account, now=NOW).active == 1
 
 
 @pytest.mark.parametrize("days", [0, -1, 3651])

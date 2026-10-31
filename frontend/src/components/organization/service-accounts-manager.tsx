@@ -137,6 +137,7 @@ type ServiceAccountStatusFilter =
   | "all"
   | "active"
   | "disabled"
+  | "key-expired"
   | "no-active-key"
 
 type ActionDialogState =
@@ -161,7 +162,11 @@ const EMPTY_DRAFT: ServiceAccountDraft = {
   initialKeyName: "Primary",
 }
 
-type ServiceAccountStatusGroup = "active" | "disabled" | "no_active_key"
+type ServiceAccountStatusGroup =
+  | "active"
+  | "disabled"
+  | "key_expired"
+  | "no_active_key"
 
 interface StatusGroupConfig {
   label: string
@@ -180,6 +185,11 @@ const STATUS_GROUPS: Record<ServiceAccountStatusGroup, StatusGroupConfig> = {
     dotClassName: "bg-muted-foreground",
     textClassName: "text-muted-foreground",
   },
+  key_expired: {
+    label: "Key expired",
+    dotClassName: "bg-amber-500",
+    textClassName: "text-amber-700 dark:text-amber-400",
+  },
   no_active_key: {
     label: "No active key",
     dotClassName: "bg-rose-500",
@@ -187,10 +197,22 @@ const STATUS_GROUPS: Record<ServiceAccountStatusGroup, StatusGroupConfig> = {
   },
 }
 
+/**
+ * Whether the account has no key that authenticates because its unrevoked
+ * key expired, as opposed to never having had one or having it revoked.
+ */
+function hasOnlyExpiredKeys(serviceAccount: ServiceAccountRead): boolean {
+  return (
+    !serviceAccount.active_api_key &&
+    (serviceAccount.api_key_counts?.expired ?? 0) > 0
+  )
+}
+
 function getServiceAccountGroup(
   serviceAccount: ServiceAccountRead
 ): ServiceAccountStatusGroup {
   if (serviceAccount.disabled_at) return "disabled"
+  if (hasOnlyExpiredKeys(serviceAccount)) return "key_expired"
   if (!serviceAccount.active_api_key) return "no_active_key"
   return "active"
 }
@@ -202,6 +224,7 @@ const SERVICE_ACCOUNT_STATUS_FILTERS: Array<{
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "disabled", label: "Disabled" },
+  { value: "key-expired", label: "Key expired" },
   { value: "no-active-key", label: "No active key" },
 ]
 
@@ -332,6 +355,12 @@ function matchesServiceAccountStatusFilter(
       )
     case "disabled":
       return serviceAccount.disabled_at !== null
+    case "key-expired":
+      return (
+        serviceAccount.disabled_at === null &&
+        hasOnlyExpiredKeys(serviceAccount)
+      )
+    // Includes accounts whose key expired: none of them can authenticate.
     case "no-active-key":
       return (
         serviceAccount.disabled_at === null && !serviceAccount.active_api_key

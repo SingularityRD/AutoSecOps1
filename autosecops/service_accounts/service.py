@@ -250,13 +250,30 @@ async def _paginate_service_account_api_keys(
     )
 
 
-def get_active_service_account_key(
+def get_current_service_account_key(
     service_account: ServiceAccount,
 ) -> ServiceAccountApiKey | None:
-    active_keys = [key for key in service_account.api_keys if key.revoked_at is None]
-    if not active_keys:
+    """The newest unrevoked key, expired or not: the one a rotation replaces."""
+    unrevoked = [key for key in service_account.api_keys if key.revoked_at is None]
+    if not unrevoked:
         return None
-    return max(active_keys, key=lambda key: (key.created_at, key.id))
+    return max(unrevoked, key=lambda key: (key.created_at, key.id))
+
+
+def get_active_service_account_key(
+    service_account: ServiceAccount, *, now: datetime | None = None
+) -> ServiceAccountApiKey | None:
+    """The key that still authenticates: unrevoked and unexpired.
+
+    Matches :attr:`ApiKeyCounts.active`, so an account whose only key has
+    expired has no active key.
+    """
+    current = get_current_service_account_key(service_account)
+    if current is None or is_api_key_expired(
+        current.expires_at, now=now or datetime.now(UTC)
+    ):
+        return None
+    return current
 
 
 def get_service_account_last_used_at(
@@ -669,9 +686,11 @@ class BaseServiceAccountService:
             raise AutoSecOpsAuthorizationError(
                 "Disabled service accounts cannot generate new API keys"
             )
-        if active_key := get_active_service_account_key(service_account):
-            active_key.revoked_at = datetime.now(UTC)
-            active_key.revoked_by = self.role.user_id
+        # Revoke the key being replaced even when it has expired, so no
+        # unrevoked key outlives its replacement.
+        if current_key := get_current_service_account_key(service_account):
+            current_key.revoked_at = datetime.now(UTC)
+            current_key.revoked_by = self.role.user_id
         created_api_key, raw_key = await self._create_api_key(
             service_account=service_account,
             name=name,
