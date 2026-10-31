@@ -68,13 +68,27 @@ const createUserFormSchema = z.object({
 
 type CreateUserFormValues = z.infer<typeof createUserFormSchema>
 
-type UserActionType = "promote" | "demote" | "delete" | "reset-mfa"
+type UserActionType =
+  | "promote"
+  | "demote"
+  | "delete"
+  | "reset-mfa"
+  | "verify-email"
 
 const USER_ACTION_CONFIRM_LABELS: Record<UserActionType, string> = {
   promote: "Promote",
   demote: "Demote",
   delete: "Delete",
   "reset-mfa": "Reset security keys",
+  "verify-email": "Mark verified",
+}
+
+const USER_ACTION_TITLES: Record<UserActionType, string> = {
+  promote: "Promote to superuser",
+  demote: "Demote from superuser",
+  delete: "Delete user",
+  "reset-mfa": "Reset security keys",
+  "verify-email": "Mark email verified",
 }
 
 export function AdminUsersTable() {
@@ -95,6 +109,8 @@ export function AdminUsersTable() {
     deletePending,
     resetUserMfa,
     resetMfaPending,
+    verifyUserEmail,
+    verifyEmailPending,
   } = useAdminUsers()
   const createUserForm = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserFormSchema),
@@ -167,6 +183,12 @@ export function AdminUsersTable() {
         toast({
           title: "User demoted",
           description: `${selectedUser.email} is no longer a superuser.`,
+        })
+      } else if (actionType === "verify-email") {
+        await verifyUserEmail(selectedUser.id)
+        toast({
+          title: "Email verified",
+          description: `${selectedUser.email} can now sign in with a password.`,
         })
       } else if (actionType === "reset-mfa") {
         await resetUserMfa(selectedUser.id)
@@ -451,6 +473,25 @@ export function AdminUsersTable() {
               enableHiding: false,
             },
             {
+              accessorKey: "is_verified",
+              header: ({ column }) => (
+                <DataTableColumnHeader
+                  className="text-xs"
+                  column={column}
+                  title="Email"
+                />
+              ),
+              cell: ({ row }) => (
+                <div className="text-xs">
+                  {row.getValue<AdminUserRead["is_verified"]>("is_verified")
+                    ? "Verified"
+                    : "Unverified"}
+                </div>
+              ),
+              enableSorting: true,
+              enableHiding: false,
+            },
+            {
               accessorKey: "last_login_at",
               header: ({ column }) => (
                 <DataTableColumnHeader
@@ -532,6 +573,18 @@ export function AdminUsersTable() {
                           </DropdownMenuItem>
                         </AlertDialogTrigger>
                       )}
+                      {!rowUser.is_verified && (
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              setSelectedUser(rowUser)
+                              setActionType("verify-email")
+                            }}
+                          >
+                            Mark email verified
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                      )}
                       <AlertDialogTrigger asChild>
                         <DropdownMenuItem
                           onSelect={() => {
@@ -570,19 +623,19 @@ export function AdminUsersTable() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {actionType === "promote"
-                ? "Promote to superuser"
-                : actionType === "demote"
-                  ? "Demote from superuser"
-                  : actionType === "reset-mfa"
-                    ? "Reset security keys"
-                    : "Delete user"}
+              {actionType && USER_ACTION_TITLES[actionType]}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {actionType === "promote" ? (
                 <>
                   Are you sure you want to promote {selectedUser?.email} to
                   superuser? They will have full access to all admin functions.
+                </>
+              ) : actionType === "verify-email" ? (
+                <>
+                  Mark {selectedUser?.email} as verified without an emailed
+                  link? Only do this after confirming out of band that this
+                  person controls the address.
                 </>
               ) : actionType === "reset-mfa" ? (
                 <>
@@ -627,8 +680,13 @@ export function AdminUsersTable() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              variant={actionType === "promote" ? "default" : "destructive"}
+              variant={
+                actionType === "promote" || actionType === "verify-email"
+                  ? "default"
+                  : "destructive"
+              }
               disabled={
+                verifyEmailPending ||
                 promotePending ||
                 demotePending ||
                 deletePending ||

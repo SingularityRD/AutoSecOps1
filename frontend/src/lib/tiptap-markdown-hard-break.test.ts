@@ -15,7 +15,11 @@ describe("TipTap Markdown hard breaks", () => {
     >[1]
 
     expect(MarkdownHardBreak.config.markdownTokenName).toBe("br")
-    expect(parseMarkdown(token, helpers)).toEqual({ type: "hardBreak" })
+    const context = {} as unknown as ThisParameterType<typeof parseMarkdown>
+
+    expect(parseMarkdown.call(context, token, helpers)).toEqual({
+      type: "hardBreak",
+    })
     expect(createNode).toHaveBeenCalledWith("hardBreak")
   })
 })

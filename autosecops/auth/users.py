@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator, Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import (
@@ -30,13 +31,17 @@ from fastapi_users.exceptions import (
     FastAPIUsersException,
     InvalidID,
     InvalidResetPasswordToken,
+    InvalidVerifyToken,
     UserAlreadyExists,
+    UserAlreadyVerified,
+    UserInactive,
     UserNotExists,
 )
+from fastapi_users.jwt import decode_jwt
 from fastapi_users.openapi import OpenAPIResponseType
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from pydantic import EmailStr
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
@@ -54,7 +59,12 @@ from autosecops.auth.domain_policy import (
     is_domain_allowed_for_org,
     is_org_saml_enforced,
 )
-from autosecops.auth.enums import AuthErrorCode, AuthType
+from autosecops.auth.email_verification import (
+    clear_verification_email,
+    email_verification_available,
+    enqueue_verification_email,
+)
+from autosecops.auth.enums import AuthErrorCode, AuthType, EmailVerificationMethod
 from autosecops.auth.ip_allowlist import IP_ALLOWLIST_DENIED_DETAIL
 from autosecops.auth.ip_allowlist_enforcement import (
     current_client_ip,
@@ -84,6 +94,7 @@ from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
     ExternalUser,
+    Invitation,
     MCPPersonalAccessToken,
     MCPRefreshToken,
     OAuthAccount,
@@ -94,6 +105,11 @@ from autosecops.db.models import (
 )
 from autosecops.exceptions import AutoSecOpsAuthorizationError, AutoSecOpsNotFoundError
 from autosecops.identifiers import OrganizationID
+from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.service import (
+    accept_invitation_for_user,
+    invitation_token_matches,
+)
 from autosecops.licensing.enforcement import enforce_user_limit
 from autosecops.logger import logger
 from autosecops.organization.domains import normalize_domain
@@ -119,9 +135,15 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         user_auth_secret = get_user_auth_secret()
         self.reset_password_token_secret = user_auth_secret
         self.verification_token_secret = user_auth_secret
+        self.verification_token_lifetime_seconds = (
+            config.AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS
+        )
         self.logger = logger.bind(unit="UserManager")
         # Store invitation token between create() and on_after_register()
         self._pending_invitation_token: str | None = None
+        # Set by create() for the first-user bootstrap of the configured
+        # superadmin email, which the operator vouches for.
+        self._pending_bootstrap_registration = False
 
     async def update(
         self,
@@ -159,9 +181,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if is_own_account and sets_password:
             self._verify_current_password(user_update, user)
 
+        was_verified = user.is_verified
         updated_user = await super().update(
             user_update, user, safe=True, request=request
         )
+        if changes_email:
+            updated_user = await self._after_email_change(
+                updated_user, was_verified=was_verified
+            )
         if sets_password:
             await self._after_password_set(
                 updated_user,
@@ -170,6 +197,37 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 is_own_account=is_own_account,
             )
         return updated_user
+
+    async def _after_email_change(self, user: User, *, was_verified: bool) -> User:
+        """Settle verification after a platform superuser changed an email.
+
+        fastapi-users clears ``is_verified`` on every email change, which would
+        sign the account out of every session and refuse its password, with no
+        email sent to the new address. Only a platform superuser can change an
+        email (see ``update``), and an administrator's address is vouched for
+        as at admin creation, so a verified account stays verified. An account
+        that was unverified stays so, and its new address gets the email.
+        """
+        if not was_verified:
+            await self._queue_verification_email(user)
+            return user
+        if user.is_verified:
+            return user
+        user = await self.user_db.update(
+            user,
+            {
+                "is_verified": True,
+                "email_verified_via": EmailVerificationMethod.ADMIN.value,
+            },
+        )
+        self.logger.info(
+            "Email changed by a platform superuser; account stays verified",
+            user_id=str(user.id),
+        )
+        await self._emit_user_verify_audit(
+            user=user, method=EmailVerificationMethod.ADMIN
+        )
+        return user
 
     async def _after_password_set(
         self,
@@ -619,6 +677,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             associate_by_email=associate_by_email,
             is_verified_by_default=is_verified_by_default,
         )
+        if is_verified_by_default and needs_identity_provider_adoption(user):
+            # Linked by email to an account whose mailbox nobody proved.
+            user = await self.adopt_unverified_account(
+                user, method=EmailVerificationMethod.OIDC
+            )
         await self._enforce_login_ip_allowlist(user, auth_method="oidc")
         return user
 
@@ -629,17 +692,61 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         request: Request | None = None,
     ) -> User:
         await self.validate_email(user_create.email)
+        invitation_token = (
+            user_create.invitation_token
+            if isinstance(user_create, UserCreate)
+            else None
+        )
+        # NOTE(security): `safe` marks the public registration route. Only
+        # there does a caller supply an email nobody has vouched for.
+        if safe:
+            await self._check_self_registration(user_create.email, invitation_token)
 
         # Extract and store invitation token for use in on_after_register()
         # This allows atomic invitation acceptance during registration
-        if isinstance(user_create, UserCreate) and user_create.invitation_token:
-            self._pending_invitation_token = user_create.invitation_token
+        if invitation_token:
+            self._pending_invitation_token = invitation_token
 
         try:
             return await super().create(user_create, safe, request)
         except UserAlreadyExists:
             # NOTE(security): Bypass fastapi users exception handler
             raise InvalidEmailException() from None
+
+    async def _check_self_registration(
+        self, email: str, invitation_token: str | None
+    ) -> None:
+        """Admit a public registration only when its email can be proven.
+
+        The first-user bootstrap of the superadmin email and a registration
+        through a matching pending invitation are vouched for by the operator
+        and an organization admin. Anyone else must verify their mailbox, which
+        needs outbound email.
+
+        Raises:
+            HTTPException(403): If verification is needed but SMTP is not set up.
+        """
+        async with get_async_session_auth_context_manager() as session:
+            if not await users_exist(session=session):
+                self._pending_bootstrap_registration = True
+                return
+            if invitation_token and await _has_matching_invitation(
+                session, token=invitation_token, email=email
+            ):
+                return
+        if email_verification_available():
+            return
+        self.logger.info("Refused self-registration: email delivery is not set up")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": AuthErrorCode.SELF_REGISTRATION_UNAVAILABLE,
+                "message": (
+                    "Self-registration requires email verification, which is "
+                    "not configured. Ask an administrator for an invitation."
+                ),
+            },
+        )
 
     async def on_after_login(
         self,
@@ -700,20 +807,34 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         self.logger.info("User registered", user_id=str(user.id), email=user.email)
         await self._emit_user_create_audit(user=user)
 
-        # Promote to superuser if email matches configured superadmin email
-        # No count/lock needed - email uniqueness ensures only one user can have this email
-        superadmin_email = config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL
-        if superadmin_email and user.email == superadmin_email:
-            update_params = UserUpdate(is_superuser=True)
-            user = await self.admin_update(user_update=update_params, user=user)
-            self.logger.info("User promoted to superadmin", email=user.email)
-
         # Accept invitation atomically if token was provided during registration
         # This eliminates race conditions in the invitation flow
         org_ids: set[OrganizationID] = set()
         if self._pending_invitation_token:
             if invitation_org_id := await self._accept_invitation_atomically(user):
                 org_ids.add(invitation_org_id)
+                # The organization vouched for this address by inviting it.
+                # Its admins can read the link, so this proves no mailbox
+                # control; the method records that (see EmailVerificationMethod).
+                user = await self._mark_verified(
+                    user, method=EmailVerificationMethod.INVITATION
+                )
+
+        if self._pending_bootstrap_registration:
+            self._pending_bootstrap_registration = False
+            # The operator configured this exact address for the first user.
+            user = await self._mark_verified(
+                user, method=EmailVerificationMethod.BOOTSTRAP
+            )
+
+        # NOTE(security): An unverified account gets no organization defaults
+        # and no superadmin promotion until its mailbox is proven (see
+        # on_after_verify).
+        if not user.is_verified:
+            await self._queue_verification_email(user)
+            return
+        if user.email_verified_via != EmailVerificationMethod.INVITATION:
+            user = await self._promote_if_superadmin_email(user)
 
         if default_org_id := await ensure_single_tenant_user_defaults(
             user_id=user.id,
@@ -721,14 +842,134 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         ):
             org_ids.add(default_org_id)
 
+    async def _promote_if_superadmin_email(self, user: User) -> User:
+        """Promote the account at the configured superadmin email to superuser.
+
+        Called only once the address is proven: the first-user bootstrap, an
+        identity provider, an administrator, or the emailed link. An invitation
+        or an unverified registration proves nothing, so promoting then would
+        hand a superuser to whoever registered the address first. Email
+        uniqueness means at most one account can match.
+        """
+        superadmin_email = config.AUTOSECOPS__AUTH_SUPERADMIN_EMAIL
+        if not superadmin_email or user.email != superadmin_email:
+            return user
+        if user.is_superuser:
+            return user
+        user = await self.admin_update(
+            user_update=UserUpdate(is_superuser=True), user=user
+        )
+        self.logger.info("User promoted to superadmin", user_id=str(user.id))
+        return user
+
+    async def _mark_verified(
+        self, user: User, *, method: EmailVerificationMethod
+    ) -> User:
+        """Mark an account verified because ``method`` vouched for its email."""
+        if user.is_verified:
+            return user
+        user = await self.user_db.update(
+            user, {"is_verified": True, "email_verified_via": method.value}
+        )
+        self.logger.info(
+            "Email verified", user_id=str(user.id), verification_method=method
+        )
+        await self._emit_user_verify_audit(user=user, method=method)
+        return user
+
+    async def adopt_unverified_account(
+        self, user: User, *, method: EmailVerificationMethod
+    ) -> User:
+        """Verify an account through a trusted identity provider.
+
+        Someone who controlled no mailbox may have registered the account and
+        chosen its password: an unverified self-registration, or an invitation
+        sign-up by whoever could read the link. The provider has now proven
+        the address, so the password is replaced and every session and MCP
+        credential revoked before the account is marked verified, which
+        defeats pre-registration account takeover.
+
+        Args:
+            user: The existing account the provider's identity resolved to.
+            method: The provider kind, for the audit trail.
+
+        Returns:
+            The verified account.
+        """
+        if not needs_identity_provider_adoption(user):
+            return user
+        user = await self.user_db.update(
+            user,
+            {
+                "is_verified": True,
+                "email_verified_via": method.value,
+                "hashed_password": self.password_helper.hash(
+                    self.password_helper.generate()
+                ),
+            },
+        )
+        revocation = await revoke_all_user_credentials(user.id, revoked_by=None)
+        self.logger.warning(
+            "Adopted unproven account through identity provider; local "
+            "password replaced and credentials revoked",
+            user_id=str(user.id),
+            verification_method=method.value,
+            revoked=revocation.sessions,
+            revoked_mcp_personal_access_tokens=revocation.mcp_personal_access_tokens,
+            revoked_mcp_refresh_tokens=revocation.mcp_refresh_tokens,
+        )
+        await self._emit_user_verify_audit(user=user, method=method)
+        await self.on_after_verify(user)
+        return user
+
+    async def _queue_verification_email(self, user: User) -> None:
+        if not email_verification_available():
+            self.logger.warning(
+                "Email verification needed but SMTP is not configured; an "
+                "administrator must verify the account",
+                user_id=str(user.id),
+            )
+            return
+        session = self._user_db.session
+        queued = await enqueue_verification_email(session, user.id)
+        await session.commit()
+        self.logger.info(
+            "Email verification requested", user_id=str(user.id), queued=queued
+        )
+
+    async def _emit_user_verify_audit(
+        self, *, user: User, method: EmailVerificationMethod
+    ) -> None:
+        """Record that an account's email was verified, and how."""
+        audit_role = PlatformRole(
+            type="user",
+            user_id=user.id,
+            service_id="autosecops-api",
+        )
+        try:
+            async with AuditService.with_session(
+                role=audit_role,
+                audit_sink="platform",
+            ) as audit_svc:
+                await audit_svc.create_event(
+                    resource_type="user",
+                    action="verify",
+                    resource_id=user.id,
+                    data={"auth_method": method.value},
+                )
+        except Exception as exc:
+            self.logger.warning(
+                "Failed to emit email verification audit event",
+                user_id=str(user.id),
+                error=str(exc),
+            )
+
     async def _accept_invitation_atomically(self, user: User) -> OrganizationID | None:
         """Accept an invitation during registration if a token was provided.
 
         Errors during invitation acceptance are logged but do NOT fail registration.
         This ensures users can still register even if the invitation is invalid/expired.
         """
-        # Import here to avoid circular import (invitations.service imports from auth.users)
-        from autosecops.invitations.service import accept_invitation_for_user
 
         token = self._pending_invitation_token
         self._pending_invitation_token = None  # Clear to prevent reuse
@@ -1000,11 +1241,107 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             organization_id=await self._audit_organization_for_safe(user),
         )
 
-    async def on_after_request_verify(
-        self, user: User, token: str, request: Request | None = None
-    ) -> None:
-        # NOTE(security): Never log the token; it marks the email as verified.
-        self.logger.info("Email verification requested", user_id=str(user.id))
+    async def request_verify(self, user: User, request: Request | None = None) -> None:
+        """Queue a verification email instead of minting a token now.
+
+        The outbox sender mints the token when it sends, so no token is ever
+        stored or logged. The route answers 202 whatever happens here.
+
+        Raises:
+            UserInactive: The account is deactivated.
+            UserAlreadyVerified: The account is already verified.
+        """
+        if not user.is_active:
+            raise UserInactive()
+        if user.is_verified:
+            raise UserAlreadyVerified()
+        await self._queue_verification_email(user)
+
+    async def verify(self, token: str, request: Request | None = None) -> User:
+        """Refuse fastapi-users' token-only verification.
+
+        Use ``verify_with_password``: verification sets the password, so an
+        account registered by someone else is not handed to them.
+        """
+        raise NotImplementedError("Email verification sets the password")
+
+    async def verify_with_password(
+        self, token: str, password: str, request: Request | None = None
+    ) -> User:
+        """Verify an email from the emailed link and set the account password.
+
+        Whoever registered the address chose the password, and that need not
+        be the mailbox owner. Setting the password from the link binds the
+        account to whoever proved the mailbox: the registrant enters their
+        password again (or a new one), and an address registered by someone
+        else is recovered by its owner. Every session and MCP credential is
+        revoked. The token is single-use because a verified account refuses it.
+
+        Raises:
+            InvalidVerifyToken: The token is invalid, expired, or for an email
+                the account no longer has, or the account is deactivated.
+            UserAlreadyVerified: The token was already used.
+            InvalidPasswordException: The password fails the password policy.
+        """
+        user = await self._user_for_verify_token(token)
+        await self.validate_password(password, user)
+        user = await self.user_db.update(
+            user,
+            {
+                "is_verified": True,
+                "email_verified_via": EmailVerificationMethod.EMAIL.value,
+                "hashed_password": self.password_helper.hash(password),
+            },
+        )
+        revocation = await revoke_all_user_credentials(user.id, revoked_by=None)
+        self.logger.info(
+            "Email verified and password set from the emailed link",
+            user_id=str(user.id),
+            revoked=revocation.sessions,
+        )
+        await self.on_after_verify(user, request)
+        return user
+
+    async def _user_for_verify_token(self, token: str) -> User:
+        """Resolve the unverified, active account a verification token names."""
+        try:
+            data = decode_jwt(
+                token,
+                self.verification_token_secret,
+                [self.verification_token_audience],
+            )
+            user_id = self.parse_id(data["sub"])
+            email = data["email"]
+        except (jwt.PyJWTError, KeyError, InvalidID):
+            raise InvalidVerifyToken() from None
+        try:
+            user = await self.get_by_email(email)
+        except UserNotExists:
+            raise InvalidVerifyToken() from None
+        if user.id != user_id or not user.is_active:
+            raise InvalidVerifyToken()
+        if user.is_verified:
+            raise UserAlreadyVerified()
+        return user
+
+    async def on_after_verify(self, user: User, request: Request | None = None) -> None:
+        """Finish an email verification: audit, clean up, and apply defaults."""
+        if request is not None:
+            # Through the emailed link; provider adoptions audit themselves.
+            self.logger.info(
+                "Email verified", user_id=str(user.id), verification_method="email"
+            )
+            await self._emit_user_verify_audit(
+                user=user, method=EmailVerificationMethod.EMAIL
+            )
+        session = self._user_db.session
+        await clear_verification_email(session, user.id)
+        await session.commit()
+        user = await self._promote_if_superadmin_email(user)
+        await ensure_single_tenant_user_defaults(
+            user_id=user.id,
+            is_superuser=user.is_superuser,
+        )
 
     async def on_before_delete(
         self, user: User, request: Request | None = None
@@ -1038,6 +1375,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             associate_by_email=associate_by_email,
             is_verified_by_default=is_verified_by_default,
             allow_auto_provisioning=allow_auto_provisioning,
+            provider="saml",
         )
         await self._enforce_login_ip_allowlist(
             user, auth_method="saml", organization_id=organization_id
@@ -1053,13 +1391,32 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         associate_by_email: bool = True,
         is_verified_by_default: bool = True,
         allow_auto_provisioning: bool = True,
+        provider: str = "scim",
     ) -> User:
-        """Create or link an account without authenticating a login request."""
+        """Create or link an account without authenticating a login request.
+
+        Args:
+            email: The address the identity provider asserted.
+            organization_id: The organization whose domain policy applies.
+            associate_by_email: Link an existing account with this email.
+            is_verified_by_default: Whether the provider vouches for the email.
+                A new account starts verified; a linked unverified account is
+                adopted (see ``adopt_unverified_account``).
+            allow_auto_provisioning: Create the account if none exists.
+            provider: The provider kind, for the audit trail.
+
+        Returns:
+            The created or linked account.
+        """
         await self.validate_email(email, organization_id=organization_id)
         try:
             user = await self.get_by_email(email)
             if not associate_by_email:
                 raise UserAlreadyExists()
+            if is_verified_by_default and needs_identity_provider_adoption(user):
+                user = await self.adopt_unverified_account(
+                    user, method=EmailVerificationMethod(provider)
+                )
         except UserNotExists as e:
             if not allow_auto_provisioning:
                 self.logger.info(
@@ -1230,6 +1587,11 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
         except (UserNotExists, InvalidID):
             return None
 
+        # NOTE(security): Every sign-in path requires a verified email; this
+        # keeps an unverified account sessionless should a new path forget to.
+        if not user.is_verified:
+            return None
+
         # A session waiting on a security key challenge or enrollment is not
         # signed in. Only the /auth/mfa routes accept it.
         if isinstance(self.database, SQLAlchemyAccessTokenDatabase):
@@ -1325,7 +1687,7 @@ class FastAPIUserWithLogoutRouter(FastAPIUsers[models.UP, models.ID]):
     def get_logout_router(
         self,
         backend: AuthenticationBackend[models.UP, models.ID],
-        requires_verification: bool = config.AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION,
+        requires_verification: bool = False,
     ) -> APIRouter:
         """
         Provide a router for logout only for OAuth/OIDC Flows.
@@ -1577,6 +1939,35 @@ async def _audit_failed_password_login(email: str) -> None:
         auth_method="basic",
         reason=AuthAuditFailureReason.INVALID_CREDENTIALS,
     )
+
+
+def needs_identity_provider_adoption(user: User) -> bool:
+    """Whether an identity provider must adopt ``user`` before linking to it.
+
+    True when nobody proved the mailbox: the account is unverified, or it was
+    verified only by registering through an invitation link, which the
+    inviting organization can read.
+    """
+    return (
+        not user.is_verified
+        or user.email_verified_via == EmailVerificationMethod.INVITATION
+    )
+
+
+async def _has_matching_invitation(
+    session: SupportsExecute, *, token: str, email: str
+) -> bool:
+    """Whether ``token`` is a pending, unexpired invitation sent to ``email``."""
+    statement = select(
+        exists().where(
+            invitation_token_matches(token),
+            Invitation.status == InvitationStatus.PENDING,
+            Invitation.expires_at > func.now(),
+            func.lower(Invitation.email) == email.lower(),
+        )
+    )
+    result = await session.execute(statement)
+    return bool(result.scalar_one())
 
 
 async def users_exist(*, session: SupportsExecute) -> bool:

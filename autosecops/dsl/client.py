@@ -26,6 +26,7 @@ from autosecops.config import (
 from autosecops.dsl._converter import get_data_converter
 from autosecops.logger import logger
 from autosecops.observability.otel import temporal_tracing_interceptor
+from autosecops.temporal.codec import ensure_temporal_payload_encryption_ready
 
 _client: Client | None = None
 _metrics_runtime: Runtime | None = None
@@ -90,6 +91,10 @@ async def get_temporal_client(plugins: list[Plugin] | None = None) -> Client:
 
     if _client is not None:
         return _client
+
+    # Outside connect_to_temporal's retry loop: a missing or malformed keyring
+    # is a configuration error, so fail fast instead of retrying.
+    await ensure_temporal_payload_encryption_ready()
 
     try:
         logger.info(

@@ -113,6 +113,7 @@ from autosecops.auth.dependencies import (
     require_workspace_id_path,
 )
 from autosecops.auth.discovery import router as auth_discovery_router
+from autosecops.auth.email_verification import start_verification_email_consumer
 from autosecops.auth.enums import AuthType
 from autosecops.auth.mfa.router import router as mfa_router
 from autosecops.auth.oidc import create_platform_oauth_client, oidc_auth_type_enabled
@@ -120,7 +121,9 @@ from autosecops.auth.rate_limit import (
     limit_forgot_password,
     limit_login,
     limit_register,
+    limit_request_verify_token,
     limit_reset_password,
+    limit_verify,
 )
 from autosecops.auth.router import router as users_router
 from autosecops.auth.saml import router as saml_router
@@ -133,6 +136,7 @@ from autosecops.auth.users import (
     auth_backend,
     fastapi_users,
 )
+from autosecops.auth.verify_router import get_verify_router
 from autosecops.authz.rbac.router import roles_router as rbac_roles_read_router
 from autosecops.authz.rbac.router import (
     user_assignments_router as rbac_user_assignments_router,
@@ -260,6 +264,7 @@ from autosecops.storage.blob import (
 from autosecops.tables.exceptions import TableRowError
 from autosecops.tables.router import router as tables_router
 from autosecops.tags.router import router as tags_router
+from autosecops.temporal.codec import ensure_temporal_payload_encryption_ready
 from autosecops.tiers.defaults import log_license_startup
 from autosecops.variables.router import router as variables_router
 from autosecops.vcs.router import org_router as vcs_router
@@ -296,6 +301,9 @@ async def lifespan(app: FastAPI):
     # by tests and OpenAPI generation, before secrets are available.
     get_user_auth_secret()
     assert_soft_delete_listener_registered()
+    # Refuse to start with payload encryption enabled but no usable keyring,
+    # rather than failing the first workflow that touches Temporal.
+    await ensure_temporal_payload_encryption_ready()
 
     # Storage
     await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS)
@@ -385,6 +393,10 @@ async def lifespan(app: FastAPI):
         supervisor.spawn_stoppable(
             start_invitation_email_consumer,
             name="invitation_email_consumer",
+        )
+        supervisor.spawn_stoppable(
+            start_verification_email_consumer,
+            name="verification_email_consumer",
         )
 
     logger.info(
@@ -983,7 +995,9 @@ def create_app(**kwargs) -> FastAPI:
     if AuthType.BASIC in config.AUTOSECOPS__AUTH_TYPES:
         app.include_router(
             _rate_limited(
-                fastapi_users.get_auth_router(auth_backend),
+                # NOTE(security): Password sign-in requires a verified email.
+                # The check runs after the password, so it tells a guesser nothing.
+                fastapi_users.get_auth_router(auth_backend, requires_verification=True),
                 {f"auth:{auth_backend.name}.login": limit_login},
             ),
             prefix="/auth",
@@ -1009,7 +1023,14 @@ def create_app(**kwargs) -> FastAPI:
             tags=["auth"],
         )
         app.include_router(
-            fastapi_users.get_verify_router(UserRead),
+            _rate_limited(
+                # Verification also sets the password: see verify_router.
+                get_verify_router(),
+                {
+                    "verify:request-token": limit_request_verify_token,
+                    "verify:verify": limit_verify,
+                },
+            ),
             prefix="/auth",
             tags=["auth"],
         )

@@ -85,14 +85,16 @@ Each credential comes from a Kubernetes Secret. Reference a Secret you manage wi
 
 | Values | Chart-created Secret | Keys |
 | :----- | :------------------- | :--- |
-| `secrets` | `autosecops-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret` |
+| `secrets` | `autosecops-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, `temporalPayloadEncryptionKeyring` |
 | `externalPostgres.auth` | `autosecops-postgres-credentials` | `username`, `password` |
 | `externalRedis.auth` | `autosecops-redis-credentials` | `url` |
 | `externalS3.auth` | `autosecops-s3-credentials` | `accessKeyId`, `secretAccessKey` |
 | `externalTemporal.auth` | `autosecops-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `autosecops-pangolin-credentials` | `apiKey` |
 
-The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `dbEncryptionPreviousKeys`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, and `temporalPayloadEncryptionKeyring`.
+The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `dbEncryptionPreviousKeys`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, and `otelExporterOtlpHeaders`.
+
+Temporal payload encryption (`autosecops.temporal.payloadEncryption.enabled`) is on by default, so `temporalPayloadEncryptionKeyring` is required unless you set `autosecops.temporal.payloadEncryption.keyringArn`. The chart never generates or rotates the keyring: a value generated at render time would change on every `helm upgrade` or GitOps sync and make encrypted workflow history unreadable. With `secrets.existingSecret`, `helm install` and `helm upgrade` look up the Secret and fail before the migration hook runs when it lacks the key; `helm template` and GitOps renders cannot see the Secret, so add the key before you sync. Releases installed before encryption was the default turn it on in two upgrades; see [Updating](/self-hosting/updating#temporal-payload-encryption) and [Temporal payload encryption](/self-hosting/security#temporal-payload-encryption).
 
 <Tabs>
   <Tab title="Existing Secret (recommended)">
@@ -105,7 +107,8 @@ The names assume the release name `autosecops`. The core Secret also accepts the
       --from-literal=dbEncryptionKey="$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')" \
       --from-literal=serviceKey="$(openssl rand -hex 32)" \
       --from-literal=signingSecret="$(openssl rand -hex 32)" \
-      --from-literal=userAuthSecret="$(openssl rand -hex 32)"
+      --from-literal=userAuthSecret="$(openssl rand -hex 32)" \
+      --from-literal=temporalPayloadEncryptionKeyring="$(printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)")"
     ```
 
     Then reference it:
@@ -127,6 +130,7 @@ The names assume the release name `autosecops`. The core Secret also accepts the
       serviceKey: "${SERVICE_KEY}"
       signingSecret: "${SIGNING_SECRET}"
       userAuthSecret: "${USER_AUTH_SECRET}"
+      temporalPayloadEncryptionKeyring: "${TEMPORAL_PAYLOAD_ENCRYPTION_KEYRING}"
     ```
 
     The chart creates these Secrets as `pre-install,pre-upgrade` hooks so they exist before the migrations Job runs. Helm keeps hook resources on `helm uninstall`, so the keys survive an uninstall. Delete them by hand only when you discard the installation.
@@ -226,6 +230,8 @@ externalRedis:
 ```
 
 The `url` key holds a full Redis connection string, e.g. `rediss://:password@redis.example.internal:6379`. Use `rediss://` for TLS.
+
+Run Redis with authentication. The chart refuses an inline `externalRedis.auth.url` without a password; set `externalRedis.auth.allowUnauthenticated: true` only for a Redis that nothing else can reach. The chart cannot inspect a URL stored in `existingSecret`, so keep the password in that URL too.
 
 ### S3
 
@@ -545,6 +551,29 @@ executor:
 
 When autoscaling is enabled, the chart leaves `replicaCount` out of the Deployment. Add `<component>.podDisruptionBudget.enabled: true` to keep replicas available during node drains.
 
+## High availability
+
+Every component accepts `podDisruptionBudget`, `affinity`, and `topologySpreadConstraints`. For a deployment that survives a node or zone failure, run at least two replicas of each stateless component, enable its PodDisruptionBudget, and spread its pods across zones:
+
+```yaml
+api:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: autosecops
+          app.kubernetes.io/instance: autosecops
+          app.kubernetes.io/component: api
+```
+
+Set `app.kubernetes.io/instance` to your release name, so pods of another release in the same namespace do not count toward the skew. Repeat for `worker`, `executor`, `agentWorker`, `agentExecutor`, `backgroundWorker`, `mcp`, `litellm`, and `ui`, with the matching `app.kubernetes.io/component` label (`agent-worker`, `background-worker`, and so on). PostgreSQL, Redis, and Temporal run outside the chart, so make them highly available on their own platform.
+
 ## Minimum resources
 
 The default requests and limits match the AWS Fargate task sizes.
@@ -561,6 +590,8 @@ The default requests and limits match the AWS Fargate task sizes.
 | MCP | 1 | 2Gi | 2Gi | 1 |
 
 The chart sets no CPU limits, so pods can burst above their requests. Override `<component>.resources` to fit your cluster.
+
+The kubelet rotates container logs (`containerLogMaxSize` and `containerLogMaxFiles` in the kubelet configuration), so the chart sets no log rotation of its own. Ship logs to your cluster's log pipeline for retention.
 
 ## Observability
 

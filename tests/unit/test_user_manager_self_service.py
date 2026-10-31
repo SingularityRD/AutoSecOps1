@@ -27,6 +27,7 @@ from autosecops.audit.enums import AuditEventStatus
 from autosecops.auth import users as users_module
 from autosecops.auth.audit import drain_auth_audit_tasks
 from autosecops.auth.crypto import hash_bearer_token
+from autosecops.auth.enums import EmailVerificationMethod
 from autosecops.auth.schemas import UserUpdate
 from autosecops.auth.types import CredentialRevocation, Role
 from autosecops.auth.users import PermissionsException, UserManager, cookie_transport
@@ -96,6 +97,7 @@ def user() -> User:
             hashed_password=PasswordHelper().hash(OLD_PASSWORD),
             is_active=True,
             is_superuser=False,
+            is_verified=True,
         ),
     )
 
@@ -368,22 +370,76 @@ async def test_platform_superuser_role_can_change_email(
     assert update_dict["email"] == "renamed@example.com"
 
 
+def _apply_updates(user: Any, update_dict: dict[str, Any]) -> Any:
+    for field, value in update_dict.items():
+        setattr(user, field, value)
+    return user
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("own_account", [True, False])
+async def test_superuser_email_change_keeps_the_account_verified(
+    manager: UserManager, user_db: AsyncMock, user: User, own_account: bool
+) -> None:
+    """fastapi-users unverifies a renamed account, which would lock it out."""
+    user_db.update.side_effect = _apply_updates
+    manager._emit_user_verify_audit = AsyncMock()  # pyright: ignore[reportAttributeAccessIssue]
+    ctx_role.set(_role(superuser=True, user_id=user.id if own_account else None))
+
+    updated = await manager.update(
+        UserUpdate(email="renamed@example.com"), user, safe=own_account
+    )
+
+    assert updated.email == "renamed@example.com"
+    assert updated.is_verified is True
+    assert updated.email_verified_via == EmailVerificationMethod.ADMIN
+    manager._emit_user_verify_audit.assert_awaited_once()  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@pytest.mark.anyio
+async def test_email_change_of_an_unverified_account_mails_the_new_address(
+    manager: UserManager, user_db: AsyncMock, user: User
+) -> None:
+    user_db.update.side_effect = _apply_updates
+    user.is_verified = False
+    manager._queue_verification_email = AsyncMock()  # pyright: ignore[reportAttributeAccessIssue]
+    ctx_role.set(_role(superuser=True))
+
+    updated = await manager.update(
+        UserUpdate(email="renamed@example.com"), user, safe=False
+    )
+
+    assert updated.is_verified is False
+    manager._queue_verification_email.assert_awaited_once_with(updated)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@pytest.mark.anyio
+async def test_profile_update_leaves_verification_alone(
+    manager: UserManager, user_db: AsyncMock, user: User
+) -> None:
+    user_db.update.side_effect = _apply_updates
+    manager._emit_user_verify_audit = AsyncMock()  # pyright: ignore[reportAttributeAccessIssue]
+    ctx_role.set(_role(superuser=True))
+
+    await manager.update(UserUpdate(first_name="Ada"), user, safe=True)
+
+    user_db.update.assert_awaited_once()
+    manager._emit_user_verify_audit.assert_not_awaited()  # pyright: ignore[reportAttributeAccessIssue]
+
+
 @pytest.mark.anyio
 async def test_auth_token_hooks_never_log_the_token(
     manager: UserManager, user: User
 ) -> None:
-    """Reset and verification tokens are bearer credentials for the account."""
+    """Reset tokens are bearer credentials for the account."""
     reset_token = "reset-token-" + uuid.uuid4().hex
-    verify_token = "verify-token-" + uuid.uuid4().hex
     manager.logger = Mock()
 
     await manager.on_after_forgot_password(user, reset_token)
-    await manager.on_after_request_verify(user, verify_token)
 
     logged = repr(manager.logger.mock_calls)
-    assert len(manager.logger.mock_calls) == 2
+    assert len(manager.logger.mock_calls) == 1
     assert reset_token not in logged
-    assert verify_token not in logged
 
 
 async def _seed_user_with_sessions(

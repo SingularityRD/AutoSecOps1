@@ -56,7 +56,7 @@ Minimal values (see `ci/minimal-values.yaml`):
 urls:
   publicApp: https://autosecops.example.com
 secrets:
-  existingSecret: autosecops-secrets          # dbEncryptionKey, serviceKey, signingSecret, userAuthSecret
+  existingSecret: autosecops-secrets          # dbEncryptionKey, serviceKey, signingSecret, userAuthSecret, temporalPayloadEncryptionKeyring
 externalPostgres:
   host: postgres.example.internal
   auth:
@@ -98,12 +98,45 @@ Every credential supports either a chart-created Secret (values) or an
 
 | Values | Secret created by the chart | Keys |
 | :----- | :-------------------------- | :--- |
-| `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, `temporalPayloadEncryptionKeyring` |
+| `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`; `temporalPayloadEncryptionKeyring` is required while payload encryption is on without `keyringArn` |
 | `externalPostgres.auth` | `<fullname>-postgres-credentials` | `username`, `password`, optional `runtime-password` |
 | `externalRedis.auth` | `<fullname>-redis-credentials` | `url` |
 | `externalS3.auth` | `<fullname>-s3-credentials` | `accessKeyId`, `secretAccessKey` |
 | `externalTemporal.auth` | `<fullname>-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `<fullname>-pangolin-credentials` | `apiKey` |
+
+The Redis `url` must carry a password, e.g. `rediss://:password@redis:6379`:
+the chart refuses an inline URL without one unless
+`externalRedis.auth.allowUnauthenticated` is `true`.
+
+Temporal payload encryption is on by default, so the core Secret also needs
+`temporalPayloadEncryptionKeyring` unless you set
+`autosecops.temporal.payloadEncryption.keyringArn`. Generate it once and keep
+it with the other core secrets:
+
+```bash
+printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
+```
+
+The chart never generates or rotates the keyring, because a value generated
+at render time would change on every `helm upgrade` or GitOps sync and make
+encrypted workflow history unreadable.
+
+Releases installed before encryption was the default turn it on in two
+upgrades. First upgrade with the keyring in place and
+`autosecops.temporal.payloadEncryption.enabled=false`, so every pod restarts
+with the keyring (with `secrets.existingSecret`, pods do not restart on a
+Secret change: run `kubectl rollout restart deployment -l
+app.kubernetes.io/instance=<release>` and wait for it to finish); then
+upgrade again with `enabled=true`. Turning it on in a
+single upgrade lets an upgraded pod encrypt a payload that a pod still on the
+old configuration cannot decode, and an activity that runs with one attempt
+fails its workflow. Until you add a keyring, the upgrade fails to render with
+chart-created secrets. With `secrets.existingSecret`, `helm upgrade` checks
+the live Secret with `lookup` and fails before the migration hook when the key
+is missing; `helm template` and GitOps renders cannot see the Secret, so add
+the key before you sync or new pods wait in `CreateContainerConfigError`.
+Existing plaintext history stays readable after you enable encryption.
 
 With the release name `autosecops`, `<fullname>` is `autosecops`. Each service
 receives only the secrets its Fargate task definition receives:

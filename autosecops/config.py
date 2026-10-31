@@ -470,9 +470,15 @@ AUTOSECOPS__AUTH_TYPES = _parse_auth_types()
 """The set of allowed auth types on the platform. If an auth type is not in this set,
 it cannot be enabled."""
 
-AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION = env_bool(
-    "AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION", default=False
+AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS = bound_env(
+    "AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS",
+    3600,
+    lower=300,
+    upper=86400,
 )
+"""Lifetime of an emailed verification link. Password sign-in always requires a
+verified email; accounts that existed before email verification shipped were
+marked verified by migration."""
 SESSION_EXPIRE_TIME_SECONDS = int(
     os.environ.get("SESSION_EXPIRE_TIME_SECONDS") or 86400 * 7
 )  # 7 days
@@ -497,7 +503,7 @@ AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH = int(
 AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED = env_bool(
     "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", default=True
 )
-"""Rate limit login, registration, password reset, invitation tokens, and API-key failures."""
+"""Rate limit login, registration, password reset, email verification, invitation tokens, and API-key failures."""
 AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP = bound_env(
     "AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP", 50, lower=0
 )
@@ -526,6 +532,18 @@ AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP = bound_env(
     "AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP", 30, lower=0
 )
 """Invitation lookups and acceptances by token per client IP per minute."""
+AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_IP", 20, lower=0
+)
+"""Verification email requests per client IP per hour."""
+AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_ACCOUNT = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_ACCOUNT", 5, lower=0
+)
+"""Verification email requests per email per hour, across all clients."""
+AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_PER_IP = bound_env(
+    "AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_PER_IP", 10, lower=0
+)
+"""Email verification token submissions per client IP per minute."""
 AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP = bound_env(
     "AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP", 20, lower=0
 )
@@ -1725,6 +1743,15 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 
 REDIS_URL__ARN = os.environ.get("REDIS_URL__ARN")
 """(AWS only) ARN of the secret containing the Redis URL."""
+
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD") or None
+"""Password for Redis AUTH when the Redis URL carries none.
+
+Docker Compose sets it for the bundled Redis, which requires a password. A
+password in the URL takes precedence, so an external Redis keeps the
+credentials in its URL. Pass it as the ``password`` argument of
+``Redis.from_url``: redis-py applies URL credentials over keyword arguments.
+"""
 
 AUTOSECOPS__CASE_TRIGGERS_ENABLED = env_bool(
     "AUTOSECOPS__CASE_TRIGGERS_ENABLED", default=True

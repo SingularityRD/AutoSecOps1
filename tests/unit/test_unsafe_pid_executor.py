@@ -37,8 +37,9 @@ def _process_is_running(pid: int) -> bool:
 
 
 async def _wait_for_file(path: Path) -> None:
+    """Wait until ``path`` exists and has content (scripts write it atomically)."""
     for _ in range(200):
-        if path.exists():
+        if path.exists() and path.read_text():
             return
         await asyncio.sleep(0.01)
     raise AssertionError(f"Timed out waiting for {path}")
@@ -64,7 +65,10 @@ def main(pid_file, wait):
         [sys.executable, "-c", "import time; time.sleep(30)"],
         stdin=subprocess.DEVNULL,
     )
-    Path(pid_file).write_text(str(child.pid))
+    # Write atomically: the test polls for the file and reads it at once.
+    tmp = Path(pid_file + ".tmp")
+    tmp.write_text(str(child.pid))
+    tmp.replace(pid_file)
     if wait:
         time.sleep(30)
     return child.pid
@@ -85,7 +89,10 @@ def main(pid_file):
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
-    Path(pid_file).write_text(str(child.pid))
+    # Write atomically: the test polls for the file and reads it at once.
+    tmp = Path(pid_file + ".tmp")
+    tmp.write_text(str(child.pid))
+    tmp.replace(pid_file)
     return child.pid
 """
 

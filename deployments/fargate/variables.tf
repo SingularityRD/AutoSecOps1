@@ -435,8 +435,8 @@ variable "context_compression_threshold_kb" {
 
 variable "temporal_payload_encryption_enabled" {
   type        = bool
-  description = "Enable application-layer encryption for Temporal payloads"
-  default     = false
+  description = "Encrypt Temporal payloads (workflow inputs, results, failures) before they reach the Temporal database. A new stack encrypts from its first apply. On an existing stack the first apply only gives every service the keyring, and encryption turns on at the next apply, so tasks still running the old configuration never receive payloads they cannot decode."
+  default     = true
 }
 
 variable "temporal_payload_encryption_cache_ttl_seconds" {
@@ -490,8 +490,20 @@ variable "autosecops_signing_secret_arn" {
 
 variable "temporal_payload_encryption_keyring_arn" {
   type        = string
-  description = "The ARN of the secret containing the Temporal payload encryption keyring"
+  description = "The ARN of a secret holding your own Temporal payload encryption keyring. When null, services use the keyring Terraform generates (see temporal_payload_encryption_generate_keyring). Before switching an existing stack from the generated keyring to your own, copy its keys into yours so existing workflow history stays readable; the switch starts a new two-apply rollout."
   default     = null
+}
+
+variable "temporal_payload_encryption_generate_keyring" {
+  type        = bool
+  description = "Generate and keep a Temporal payload encryption keyring in Secrets Manager. Used when temporal_payload_encryption_keyring_arn is null. Setting this to false deletes the generated secret (30-day recovery window); copy its keys into your own keyring first, or history encrypted under it becomes unreadable."
+  default     = true
+}
+
+variable "temporal_payload_encryption_assume_keyring_rolled_out" {
+  type        = bool
+  description = "Skip the extra apply that rolls the keyring out before encryption turns on. Set true only when every running service already has this keyring, for example a stack that already encrypted payloads with temporal_payload_encryption_keyring_arn before upgrading."
+  default     = false
 }
 
 variable "oauth_client_id_arn" {
@@ -557,25 +569,25 @@ variable "smtp_password_arn" {
 
 variable "smtp_host" {
   type        = string
-  description = "The SMTP relay host for invitation emails"
+  description = "The SMTP relay host for invitation and email verification emails"
   default     = ""
 }
 
 variable "smtp_port" {
   type        = number
-  description = "The SMTP relay port for invitation emails"
+  description = "The SMTP relay port for invitation and email verification emails"
   default     = 587
 }
 
 variable "smtp_user" {
   type        = string
-  description = "The SMTP username for invitation emails"
+  description = "The SMTP username for invitation and email verification emails"
   default     = ""
 }
 
 variable "email_from" {
   type        = string
-  description = "The sender address for invitation emails, e.g. AutoSecOps <no-reply@example.com>"
+  description = "The sender address for invitation and email verification emails, e.g. AutoSecOps <no-reply@example.com>"
   default     = ""
 }
 
@@ -617,6 +629,17 @@ variable "ui_cpu" {
 variable "ui_memory" {
   type    = string
   default = "2048"
+}
+
+variable "ui_desired_count" {
+  type        = number
+  description = "Desired number of UI (Next.js) tasks to run. Set 2 or more for high availability."
+  default     = 1
+
+  validation {
+    condition     = var.ui_desired_count >= 1 && floor(var.ui_desired_count) == var.ui_desired_count
+    error_message = "ui_desired_count must be a positive integer."
+  }
 }
 
 variable "api_cpu" {
@@ -943,6 +966,17 @@ variable "caddy_memory" {
   default = "512"
 }
 
+variable "caddy_desired_count" {
+  type        = number
+  description = "Desired number of Caddy reverse proxy tasks to run. Set 2 or more for high availability."
+  default     = 1
+
+  validation {
+    condition     = var.caddy_desired_count >= 1 && floor(var.caddy_desired_count) == var.caddy_desired_count
+    error_message = "caddy_desired_count must be a positive integer."
+  }
+}
+
 ### LiteLLM Service
 
 variable "litellm_cpu" {
@@ -1083,6 +1117,12 @@ variable "rds_backup_retention_period" {
   default     = 7
 }
 
+variable "rds_multi_az" {
+  type        = bool
+  description = "Run the RDS instances in Multi-AZ mode with a standby in another Availability Zone. Doubles the RDS instance cost."
+  default     = false
+}
+
 variable "rds_performance_insights_enabled" {
   type        = bool
   description = "Enable Performance Insights for RDS instances"
@@ -1113,6 +1153,28 @@ variable "redis_node_type" {
   type        = string
   description = "ElastiCache Redis node type"
   default     = "cache.t4g.small"
+}
+
+variable "redis_num_cache_clusters" {
+  type        = number
+  description = "ElastiCache nodes in the Redis replication group. 2 or more adds replicas in other Availability Zones with automatic failover; 1 is a single node."
+  default     = 1
+
+  validation {
+    condition     = var.redis_num_cache_clusters >= 1 && var.redis_num_cache_clusters <= 6 && floor(var.redis_num_cache_clusters) == var.redis_num_cache_clusters
+    error_message = "redis_num_cache_clusters must be an integer from 1 to 6."
+  }
+}
+
+variable "log_retention_in_days" {
+  type        = number
+  description = "Days CloudWatch Logs keeps the ECS task logs. CloudWatch rotates and expires them; 0 keeps them forever."
+  default     = 30
+
+  validation {
+    condition     = contains([0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653], var.log_retention_in_days)
+    error_message = "log_retention_in_days must be a CloudWatch Logs retention value: 0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, or 3653."
+  }
 }
 
 variable "sentry_dsn" {

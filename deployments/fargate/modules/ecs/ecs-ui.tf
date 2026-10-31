@@ -43,7 +43,7 @@ resource "aws_ecs_service" "autosecops_ui" {
   cluster              = aws_ecs_cluster.autosecops_cluster.id
   task_definition      = aws_ecs_task_definition.ui_task_definition.arn
   launch_type          = "FARGATE"
-  desired_count        = 1
+  desired_count        = var.ui_desired_count
   force_new_deployment = var.force_new_deployment
 
   network_configuration {

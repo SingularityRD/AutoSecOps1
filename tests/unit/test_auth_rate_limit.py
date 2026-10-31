@@ -288,6 +288,20 @@ async def test_forgot_password_is_limited_per_email_across_ips(
             {"json": {"token": "bogus", "password": "x" * 16}},
         ),
         (
+            "POST",
+            "/auth/request-verify-token",
+            "VERIFY_REQUEST_PER_IP",
+            rl.verify_request_per_ip,
+            {"json": {"email": "member@example.com"}},
+        ),
+        (
+            "POST",
+            "/auth/verify",
+            "VERIFY_PER_IP",
+            rl.verify_per_ip,
+            {"json": {"token": "bogus"}},
+        ),
+        (
             "GET",
             "/invitations/token/bogus",
             "INVITATION_PER_IP",
@@ -326,6 +340,22 @@ async def test_api_auth_routes_are_rate_limited(
 
     assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert "Retry-After" in response.headers
+
+
+@pytest.mark.anyio
+async def test_verify_request_is_limited_per_email_across_ips(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A resend flood for one mailbox is refused whichever client sends it."""
+    _limits(monkeypatch, VERIFY_REQUEST_PER_IP=100, VERIFY_REQUEST_PER_ACCOUNT=1)
+    await rl.consume(rl.verify_request_per_account(), "member@example.com")
+
+    async with _client(api_app) as client:
+        response = await client.post(
+            "/auth/request-verify-token", json={"email": "Member@example.com"}
+        )
+
+    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
 
 # === API-key failures === #

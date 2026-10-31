@@ -7,9 +7,9 @@ import GenerateSecrets from "/snippets/generate-secrets.mdx";
 
 ## Infrastructure credentials
 
-`.env.example` ships `change-me-` placeholders for the PostgreSQL, Temporal PostgreSQL, and MinIO passwords. When you answer `y` to the production prompt, `env.sh` replaces them with random values. Development mode keeps the well-known values `postgres`, `temporal`, and `password`, which only suit a local machine. Run `./env.sh --check` before `docker compose up`: it exits non-zero while any placeholder remains and warns about well-known passwords in production mode.
+`.env.example` ships `change-me-` placeholders for the PostgreSQL, Temporal PostgreSQL, MinIO, and Redis passwords. When you answer `y` to the production prompt, `env.sh` replaces them with random values; it generates the Redis password in development mode too. Development mode keeps the well-known values `postgres`, `temporal`, and `password`, which only suit a local machine. Run `./env.sh --check` before `docker compose up`: it exits non-zero while any placeholder remains and warns about well-known passwords in production mode.
 
-Installs created before this change keep the weak defaults in their `.env`. Rotate them as below; change the password inside PostgreSQL (`ALTER ROLE ... PASSWORD`) before you edit `.env`, because the database volume keeps the password it was initialized with. Redis has no password by default.
+Installs created before this change keep the weak defaults in their `.env`. Rotate them as below; change the password inside PostgreSQL (`ALTER ROLE ... PASSWORD`) before you edit `.env`, because the database volume keeps the password it was initialized with.
 
 ```bash
 # PostgreSQL
@@ -24,17 +24,11 @@ TEMPORAL__POSTGRES_PASSWORD=<strong random password>
 MINIO_ROOT_USER=<strong random user>
 MINIO_ROOT_PASSWORD=<strong random password>
 
-# Redis — add a password and update the URL
-REDIS_URL=redis://:<strong random password>@redis:6379
+# Redis
+REDIS_PASSWORD=<strong random password>
 ```
 
-For Redis, also pass the password to the container. Add a `command` override in your `docker-compose.yml`:
-
-```yaml
-services:
-  redis:
-    command: ["redis-server", "--requirepass", "<same password as above>"]
-```
+The bundled Redis requires `REDIS_PASSWORD`, and every service sends it, so rotating it takes an edit to `.env` and `docker compose up -d`. Keep `REDIS_URL` free of credentials for the bundled Redis: a password in `REDIS_URL` takes precedence over `REDIS_PASSWORD`. Production Compose publishes no Redis port.
 
 In production, prefer managed services (e.g., Amazon RDS, ElastiCache) over self-hosted PostgreSQL and Redis: they handle encryption at rest, automated backups, and credential rotation.
 
@@ -94,7 +88,7 @@ Service connections show `autosecops_app`, and both attributes are `false`. Set 
 
 ## Platform secrets
 
-AutoSecOps requires four cryptographic secrets, plus an optional keyring if you enable Temporal payload encryption.
+AutoSecOps requires four cryptographic secrets, plus a keyring for Temporal payload encryption, which new installs turn on by default.
 
 | Secret | Protects |
 | --- | --- |
@@ -102,11 +96,25 @@ AutoSecOps requires four cryptographic secrets, plus an optional keyring if you 
 | `AUTOSECOPS__SERVICE_KEY` | Service-to-service JWT signing. |
 | `AUTOSECOPS__SIGNING_SECRET` | Webhook URL signing and HMAC operations. |
 | `USER_AUTH_SECRET` | Password reset tokens, email verification, OAuth state, the MCP OIDC issuer keypair, and the internal OIDC client secret. |
-| `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` | Versioned keyring for Temporal payload encryption. Optional. AutoSecOps reads it only when `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED` is true. |
+| `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` | Workflow inputs, results, and failures stored in Temporal's database. A versioned JSON keyring. |
 
 <GenerateSecrets />
 
-### Temporal payload keyring
+### Temporal payload encryption
+
+Temporal stores every workflow input, activity result, and failure in its own database for as long as it retains the history. That data can include alert contents, personal data, and tool output. With `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true`, an AutoSecOps codec encrypts each payload with AES-256-GCM before it reaches Temporal, so Temporal's database, backups, and Web UI hold ciphertext only.
+
+New installs turn it on by default:
+
+| Deployment | Default for new installs |
+| --- | --- |
+| [Docker Compose](/self-hosting/docker-compose) | `env.sh` generates a keyring into `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` and sets `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true`. |
+| [Kubernetes](/self-hosting/kubernetes#secrets-management) | `autosecops.temporal.payloadEncryption.enabled` is `true`. Put the keyring in the core Secret's `temporalPayloadEncryptionKeyring` key, or set `keyringArn`. The chart refuses to render without one and never generates or rotates it. |
+| [AWS Fargate](/self-hosting/aws-fargate) | `temporal_payload_encryption_enabled` is `true`. Terraform generates a keyring in Secrets Manager unless you pass `temporal_payload_encryption_keyring_arn`. |
+
+What an upgrade does to an existing install depends on the platform: Docker Compose keeps storing payloads in plaintext, a Helm upgrade refuses to render until you add a keyring or set `enabled: false`, and Fargate turns encryption on over two `terraform apply` runs. See [Updating](/self-hosting/updating#temporal-payload-encryption) for each platform and for how to turn encryption on safely.
+
+#### Keyring format
 
 `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` holds a JSON keyring rather than a single key. Each entry maps a key ID to a root secret, and `current_key_id` selects the key that encrypts new payloads:
 
@@ -114,13 +122,45 @@ AutoSecOps requires four cryptographic secrets, plus an optional keyring if you 
 {"current_key_id": "v1", "keys": {"v1": "<root secret>"}}
 ```
 
-Generate each root secret the same way as the other secrets:
+Generate a keyring with a 256-bit root secret:
 
 ```bash
-openssl rand -hex 32
+printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
 ```
 
-AutoSecOps derives a separate AES-256-GCM key per workspace from the root secret, and stamps the key ID into every payload it encrypts. That stamp is what lets you rotate the keyring while older histories stay readable. On AWS, supply `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN` instead, and AutoSecOps fetches the keyring from Secrets Manager at runtime.
+In a Compose `.env` file, wrap the JSON in single quotes so Compose reads it literally, as `env.sh` does. AutoSecOps logs a warning for root secrets shorter than 32 bytes.
+
+AutoSecOps derives a separate AES-256-GCM key per workspace from the root secret with HKDF-SHA256, and stamps the key ID into every payload it encrypts. That stamp is what lets you rotate the keyring while older histories stay readable. On AWS, supply `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN` instead, and AutoSecOps fetches the keyring from Secrets Manager at runtime and refreshes it every `TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS` (default 3600).
+
+#### Startup checks
+
+The API and MCP server check the setting at startup, and the workers check it before they connect to Temporal. With encryption enabled, a service refuses to start when neither `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` nor `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN` is set, when the keyring is not valid JSON or its `current_key_id` is missing from `keys`, or when it cannot fetch the keyring from Secrets Manager. The error names the setting to fix and never prints key material. AutoSecOps never falls back to plaintext. With encryption disabled, each service logs a warning that payloads are stored in plaintext.
+
+#### Plaintext and encrypted history
+
+AutoSecOps always decodes both formats, whatever the setting:
+
+- Payloads written before you turned encryption on stay plaintext and remain readable. A workflow that started in plaintext continues and replays after you enable encryption; only new payloads are encrypted.
+- Decoding uses the keyring whenever one is configured, even with encryption off. That is what makes a two-step rollout safe: give every service the keyring first, then turn encryption on.
+- Turning encryption off again stops encrypting new payloads, but reading existing encrypted history still needs the keyring. Keep the keyring configured until that history expires.
+
+#### Rotate the keyring
+
+1. Generate a new root secret with `openssl rand -hex 32` and add it to `keys` under a new ID, keeping `current_key_id` on the old key. Deploy, so every service can decrypt payloads written under either key.
+2. Point `current_key_id` at the new ID and deploy. New payloads use the new key; payloads written under the old key stay readable.
+3. Keep the old key in `keys` for as long as Temporal retains histories written under it, at least your [namespace retention](/self-hosting/temporal-retention) after step 2 plus the longest-running workflow. Then remove it.
+
+For example, after step 2:
+
+```json
+{"current_key_id": "v2", "keys": {"v1": "<old root secret>", "v2": "<new root secret>"}}
+```
+
+<Warning>
+  Removing a key, or reusing a key ID for a different secret, makes every payload written under it unreadable, and those workflows fail. Back up the keyring with the other platform secrets.
+</Warning>
+
+On Fargate and in ARN mode, edit the secret in Secrets Manager; services pick up the change within the cache TTL, so wait that long between steps 1 and 2. Terraform does not revert edits to the keyring it generated.
 
 ### Database encryption
 
@@ -201,7 +241,7 @@ Rotation support differs by secret. Check the differences before you plan a rota
 
 | Secret | Overlap window | Rotation procedure | Blast radius |
 | --- | --- | --- | --- |
-| `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` | Yes | Add the new key to `keys` and let every service pick it up, then point `current_key_id` at it. Keep retired keys as long as you retain their histories. | None for existing histories, which stay readable under the key they were written with. Between the two steps, a service still on the old keyring cannot decrypt payloads written under the new key. In ARN mode that gap lasts up to `TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS`. |
+| `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` | Yes | Follow [Rotate the keyring](#rotate-the-keyring). Keep retired keys as long as you retain their histories. | None for existing histories, which stay readable under the key they were written with. Between the two steps, a service still on the old keyring cannot decrypt payloads written under the new key. In ARN mode that gap lasts up to `TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS`. |
 | `AUTOSECOPS__DB_ENCRYPTION_KEY` | Yes | Follow [Rotate the database key](#rotate-the-database-key). | MCP clients sign in again. Removing the old key before every service has restarted with the new key, and before re-encryption finishes, makes rows still encrypted under the old key unreadable. |
 | `AUTOSECOPS__SIGNING_SECRET` | No | Rotate, then reissue every affected URL. | Every webhook URL and agent channel endpoint URL. Breaks in-flight Slack OAuth installs, and pending Slack approval buttons for up to 24 hours. |
 | `AUTOSECOPS__SERVICE_KEY` | No | Restart every service that holds it in one window, including `ui`, which uses it for the SAML ACS proxy. | While services disagree, in-flight agent turns fail their next tool or LLM call, executor calls fail, and service-to-service requests return `401`. Miss `ui` and SSO login breaks. |

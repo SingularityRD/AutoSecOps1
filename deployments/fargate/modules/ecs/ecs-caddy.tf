@@ -116,7 +116,7 @@ resource "aws_ecs_service" "autosecops_caddy" {
   cluster         = aws_ecs_cluster.autosecops_cluster.id
   task_definition = aws_ecs_task_definition.caddy_task_definition.arn
   launch_type     = "FARGATE"
-  desired_count   = 1
+  desired_count   = var.caddy_desired_count
 
   network_configuration {
     subnets = var.private_subnet_ids
