@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-import shutil
 import signal
+import sys
 import sysconfig
 import tempfile
 import textwrap
@@ -36,9 +36,10 @@ from autosecops.agent.mcp.stdio_runner import (
 )
 from autosecops.agent.mcp.utils import MCP_TOOL_NAME_RE
 from autosecops.agent.sandbox.cgroup import sandbox_cgroup
-from autosecops.agent.sandbox.config import AgentResourceLimits
+from autosecops.agent.sandbox.config import AGENT_SANDBOX_BASE_ENV, AgentResourceLimits
 from autosecops.integrations.schemas import MCPToolSummary
 from autosecops.logger import logger
+from autosecops.process_env import BASE_ENV_NAMES, select_env, trusted_path
 from autosecops.sandbox.exceptions import SandboxTimeoutError
 from autosecops.sandbox.executor import NsjailExecutor
 from autosecops.sandbox.types import (
@@ -71,16 +72,101 @@ _SANDBOX_PROBE_SCRIPT = r"""
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import json
 import os
 import re
 import resource
+import signal
 import traceback
 from pathlib import Path
 from typing import Any
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
+
+
+def _enforce_payload_rlimits(limits: dict[str, int]) -> None:
+    # Direct-backend probes have no jail, so the host passes the resource caps
+    # in the payload and this trusted entrypoint applies them before the MCP
+    # command starts. The command inherits them. Limits are only ever lowered.
+    for name, value in limits.items():
+        try:
+            resource_id = getattr(resource, name)
+            _soft, hard = resource.getrlimit(resource_id)
+            target = int(value)
+            if target < 0:
+                raise ValueError(f"negative cap: {target}")
+            if hard != resource.RLIM_INFINITY:
+                target = min(target, hard)
+            resource.setrlimit(resource_id, (target, target))
+        except (AttributeError, ValueError, OSError, OverflowError) as exc:
+            # Fail closed: never run the untrusted command without its caps.
+            raise SystemExit(
+                f"_enforce_payload_rlimits: could not enforce {name}: "
+                f"{type(exc).__name__}"
+            ) from exc
+
+
+_PR_SET_CHILD_SUBREAPER = 36
+
+
+def _become_subreaper() -> bool:
+    # The MCP SDK starts the server in its own session, and kills that session
+    # only when the server ignores shutdown. Processes the server leaves behind
+    # would outlive the probe. As a subreaper, every orphaned descendant is
+    # re-parented to this process, so _kill_descendants can reap them.
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        return libc.prctl(_PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == 0
+    except (OSError, AttributeError):
+        return False
+
+
+def _child_pids() -> list[int]:
+    me = os.getpid()
+    children: list[int] = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            stat = Path(f"/proc/{entry}/stat").read_text()
+        except OSError:
+            continue
+        fields = stat.rsplit(")", 1)[-1].split()
+        if len(fields) > 1 and fields[1] == str(me):
+            children.append(int(entry))
+    return children
+
+
+def _kill_descendants() -> None:
+    # Killing a child re-parents its own children here; repeat until none.
+    for _ in range(100):
+        try:
+            children = _child_pids()
+        except OSError:
+            return
+        if not children:
+            return
+        for pid in children:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        for pid in children:
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+
+
+def _read_stderr_tail(path: Path, limit: int = 65536) -> str:
+    # The server controls how much it writes; read only the tail.
+    with path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        size = handle.tell()
+        handle.seek(max(0, size - limit))
+        return handle.read(limit).decode("utf-8", errors="replace")
 
 
 def _enforce_nproc_limit() -> None:
@@ -197,6 +283,8 @@ async def main() -> None:
     _enforce_nproc_limit()
 
     payload = json.loads(Path("input.json").read_text(encoding="utf-8"))
+    _enforce_payload_rlimits(payload.get("rlimits") or {})
+    _become_subreaper()
     command = payload["command"]
     args = payload.get("args") or []
     env = payload.get("env") or {}
@@ -208,7 +296,7 @@ async def main() -> None:
             command=command,
             args=args,
             env=env,
-            cwd="/tmp",
+            cwd=payload.get("cwd") or "/tmp",
             keep_alive=False,
             log_file=stderr_log,
         )
@@ -247,7 +335,7 @@ async def main() -> None:
     except BaseException as exc:
         stderr = ""
         if stderr_log.exists():
-            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+            stderr = _read_stderr_tail(stderr_log)
         detail = f"{type(exc).__name__}: {exc}"
         if stderr:
             detail = f"{detail}\n{stderr}"
@@ -265,7 +353,10 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    finally:
+        _kill_descendants()
 """
 
 
@@ -307,12 +398,128 @@ def _parse_probe_tools(output: object) -> list[MCPToolSummary]:
     return tools
 
 
+DIRECT_PROBE_OUTPUT_LIMIT_BYTES = 64 * 1024
+"""Bytes of probe stdout and stderr the host keeps; the rest is discarded."""
+
+DIRECT_PROBE_RESULT_LIMIT_BYTES = 8 * 1024 * 1024
+"""Largest ``result.json`` the host reads from a direct-backend probe."""
+
+DIRECT_PROBE_MAX_FILE_SIZE_MB = 256
+DIRECT_PROBE_MAX_OPEN_FILES = 512
+
+_DIRECT_PROBE_INHERITED_ENV_NAMES = BASE_ENV_NAMES - {
+    "PYTHONPATH",
+    "PYTHONUSERBASE",
+    "VIRTUAL_ENV",
+}
+"""Worker variables a direct-backend probe keeps: plumbing, locale, CA bundles
+and the operator proxy, never credentials or the worker's Python roots."""
+
+
+def _kill_probe_process_group(process: asyncio.subprocess.Process) -> None:
+    """Kill everything left in the probe's process group.
+
+    The probe starts in its own session, so its process group id is its pid.
+    The kernel never hands out a pid that is still in use as a group id, so
+    this cannot hit an unrelated process after the probe itself has exited.
+    """
+    with suppress(ProcessLookupError, PermissionError):
+        os.killpg(process.pid, signal.SIGKILL)
+
+
 def _kill_probe_process_tree(process: asyncio.subprocess.Process) -> None:
     """Kill the probe and its spawned MCP server on timeout."""
-    with suppress(ProcessLookupError):
-        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+    _kill_probe_process_group(process)
     with suppress(ProcessLookupError):
         process.kill()
+
+
+def _direct_probe_env(job_dir: Path) -> dict[str, str]:
+    """Return the environment for a direct-backend probe.
+
+    The probe and the MCP server it starts run as the worker's user, so they
+    start from an allowlist instead of the worker's environment. ``PATH`` is
+    the agent runtime's, so the probe resolves the command the way agent runs
+    will, reduced to directories this user cannot write. ``HOME`` is private
+    instead of the worker's, whose dotfiles (``.npmrc``, ``.netrc``, caches)
+    the server must not read or poison.
+    """
+    home = job_dir / "home"
+    tmp = job_dir / "tmp"
+    home.mkdir(mode=0o700, exist_ok=True)
+    tmp.mkdir(mode=0o700, exist_ok=True)
+    env = select_env(os.environ, names=_DIRECT_PROBE_INHERITED_ENV_NAMES)
+    env.update(
+        {
+            "PATH": trusted_path(AGENT_SANDBOX_BASE_ENV["PATH"]) or os.devnull,
+            "HOME": str(home),
+            "TMPDIR": str(tmp),
+            "PYTHONPATH": str(_site_packages_dir()),
+            "PYTHONNOUSERSITE": "1",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+    )
+    return env
+
+
+def _direct_probe_rlimits(timeout_seconds: int) -> dict[str, int]:
+    """Resource caps the probe applies to itself and the MCP server.
+
+    Mirrors the nsjail probe without cgroups: CPU time, file size, open files,
+    no core dumps, and an address-space cap of twice the probe memory budget.
+    There is no per-user process cap: ``RLIMIT_NPROC`` counts every process of
+    the worker's user, so it cannot bound the probe alone.
+    """
+    limits = AgentResourceLimits(
+        memory_mb=min(1024, config.AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB)
+    )
+    resources = ResourceLimits(
+        memory_mb=limits.memory_mb,
+        address_space_mb=limits.address_space_mb,
+    )
+    rlimits = {
+        "RLIMIT_CORE": 0,
+        "RLIMIT_CPU": timeout_seconds + MCP_STDIO_PROBE_HARD_TIMEOUT_BUFFER,
+        "RLIMIT_FSIZE": DIRECT_PROBE_MAX_FILE_SIZE_MB * 1024 * 1024,
+        "RLIMIT_NOFILE": DIRECT_PROBE_MAX_OPEN_FILES,
+    }
+    address_space_mb = resources.address_space_limit_mb(cgroup_memory_limit=False)
+    if address_space_mb is not None:
+        rlimits["RLIMIT_AS"] = address_space_mb * 1024 * 1024
+    return rlimits
+
+
+async def _read_bounded(stream: asyncio.StreamReader | None, limit: int) -> bytes:
+    """Read a stream to EOF, keeping at most ``limit`` bytes.
+
+    The rest is read and discarded so the child never blocks on a full pipe
+    and never makes the worker buffer unbounded output.
+    """
+    if stream is None:
+        return b""
+    kept = bytearray()
+    while chunk := await stream.read(64 * 1024):
+        if len(kept) < limit:
+            kept.extend(chunk[: limit - len(kept)])
+    return bytes(kept)
+
+
+class _ProbeResultTooLargeError(Exception):
+    """The probe wrote a result file larger than the host reads."""
+
+
+def _read_probe_result(result_path: Path) -> object | None:
+    """Read the probe's result file, refusing one larger than the cap.
+
+    Raises:
+        _ProbeResultTooLargeError: If the file exceeds the cap.
+    """
+    try:
+        if result_path.stat().st_size > DIRECT_PROBE_RESULT_LIMIT_BYTES:
+            raise _ProbeResultTooLargeError
+        return orjson.loads(result_path.read_bytes())
+    except (OSError, orjson.JSONDecodeError):
+        return None
 
 
 async def _execute_probe_without_nsjail(
@@ -320,27 +527,26 @@ async def _execute_probe_without_nsjail(
     *,
     timeout_seconds: int,
 ) -> SandboxResult:
-    """Run the probe with best-effort PID isolation for the direct backend.
+    """Run the probe with best-effort isolation for the direct backend.
 
     Mirrors ``UnsafePidExecutor``: ``unshare --pid --fork --kill-child`` when
     the host supports it, otherwise a plain subprocess in its own session so
-    the process tree can still be reaped on timeout. There is no filesystem,
-    network, or resource isolation on this path.
+    the process tree can still be reaped. The probe gets an allowlisted
+    environment, a private home, rlimits (applied by the probe script from
+    ``input.json``) and bounded output. There is no filesystem or network
+    isolation on this path.
     """
-    python_path = shutil.which("python3") or "python3"
-    cmd = [python_path, "probe.py"]
+    # The worker's own interpreter: a PATH lookup could pick another Python
+    # that cannot import the worker's site-packages.
+    cmd = [sys.executable, "probe.py"]
     if await pid_namespace_available():
         cmd = ["unshare", "--pid", "--fork", "--kill-child", *cmd]
 
-    exec_env = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": os.environ.get("HOME", "/tmp"),
-        "PYTHONPATH": str(_site_packages_dir()),
-    }
     process = await asyncio.create_subprocess_exec(
         *cmd,
         cwd=job_dir,
-        env=exec_env,
+        env=_direct_probe_env(job_dir),
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         start_new_session=True,
@@ -348,25 +554,37 @@ async def _execute_probe_without_nsjail(
     try:
         # The +10s buffer lets the probe script's internal timeout produce a
         # graceful result before the hard kill, matching the nsjail path.
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(),
-            timeout=timeout_seconds + 10,
-        )
+        async with asyncio.timeout(timeout_seconds + 10):
+            stdout_bytes, stderr_bytes, _ = await asyncio.gather(
+                _read_bounded(process.stdout, DIRECT_PROBE_OUTPUT_LIMIT_BYTES),
+                _read_bounded(process.stderr, DIRECT_PROBE_OUTPUT_LIMIT_BYTES),
+                process.wait(),
+            )
     except TimeoutError as exc:
         _kill_probe_process_tree(process)
         await process.wait()
         raise SandboxTimeoutError(
             f"Timed out after {timeout_seconds}s while probing stdio MCP server"
         ) from exc
+    finally:
+        # Reap MCP server processes that outlived the probe in this group.
+        _kill_probe_process_group(process)
 
     stdout = stdout_bytes.decode(errors="replace")
     stderr = stderr_bytes.decode(errors="replace")
     result_path = job_dir / "result.json"
     if result_path.exists():
         try:
-            result_data = orjson.loads(result_path.read_bytes())
-        except orjson.JSONDecodeError:
-            result_data = None
+            result_data = _read_probe_result(result_path)
+        except _ProbeResultTooLargeError:
+            return SandboxResult(
+                success=False,
+                error=(
+                    "Stdio MCP server's tool list exceeded the "
+                    f"{DIRECT_PROBE_RESULT_LIMIT_BYTES // (1024 * 1024)} MiB limit"
+                ),
+                exit_code=process.returncode,
+            )
         if isinstance(result_data, dict):
             return SandboxResult(
                 success=result_data.get("success", False),
@@ -407,12 +625,16 @@ async def probe_stdio_mcp_tools_in_sandbox(
     """
     timeout_seconds = timeout
     hard_timeout_seconds = timeout_seconds + MCP_STDIO_PROBE_HARD_TIMEOUT_BUFFER
-    payload = {
+    payload: dict[str, Any] = {
         "command": command,
         "args": args or [],
         "env": env or {},
         "timeout": timeout_seconds,
     }
+    uses_nsjail = config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail
+    if not uses_nsjail:
+        # nsjail applies these itself; the direct probe applies them in-process.
+        payload["rlimits"] = _direct_probe_rlimits(timeout_seconds)
 
     try:
         with tempfile.TemporaryDirectory(prefix="mcp-stdio-probe-") as temp_dir:
@@ -421,9 +643,12 @@ async def probe_stdio_mcp_tools_in_sandbox(
                 textwrap.dedent(_SANDBOX_PROBE_SCRIPT).lstrip(),
                 encoding="utf-8",
             )
+            if not uses_nsjail:
+                # Run the server from a private directory, not the shared /tmp.
+                payload["cwd"] = str(job_dir / "home")
             (job_dir / "input.json").write_bytes(orjson.dumps(payload))
 
-            if config.AUTOSECOPS__EXECUTOR_BACKEND.uses_nsjail:
+            if uses_nsjail:
                 probe_limits = AgentResourceLimits(
                     memory_mb=min(1024, config.AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB)
                 )
@@ -446,8 +671,8 @@ async def probe_stdio_mcp_tools_in_sandbox(
                 )
             else:
                 logger.warning(
-                    "Running stdio MCP probe without nsjail; "
-                    "applying best-effort PID isolation only"
+                    "Running stdio MCP probe without nsjail; applying "
+                    "best-effort PID isolation and resource limits only"
                 )
                 result = await _execute_probe_without_nsjail(
                     job_dir,
