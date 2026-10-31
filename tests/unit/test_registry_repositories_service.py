@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.db.models import RegistryRepository
-from autosecops.exceptions import RegistryNotFound, ScopeDeniedError
+from autosecops.exceptions import RegistryError, RegistryNotFound, ScopeDeniedError
 from autosecops.registry.actions.types import RepositorySyncOutcome
 from autosecops.registry.repositories.schemas import RegistryRepositorySync
 from autosecops.registry.repositories.service import RegistryReposService
@@ -210,7 +210,7 @@ async def test_temporal_git_sync_skips_api_ssh_context(
 
 
 @pytest.mark.anyio
-async def test_direct_git_sync_preserves_api_ssh_context(
+async def test_api_side_git_sync_is_refused_before_fetching_keys(
     role_with_update_scope: Role,
     mocker,
     monkeypatch: pytest.MonkeyPatch,
@@ -259,13 +259,17 @@ async def test_direct_git_sync_preserves_api_ssh_context(
         mocker.AsyncMock(return_value=repository),
     )
 
-    result = await service.sync_repository(repository)
-
-    assert result.commit_sha == "b" * 40
-    ssh_context.assert_called_once()
-    actions_service.sync_actions_from_repository.assert_awaited_once_with(
-        repository,
-        target_commit_sha=None,
-        git_repo_package_name="registry",
-        ssh_env=ssh_env,
+    repository.current_version_id = uuid.uuid4()
+    versions_service = mocker.patch(
+        "autosecops.registry.repositories.service.RegistryVersionsService"
     )
+
+    # The API never imports repository code, so it never sets up an agent,
+    # and a force sync does not delete the current version first.
+    with pytest.raises(RegistryError, match="sync only on the executor"):
+        await service.sync_repository(repository, RegistryRepositorySync(force=True))
+
+    ssh_context.assert_not_called()
+    versions_service.assert_not_called()
+    actions_service.sync_actions_from_repository.assert_not_awaited()
+    assert ssh_env.ssh_agent_pid == "123"

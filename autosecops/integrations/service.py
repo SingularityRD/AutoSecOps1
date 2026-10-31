@@ -13,6 +13,7 @@ from typing import Any, TypedDict, cast
 from urllib.parse import urlparse, urlunparse
 from uuid import uuid4
 
+import httpx
 import orjson
 import sqlalchemy as sa
 from authlib.integrations.base_client.errors import OAuthError
@@ -21,7 +22,7 @@ from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from pydantic import SecretStr
 from slugify import slugify
 from sqlalchemy import and_, delete, or_, select, update
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from temporalio.client import WorkflowExecutionStatus, WorkflowFailureError
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.exceptions import TerminatedError
@@ -45,6 +46,7 @@ from autosecops.db.engine import (
     get_async_session_bypass_rls_context_manager,
     get_async_session_context_manager,
 )
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import (
     AgentPreset,
     AgentPresetVersionSkill,
@@ -57,7 +59,7 @@ from autosecops.db.models import (
     WorkspaceOAuthProvider,
 )
 from autosecops.dsl.client import get_temporal_client
-from autosecops.exceptions import AutoSecOpsValidationError
+from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationError
 from autosecops.identifiers import UserID
 from autosecops.integrations.catalog.loader import (
     get_platform_mcp_catalog_entries,
@@ -141,6 +143,7 @@ from autosecops.integrations.types import (
     OAuthServerMetadata,
     TokenResponse,
 )
+from autosecops.network import DisallowedUrlError
 from autosecops.sanitization import sanitize_urls_in_text
 from autosecops.secrets.encryption import decrypt_value, encrypt_value, is_set
 from autosecops.service import BaseWorkspaceService
@@ -188,6 +191,10 @@ class InsecureOAuthEndpointError(ValueError):
 
 class ProviderConfigurationRequiredError(ValueError):
     """Raised when an OAuth provider must be configured before connection."""
+
+
+class IntegrationConflictError(AutoSecOpsConflictError):
+    """Raised when a concurrent write already created the integration resource."""
 
 
 class OAuthRefreshBusyError(RuntimeError):
@@ -264,6 +271,22 @@ class IntegrationService(BaseWorkspaceService):
     """Service for managing user integrations."""
 
     service_name = "integrations"
+
+    async def _commit_integration(self) -> None:
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            if not is_unique_violation(
+                exc,
+                "uq_oauth_integration_workspace_provider_user_flow",
+                "uq_oauth_provider_workspace_provider_grant_type",
+                "uq_mcp_integration_workspace_slug",
+            ):
+                raise
+            raise IntegrationConflictError(
+                "Integration resource already exists"
+            ) from exc
 
     @staticmethod
     def _escape_like_pattern(value: str) -> str:
@@ -407,6 +430,7 @@ class IntegrationService(BaseWorkspaceService):
                     if previous is not None
                     else False,
                     status="available",
+                    input_schema=discovered.input_schema,
                 )
             )
             discovered_names.add(discovered.name)
@@ -575,7 +599,7 @@ class IntegrationService(BaseWorkspaceService):
         )
 
         self.session.add(provider)
-        await self.session.commit()
+        await self._commit_integration()
         await self.session.refresh(provider)
 
         await self.store_provider_config(
@@ -1057,10 +1081,32 @@ class IntegrationService(BaseWorkspaceService):
             subject=f"mcp_integration:{mcp_integration.id if mcp_integration else ''}",
         )
 
+    @staticmethod
+    async def _send_mcp_oauth_request(
+        url: str, *, json_body: dict[str, Any] | None = None
+    ) -> httpx.Response:
+        """GET a discovery URL, or POST a registration body, through the guard.
+
+        The URL shape is checked here; the outbound client (or tunnel gateway)
+        decides which addresses are reachable when it connects, so DNS cannot
+        change between the check and the connection.
+        """
+        validate_oauth_endpoint(url, allow_private_hosts=True)
+        try:
+            async with create_mcp_oauth_http_client() as client:
+                if json_body is None:
+                    return await client.get(url, timeout=10.0)
+                return await client.post(
+                    url,
+                    json=json_body,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10.0,
+                )
+        except DisallowedUrlError as exc:
+            raise ValueError("OAuth endpoint host is not allowed") from exc
+
     async def _fetch_oauth_json(self, url: str) -> OAuthServerMetadata | None:
-        await self._validate_mcp_oauth_endpoint_reachable(url)
-        async with create_mcp_oauth_http_client() as client:
-            response = await client.get(url, timeout=10.0)
+        response = await self._send_mcp_oauth_request(url)
         if response.status_code == 404:
             return None
         response.raise_for_status()
@@ -1202,14 +1248,9 @@ class IntegrationService(BaseWorkspaceService):
             requested_scopes=requested_scopes,
         )
 
-        await self._validate_mcp_oauth_endpoint_reachable(registration_endpoint)
-        async with create_mcp_oauth_http_client() as client:
-            response = await client.post(
-                registration_endpoint,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=10.0,
-            )
+        response = await self._send_mcp_oauth_request(
+            registration_endpoint, json_body=payload
+        )
         response.raise_for_status()
         try:
             registration_response = DCRResponse.model_validate(response.json())
@@ -2128,7 +2169,7 @@ class IntegrationService(BaseWorkspaceService):
             integration.token_endpoint_auth_method = token_endpoint_auth_method
 
             self.session.add(integration)
-            await self.session.commit()
+            await self._commit_integration()
             await self.session.refresh(integration)
 
             self.logger.info(
@@ -2169,7 +2210,7 @@ class IntegrationService(BaseWorkspaceService):
             )
 
             self.session.add(integration)
-            await self.session.commit()
+            await self._commit_integration()
             await self.session.refresh(integration)
 
             self.logger.info(
@@ -2631,7 +2672,7 @@ class IntegrationService(BaseWorkspaceService):
                 )
 
             self.session.add(integration)
-            await self.session.commit()
+            await self._commit_integration()
             await self.session.refresh(integration)
 
             self.logger.info(
@@ -2677,7 +2718,7 @@ class IntegrationService(BaseWorkspaceService):
             )
 
             self.session.add(integration)
-            await self.session.commit()
+            await self._commit_integration()
             await self.session.refresh(integration)
 
             self.logger.info(
@@ -2866,7 +2907,7 @@ class IntegrationService(BaseWorkspaceService):
                 oauth_integration_id=integration.id,
             )
             self.session.add(mcp_integration)
-            await self.session.commit()
+            await self._commit_integration()
             await self.session.refresh(mcp_integration)
 
             self.logger.info(
@@ -3317,7 +3358,7 @@ class IntegrationService(BaseWorkspaceService):
         )
 
         self.session.add(mcp_integration)
-        await self.session.commit()
+        await self._commit_integration()
         await self.session.refresh(mcp_integration)
 
         self.logger.info(
@@ -4962,7 +5003,7 @@ class IntegrationService(BaseWorkspaceService):
             mcp_integration.tools = [tool.model_dump() for tool in merged_tools]
 
         self.session.add(mcp_integration)
-        await self.session.commit()
+        await self._commit_integration()
         await self.session.refresh(mcp_integration)
 
         if stdio_connection_changed and verify_connection:

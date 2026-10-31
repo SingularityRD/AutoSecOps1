@@ -12,8 +12,10 @@ data:
   LOG_LEVEL: {{ $a.logLevel | quote }}
   AUTOSECOPS__APP_ENV: {{ $a.appEnv | quote }}
   AUTOSECOPS__LOG_FORMAT: {{ $a.logFormat | quote }}
+  AUTOSECOPS__DB_ENCRYPTION_ALGORITHM: {{ $a.dbEncryptionAlgorithm | quote }}
   AUTOSECOPS__FEATURE_FLAGS: {{ $a.featureFlags | quote }}
   AUTOSECOPS__EE_MULTI_TENANT: {{ $a.eeMultiTenant | toString | quote }}
+  AUTOSECOPS__RLS_MODE: {{ $a.rlsMode | quote }}
   AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: {{ $a.agentSandboxTimeout | toString | quote }}
   AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED: {{ $a.contextCompression.enabled | toString | quote }}
   AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB: {{ $a.contextCompression.thresholdKb | toString | quote }}
@@ -51,6 +53,7 @@ data:
   AUTOSECOPS__DB_PORT: {{ .Values.externalPostgres.port | toString | quote }}
   AUTOSECOPS__DB_NAME: {{ .Values.externalPostgres.database | quote }}
   AUTOSECOPS__DB_SSLMODE: {{ .Values.externalPostgres.sslMode | quote }}
+  AUTOSECOPS__DB_RUNTIME_USER: {{ .Values.externalPostgres.auth.runtimeUsername | quote }}
   AUTOSECOPS__DB_POOL_SIZE: {{ $a.db.poolSize | toString | quote }}
   AUTOSECOPS__DB_MAX_OVERFLOW: {{ $a.db.maxOverflow | toString | quote }}
   AUTOSECOPS__DB_POOL_TIMEOUT: {{ $a.db.poolTimeout | toString | quote }}
@@ -65,6 +68,7 @@ data:
   TEMPORAL__CLUSTER_URL: {{ .Values.externalTemporal.clusterUrl | quote }}
   TEMPORAL__CLUSTER_NAMESPACE: {{ .Values.externalTemporal.namespace | quote }}
   TEMPORAL__CLUSTER_QUEUE: {{ .Values.externalTemporal.taskQueue | quote }}
+  AUTOSECOPS__BACKGROUND_QUEUE: {{ .Values.backgroundWorker.queue | quote }}
   TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED: {{ $a.temporal.payloadEncryption.enabled | toString | quote }}
   TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN: {{ $a.temporal.payloadEncryption.keyringArn | quote }}
   TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS: {{ $a.temporal.payloadEncryption.cacheTtlSeconds | toString | quote }}

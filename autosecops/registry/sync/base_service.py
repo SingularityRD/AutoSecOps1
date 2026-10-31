@@ -25,6 +25,7 @@ from autosecops.registry.actions.schemas import (
 )
 from autosecops.registry.artifact_keys import get_artifact_s3_key
 from autosecops.registry.constants import (
+    API_SIDE_CUSTOM_SYNC_REFUSED,
     DEFAULT_LOCAL_REGISTRY_ORIGIN,
     DEFAULT_REGISTRY_ORIGIN,
     REGISTRY_GIT_SSH_KEY_SECRET_NAME,
@@ -391,6 +392,7 @@ class BaseRegistrySyncService[
                 prebuilt_manifest = None
 
         if actions is None:
+            self._refuse_repository_code_here(origin_type)
             org_id = self.role.organization_id if isinstance(self.role, Role) else None
             sync_result = await fetch_actions_from_subprocess(
                 origin=origin,
@@ -629,6 +631,21 @@ class BaseRegistrySyncService[
 
         now = datetime.now(UTC)
         return now.strftime("%Y.%m.%d.%H%M%S")
+
+    def _refuse_repository_code_here(
+        self, origin_type: Literal["builtin", "local", "git"]
+    ) -> None:
+        """Refuse to import a custom repository's code in this process.
+
+        Only the executor runs repository code; this API-side path holds
+        credentials and serves other tenants. The builtin registry is
+        platform code.
+
+        Args:
+            origin_type: The repository's origin type.
+        """
+        if origin_type != "builtin":
+            raise self._sync_error_cls()(API_SIDE_CUSTOM_SYNC_REFUSED)
 
     def _get_origin_type(self, origin: str) -> Literal["builtin", "local", "git"]:
         if origin == DEFAULT_REGISTRY_ORIGIN:

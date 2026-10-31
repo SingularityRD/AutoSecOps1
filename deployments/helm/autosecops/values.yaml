@@ -59,10 +59,17 @@ autosecops:
   logLevel: INFO
   # -- `json` or `console`.
   logFormat: json
+  # -- Cipher for new encrypted database writes: `fernet` or `aes256gcm`.
+  # Reads accept both. Retired keys go in the core Secret's
+  # `dbEncryptionPreviousKeys` key during a rotation.
+  dbEncryptionAlgorithm: fernet
   # -- Comma-separated feature flags. Flags never grant paid entitlements.
   featureFlags: ""
   # -- Enable multi-tenant enterprise mode.
   eeMultiTenant: false
+  # -- Tenant row-level security mode: `enforce`, `shadow` or `off`. `enforce`
+  # isolates tenants only when `externalPostgres.auth.runtimePassword` is set.
+  rlsMode: enforce
 
   auth:
     # -- Comma-separated auth types: `basic`, `oidc`, `saml`.
@@ -107,6 +114,9 @@ autosecops:
   auditTrustedProxyCidrs: ""
   # -- Break-glass recovery for a platform admin IP allowlist lockout.
   platformAdminIpAllowlistBypass: false
+  # -- Break-glass recovery that skips security key (MFA) checks for platform
+  # admins who lost every key. Remove after recovery.
+  platformAdminMfaBypass: false
 
   contextCompression:
     enabled: false
@@ -221,6 +231,8 @@ secrets:
   userAuthSecret: ""
   # Optional keys. Empty values are left out of the chart-created Secret.
   licenseKey: ""
+  # -- Comma-separated retired DB encryption keys, read-only during rotation.
+  dbEncryptionPreviousKeys: ""
   oidcClientId: ""
   oidcClientSecret: ""
   oauthClientId: ""
@@ -249,6 +261,15 @@ externalPostgres:
     existingSecret: ""
     usernameKey: username
     passwordKey: password
+    # -- Non-owner login role the backend services connect as, so tenant
+    # row-level security applies to them. The migrations Job creates it as
+    # NOSUPERUSER NOBYPASSRLS with DML grants, using the owner credentials above.
+    runtimeUsername: autosecops_app
+    # -- Password of `runtimeUsername` (generate: openssl rand -hex 24). Empty
+    # keeps every service on the owner role, which bypasses row-level security.
+    runtimePassword: ""
+    # -- Key holding the runtime password in the Secret (chart-managed or `existingSecret`).
+    runtimePasswordKey: runtime-password
   tls:
     # -- PEM CA bundle for `verify-ca` / `verify-full`. Mounted into every
     # backend pod and exported as `PGSSLROOTCERT`.
@@ -446,6 +467,48 @@ worker:
     enabled: false
     minReplicas: 2
     maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: null
+  serviceAccount:
+    create: false
+    name: ""
+    annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 120
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+backgroundWorker:
+  # -- Runs durable Git sync operations and other background tasks. Git sync
+  # operations stay queued until this worker is running.
+  enabled: true
+  replicaCount: 1
+  # -- Temporal task queue shared by the API and the background worker.
+  queue: shared-background-queue
+  # -- Concurrent background activities per worker
+  # (`AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES`).
+  maxConcurrentActivities: 4
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: null
   podDisruptionBudget:

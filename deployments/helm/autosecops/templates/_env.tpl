@@ -21,6 +21,8 @@ holds the Secret references and per-service settings.
 {{- $pg := include "autosecops.postgresSecretName" . -}}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_USER" "secret" $pg "key" .Values.externalPostgres.auth.usernameKey) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_PASS" "secret" $pg "key" .Values.externalPostgres.auth.passwordKey) }}
+{{- /* Optional: a Secret without the key keeps the services on the owner role. */}}
+{{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_RUNTIME_PASSWORD" "secret" $pg "key" .Values.externalPostgres.auth.runtimePasswordKey "optional" true) }}
 {{- end }}
 
 {{/*
@@ -36,6 +38,7 @@ api. Expects dict root, component.
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__SERVICE_KEY" "secret" $core "key" "serviceKey") }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__SIGNING_SECRET" "secret" $core "key" "signingSecret") }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__LICENSE_KEY" "secret" $core "key" "licenseKey" "optional" true) }}
+{{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS" "secret" $core "key" "dbEncryptionPreviousKeys" "optional" true) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__OUTBOUND_PROXY_URL" "secret" $core "key" "outboundProxyUrl" "optional" true) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "SENTRY_DSN" "secret" $core "key" "sentryDsn" "optional" true) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "OTEL_EXPORTER_OTLP_HEADERS" "secret" $core "key" "otelExporterOtlpHeaders" "optional" true) }}

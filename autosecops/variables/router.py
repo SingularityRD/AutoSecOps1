@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from autosecops.auth.dependencies import WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_unique_violation
 from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.identifiers import VariableID
 from autosecops.logger import logger
@@ -103,6 +104,11 @@ async def create_variable(
     try:
         variable = await service.create_variable(params)
     except IntegrityError as exc:
+        if not is_unique_violation(
+            exc,
+            "uq_workspace_variable_name_environment_workspace_id",
+        ):
+            raise
         logger.error("Variable integrity error", error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -130,6 +136,11 @@ async def update_variable_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail="Variable does not exist"
         ) from exc
     except IntegrityError as exc:
+        if not is_unique_violation(
+            exc,
+            "uq_workspace_variable_name_environment_workspace_id",
+        ):
+            raise
         logger.info("Variable already exists", variable_id=variable_id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Variable already exists"

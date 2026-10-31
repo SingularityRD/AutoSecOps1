@@ -8,8 +8,8 @@ from typing import Any, Literal, Protocol
 import boto3
 from botocore.exceptions import ClientError
 from loguru import logger
-from sqlalchemy import event
-from sqlalchemy.engine import Result
+from sqlalchemy import event, text
+from sqlalchemy.engine import Result, make_url
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.sql.selectable import TypedReturnsRows
@@ -23,6 +23,10 @@ from autosecops.db import (
 from autosecops.db.exceptions import (
     AuthPoolExhaustedError,
     DatabasePoolAcquisitionOrderError,
+)
+from autosecops.db.locks import (
+    hold_pg_advisory_xact_lock,
+    require_lock_holder_on_commit,
 )
 from autosecops.db.rls import set_rls_context, set_rls_context_from_role
 
@@ -45,6 +49,7 @@ _ctx_auth_pool_session: ContextVar[AsyncSession | None] = ContextVar(
     "auth_pool_session",
     default=None,
 )
+_owner_connection_warned = False
 
 
 class SupportsExecute(Protocol):
@@ -169,7 +174,59 @@ def get_connection_string(
     return base
 
 
-def _get_db_uri(driver: Literal["psycopg", "asyncpg"] = "psycopg") -> str:
+def runtime_role_configured() -> bool:
+    """Whether services connect as the non-owner runtime role."""
+    return config.AUTOSECOPS__DB_RUNTIME_PASSWORD is not None
+
+
+def _with_runtime_role_credentials(uri: str) -> str:
+    """Swap the owner credentials in ``uri`` for the runtime role's.
+
+    The host, port, database and TLS options stay those of the owner URI, so
+    every way of configuring the owner connection also locates the database for
+    the runtime role.
+    """
+    url = make_url(uri).set(
+        username=config.AUTOSECOPS__DB_RUNTIME_USER,
+        password=config.AUTOSECOPS__DB_RUNTIME_PASSWORD,
+    )
+    return url.render_as_string(hide_password=False)
+
+
+def _warn_once_if_owner_connection() -> None:
+    """Log once per process when tenant RLS cannot bind the service role."""
+    global _owner_connection_warned
+    if _owner_connection_warned or runtime_role_configured():
+        return
+    _owner_connection_warned = True
+    logger.warning(
+        "AUTOSECOPS__DB_RUNTIME_PASSWORD is not set, so this service connects as"
+        " the database owner. PostgreSQL exempts table owners from row-level"
+        " security, so tenant RLS isolation is inactive. Set"
+        " AUTOSECOPS__DB_RUNTIME_PASSWORD and rerun migrations to enable it.",
+        rls_mode=config.AUTOSECOPS__RLS_MODE.value,
+    )
+
+
+def _get_db_uri(
+    driver: Literal["psycopg", "asyncpg"] = "psycopg",
+    *,
+    as_owner: bool = False,
+) -> str:
+    """Resolve the database URI for this process.
+
+    Args:
+        driver: SQLAlchemy driver to render into the URI.
+        as_owner: Return the owner (migration) credentials even when runtime
+            role credentials are configured.
+    """
+    uri = _get_owner_db_uri(driver)
+    if as_owner or not runtime_role_configured():
+        return uri
+    return _with_runtime_role_credentials(uri)
+
+
+def _get_owner_db_uri(driver: Literal["psycopg", "asyncpg"]) -> str:
     # Check if AWS environment
     if config.AUTOSECOPS__DB_PASS__ARN:
         logger.info("Retrieving database password from AWS Secrets Manager...")
@@ -281,12 +338,12 @@ def _get_db_uri(driver: Literal["psycopg", "asyncpg"] = "psycopg") -> str:
         uri = config.AUTOSECOPS__DB_URI
         if driver == "asyncpg":
             uri = uri.replace("psycopg", "asyncpg")
-    logger.trace("Using database URI", uri=uri)
     return uri
 
 
 def _create_async_db_engine() -> AsyncEngine:
     # Postgres as default
+    _warn_once_if_owner_connection()
     uri = _get_db_uri(driver="asyncpg")
     engine = create_async_engine(
         uri,
@@ -296,6 +353,9 @@ def _create_async_db_engine() -> AsyncEngine:
         pool_timeout=config.AUTOSECOPS__DB_POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_use_lifo=True,  # Better for burst workloads
+        # Keep statement parameters (encrypted secrets, tokens, user input) out
+        # of exception messages, logs and error reports.
+        hide_parameters=True,
         # Attribute pooled connections to the originating service in
         # pg_stat_activity.
         connect_args={
@@ -323,6 +383,9 @@ def _create_async_auth_db_engine() -> AsyncEngine:
         pool_timeout=config.AUTOSECOPS__DB_POOL_TIMEOUT,
         pool_pre_ping=True,
         pool_use_lifo=True,  # Better for burst workloads
+        # Keep statement parameters (encrypted secrets, tokens, user input) out
+        # of exception messages, logs and error reports.
+        hide_parameters=True,
         connect_args={
             "server_settings": {
                 "application_name": f"{config.AUTOSECOPS__SERVICE_NAME}-auth"
@@ -436,6 +499,30 @@ def get_async_session_context_manager() -> contextlib.AbstractAsyncContextManage
     return contextlib.asynccontextmanager(get_async_session)()
 
 
+@contextlib.asynccontextmanager
+async def get_serialized_session(lock_key: int) -> AsyncGenerator[AsyncSession, None]:
+    """Start a tenant-scoped serializable snapshot only after acquiring the lock.
+
+    Uses two main-pool connections: one holds the lock, one runs the snapshot.
+    """
+    if not (-(2**63) <= lock_key < 2**63):
+        raise ValueError(
+            f"Lock key {lock_key} out of range for PostgreSQL advisory locks"
+        )
+    _assert_main_pool_checkout_allowed()
+    engine = get_async_engine()
+    # The lock lives on its own connection so the snapshot transaction begins
+    # after the previous holder committed, and may commit more than once.
+    async with hold_pg_advisory_xact_lock(engine, lock_key) as holder:
+        assert holder is not None
+        async with engine.connect() as connection:
+            await connection.execution_options(isolation_level="SERIALIZABLE")
+            async with AsyncSession(connection, expire_on_commit=False) as session:
+                require_lock_holder_on_commit(session, holder, lock_key)
+                await _initialize_session_rls_context(session)
+                yield session
+
+
 def get_async_session_bypass_rls_context_manager() -> (
     contextlib.AbstractAsyncContextManager[AsyncSession]
 ):
@@ -451,3 +538,39 @@ def get_async_session_auth_context_manager() -> contextlib.AbstractAsyncContextM
 ]:
     """Get a context manager for a short authentication bulkhead session."""
     return contextlib.asynccontextmanager(get_async_session_auth)()
+
+
+async def log_rls_posture() -> bool:
+    """Log whether tenant RLS isolates this service's sessions.
+
+    Isolation needs `enforce` mode and a connection role that PostgreSQL
+    subjects to row-level security: not a superuser, not BYPASSRLS, and not the
+    owner role that migrations run as.
+
+    Returns:
+        True when tenant RLS isolation is active.
+    """
+    async with get_async_session_bypass_rls_context_manager() as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT current_user, rolsuper, rolbypassrls"
+                    " FROM pg_roles WHERE rolname = current_user"
+                )
+            )
+        ).one()
+    db_role, is_superuser, bypasses_rls = row
+    active = (
+        config.AUTOSECOPS__RLS_MODE == config.RLSMode.ENFORCE
+        and runtime_role_configured()
+        and not is_superuser
+        and not bypasses_rls
+    )
+    log = logger.info if active else logger.warning
+    log(
+        "RLS posture",
+        rls_mode=config.AUTOSECOPS__RLS_MODE.value,
+        db_role=db_role,
+        rls_isolation_active=active,
+    )
+    return active

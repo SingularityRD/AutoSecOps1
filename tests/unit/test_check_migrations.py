@@ -415,13 +415,16 @@ def test_real_audited_rewrites_are_exact_whole_line_pairs() -> None:
         "b4e8f2a6c1d9",
         "8c0e18190001",
         "d9107f689ccf",
+        "3e54217aadda",
+        "e2018a1b2c3d",
     }
-    # 9680c861644a also carries the rebrand of its two pgvector hint URLs.
-    expected_pairs = {"9680c861644a": 4}
+    # 9680c861644a also carries the rebrand of its two pgvector hint URLs, and
+    # the IBM Cloud extension schema rewrites touch three more of its blocks.
+    expected_pairs = {"9680c861644a": 7, "3e54217aadda": 4, "e2018a1b2c3d": 6}
     for revision, rewrites in AUDITED_REWRITES.items():
         assert len(rewrites) == expected_pairs.get(revision, 2)
         assert all(old.endswith(b"\n") and new.endswith(b"\n") for old, new in rewrites)
-    hint_rewrites = AUDITED_REWRITES["9680c861644a"][2:]
+    hint_rewrites = AUDITED_REWRITES["9680c861644a"][2:4]
     for old, new in hint_rewrites:
         assert old.replace(b"docs.tracecat.com", b"docs.singularityrd.com") == new
 

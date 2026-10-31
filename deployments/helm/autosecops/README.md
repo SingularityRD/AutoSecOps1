@@ -60,7 +60,7 @@ secrets:
 externalPostgres:
   host: postgres.example.internal
   auth:
-    existingSecret: autosecops-postgres-credentials   # username, password
+    existingSecret: autosecops-postgres-credentials   # username, password, runtime-password
 externalRedis:
   auth:
     existingSecret: autosecops-redis-credentials      # url
@@ -97,7 +97,7 @@ Every credential supports either a chart-created Secret (values) or an
 | Values | Secret created by the chart | Keys |
 | :----- | :-------------------------- | :--- |
 | `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, `temporalPayloadEncryptionKeyring` |
-| `externalPostgres.auth` | `<fullname>-postgres-credentials` | `username`, `password` |
+| `externalPostgres.auth` | `<fullname>-postgres-credentials` | `username`, `password`, optional `runtime-password` |
 | `externalRedis.auth` | `<fullname>-redis-credentials` | `url` |
 | `externalS3.auth` | `<fullname>-s3-credentials` | `accessKeyId`, `secretAccessKey` |
 | `externalTemporal.auth` | `<fullname>-temporal-credentials` | `apiKey` |
@@ -107,6 +107,20 @@ With the release name `autosecops`, `<fullname>` is `autosecops`. Each service
 receives only the secrets its Fargate task definition receives:
 `USER_AUTH_SECRET` reaches `api` and `mcp`, SSO and SMTP secrets reach `api`,
 and `ui` receives only the service key.
+
+## Database roles and tenant isolation
+
+The migrations Job connects with `externalPostgres.auth.username`, which must
+own the schema. After `alembic upgrade head` it creates
+`externalPostgres.auth.runtimeUsername` (default `autosecops_app`) as a
+`NOSUPERUSER NOBYPASSRLS` login role, sets its password from
+`runtimePassword`, and grants it DML. Every other service connects as that
+role, so the tenant row-level security policies apply and
+`autosecops.rlsMode: enforce` isolates tenants. The owner role needs
+`CREATEROLE`; otherwise create the role yourself and grant it to the owner.
+
+Without a runtime password the services connect as the owner, which
+PostgreSQL exempts from row-level security, and log a warning.
 
 When migrations run as hooks, chart-created Secrets are hooks too, so they
 exist before the migrations Job. Helm keeps hook resources on

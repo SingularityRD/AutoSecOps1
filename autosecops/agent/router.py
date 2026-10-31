@@ -16,6 +16,7 @@ from autosecops.auth.dependencies import OrgUserRole, WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.exceptions import AutoSecOpsNotFoundError
+from autosecops.logger import logger
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 workspace_router = APIRouter(prefix="/agent", tags=["agent"])
@@ -102,9 +103,10 @@ async def create_provider_credentials(
         await service.create_provider_credentials(params)
         return {"message": f"Credentials for {params.provider} created successfully"}
     except Exception as e:
+        logger.exception("Failed to create provider credentials")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to create credentials: {str(e)}",
+            detail="Failed to create credentials",
         ) from e
 
 
@@ -128,9 +130,10 @@ async def update_provider_credentials(
             detail=f"Credentials for provider {provider} not found",
         ) from e
     except Exception as e:
+        logger.exception("Failed to update provider credentials")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to update credentials: {str(e)}",
+            detail="Failed to update credentials",
         ) from e
 
 

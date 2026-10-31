@@ -138,6 +138,7 @@ async def resolve_outbound_addresses(
     host: str, port: int
 ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
     """Resolve a host and reject the whole result if any address is prohibited."""
+    _check_port(port)
     if "%" in host:
         raise OutboundRequestDenied("Scoped addresses are not allowed")
     try:
@@ -162,6 +163,7 @@ def resolve_outbound_addresses_sync(
     host: str, port: int
 ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
     """Blocking variant of ``resolve_outbound_addresses`` for sync HTTP stacks."""
+    _check_port(port)
     if "%" in host:
         raise OutboundRequestDenied("Scoped addresses are not allowed")
     try:
@@ -180,6 +182,16 @@ def resolve_outbound_addresses_sync(
         addresses = [literal]
     _check_outbound_addresses(addresses)
     return addresses
+
+
+def _check_port(port: int) -> None:
+    """Reject ports outside the TCP range.
+
+    HTTPX accepts any integer port, and resolvers differ on whether they reject
+    one out of range (uvloop does not), so check it before resolving.
+    """
+    if not 0 < port <= 65535:
+        raise OutboundRequestDenied("Port is out of range")
 
 
 def _check_outbound_addresses(
