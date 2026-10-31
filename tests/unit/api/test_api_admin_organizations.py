@@ -18,6 +18,7 @@ from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.service import InvitationTokenUnrecoverableError
 from autosecops.pagination import CursorPaginatedResponse
 
 
@@ -293,6 +294,33 @@ async def test_get_organization_invitation_token_allowed_without_multi_tenant(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"token": "raw-token"}
+
+
+@pytest.mark.anyio
+async def test_get_organization_invitation_token_unrecoverable_returns_409(
+    client: TestClient,
+    test_admin_role: Role,
+) -> None:
+    org_id = uuid.uuid4()
+    invitation_id = uuid.uuid4()
+
+    with patch.object(organizations_router, "AdminOrgService") as MockService:
+        mock_svc = AsyncMock()
+        mock_svc.get_organization_invitation_token.side_effect = (
+            InvitationTokenUnrecoverableError(invitation_id)
+        )
+        MockService.return_value = mock_svc
+
+        response = client.get(
+            f"/admin/organizations/{org_id}/invitations/{invitation_id}/token"
+        )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    detail = response.json()["detail"]
+    assert "cannot be recovered" in detail
+    assert "invite the user again" in detail
+    # The internal error must not leak the row ID or ciphertext details.
+    assert str(invitation_id) not in detail
 
 
 @pytest.mark.anyio
