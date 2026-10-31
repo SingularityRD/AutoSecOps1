@@ -303,7 +303,7 @@ Temporal persists workflow and agent inputs and outputs for the life of an execu
 - AutoSecOps masks secret values as `***` in action results, and masking runs before it persists the result, so history holds the masked form.
 - Large triggers and action results move to object storage automatically. Workflow state keeps a scoped reference, which bounds how much data one run pushes through durable history.
 
-Two limits apply. Masking is literal substring replacement, so it misses an encoded or otherwise transformed copy of a secret. Payload encryption is a deployment setting (`TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED`): new installs from `env.sh`, the Helm chart, and the Fargate Terraform turn it on, while installs that predate that default keep storing payloads in plaintext until you [turn it on](/self-hosting/updating#temporal-payload-encryption). With encryption on, a service refuses to start without a usable keyring rather than falling back to plaintext.
+Two limits apply. Masking is literal substring replacement, so it misses an encoded or otherwise transformed copy of a secret. Payload encryption is a deployment setting (`TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED`): new installs from `env.sh`, the Helm chart, and the Fargate Terraform turn it on. For installs that predate that default, an upgrade behaves differently per platform; see [Updating](/self-hosting/updating#temporal-payload-encryption). With encryption on, a service refuses to start without a usable keyring rather than falling back to plaintext.
 
 ### Encryption keys
 

@@ -118,7 +118,7 @@ New installs turn it on by default:
 | [Kubernetes](/self-hosting/kubernetes#secrets-management) | `autosecops.temporal.payloadEncryption.enabled` is `true`. Put the keyring in the core Secret's `temporalPayloadEncryptionKeyring` key, or set `keyringArn`. The chart refuses to render without one and never generates or rotates it. |
 | [AWS Fargate](/self-hosting/aws-fargate) | `temporal_payload_encryption_enabled` is `true`. Terraform generates a keyring in Secrets Manager unless you pass `temporal_payload_encryption_keyring_arn`. |
 
-Existing installs keep their current setting when they upgrade. See [Updating](/self-hosting/updating#temporal-payload-encryption) to turn it on.
+What an upgrade does to an existing install depends on the platform: Docker Compose keeps storing payloads in plaintext, a Helm upgrade refuses to render until you add a keyring or set `enabled: false`, and Fargate turns encryption on over two `terraform apply` runs. See [Updating](/self-hosting/updating#temporal-payload-encryption) for each platform and for how to turn encryption on safely.
 
 #### Keyring format
 
@@ -140,13 +140,14 @@ AutoSecOps derives a separate AES-256-GCM key per workspace from the root secret
 
 #### Startup checks
 
-The API checks the setting at startup, and the workers check it before they connect to Temporal. With encryption enabled, a service refuses to start when neither `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` nor `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN` is set, when the keyring is not valid JSON or its `current_key_id` is missing from `keys`, or when it cannot fetch the keyring from Secrets Manager. The error names the setting to fix and never prints key material. AutoSecOps never falls back to plaintext. With encryption disabled, each service logs a warning that payloads are stored in plaintext.
+The API and MCP server check the setting at startup, and the workers check it before they connect to Temporal. With encryption enabled, a service refuses to start when neither `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` nor `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN` is set, when the keyring is not valid JSON or its `current_key_id` is missing from `keys`, or when it cannot fetch the keyring from Secrets Manager. The error names the setting to fix and never prints key material. AutoSecOps never falls back to plaintext. With encryption disabled, each service logs a warning that payloads are stored in plaintext.
 
 #### Plaintext and encrypted history
 
 AutoSecOps always decodes both formats, whatever the setting:
 
 - Payloads written before you turned encryption on stay plaintext and remain readable. A workflow that started in plaintext continues and replays after you enable encryption; only new payloads are encrypted.
+- Decoding uses the keyring whenever one is configured, even with encryption off. That is what makes a two-step rollout safe: give every service the keyring first, then turn encryption on.
 - Turning encryption off again stops encrypting new payloads, but reading existing encrypted history still needs the keyring. Keep the keyring configured until that history expires.
 
 #### Rotate the keyring
