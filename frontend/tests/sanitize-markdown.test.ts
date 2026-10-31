@@ -1,4 +1,7 @@
-import { getStreamdownRehypePlugins } from "@/lib/sanitize-markdown"
+import {
+  getStreamdownRehypePlugins,
+  stripStylesOutsideKatex,
+} from "@/lib/sanitize-markdown"
 
 type HastNode = {
   type: string
@@ -13,7 +16,10 @@ type HastNode = {
 
 describe("getStreamdownRehypePlugins", () => {
   function getStyleStripTransform() {
-    const [styleStripPlugin] = getStreamdownRehypePlugins()
+    const styleStripPlugin = getStreamdownRehypePlugins().find(
+      (plugin) => plugin === stripStylesOutsideKatex
+    )
+    expect(styleStripPlugin).toBeDefined()
     return (styleStripPlugin as () => (tree: HastNode) => void)()
   }
 

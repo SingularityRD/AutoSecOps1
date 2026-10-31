@@ -1,4 +1,8 @@
+import { harden } from "rehype-harden"
+import rehypeKatex from "rehype-katex"
+import rehypeRaw from "rehype-raw"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
+import type { StreamdownProps } from "streamdown"
 
 const KATEX_TAG_NAMES = [
   "annotation",
@@ -285,7 +289,8 @@ function stripStylesOutsideKatexSubtree(
   }
 }
 
-function stripStylesOutsideKatex() {
+/** Rehype plugin that drops inline styles outside trusted KaTeX output. */
+export function stripStylesOutsideKatex() {
   return (tree: HastNode) => {
     stripStylesOutsideKatexSubtree(tree, false)
   }
@@ -336,15 +341,81 @@ const sanitizeSchema = {
   },
 }
 
-export const ALLOWED_MARKDOWN_LINK_PREFIXES = ["*"]
+/** Rehype plugin list in the shape Streamdown accepts. */
+export type StreamdownRehypePlugins = NonNullable<
+  StreamdownProps["rehypePlugins"]
+>
 
-export const ALLOWED_MARKDOWN_IMAGE_PREFIXES = ["*"]
+/**
+ * Which link and image URLs rendered markdown may keep.
+ *
+ * The lists govern `http(s)` URLs, including relative ones resolved against
+ * `DEFAULT_MARKDOWN_ORIGIN`: a prefix is an absolute URL (matched by origin,
+ * then by string prefix), and `"*"` allows any `http(s)` URL. The sanitizer
+ * that runs first already limits links to `http(s)`, `mailto`, `irc(s)` and
+ * `xmpp` and images to `http(s)`. `javascript:`, `data:`, `file:` and
+ * `vbscript:` are always blocked, and `data:` images are never allowed.
+ */
+export interface MarkdownUrlPolicy {
+  allowedLinkPrefixes: readonly string[]
+  allowedImagePrefixes: readonly string[]
+}
+
+export const ALLOWED_MARKDOWN_LINK_PREFIXES: readonly string[] = ["*"]
+
+export const ALLOWED_MARKDOWN_IMAGE_PREFIXES: readonly string[] = ["*"]
 
 // Used to resolve path-relative markdown URLs during URL hardening.
 export const DEFAULT_MARKDOWN_ORIGIN = "https://autosecops.local"
 
-export function getStreamdownRehypePlugins() {
-  // Streamdown prepends rehype-katex before user plugins.
-  // Strip inline styles outside KaTeX output, then sanitize with a KaTeX-aware schema.
-  return [stripStylesOutsideKatex, [rehypeSanitize, sanitizeSchema]]
+/** URL policy for chat and agent output. */
+export const CHAT_MARKDOWN_URL_POLICY: MarkdownUrlPolicy = {
+  allowedLinkPrefixes: ALLOWED_MARKDOWN_LINK_PREFIXES,
+  allowedImagePrefixes: ALLOWED_MARKDOWN_IMAGE_PREFIXES,
+}
+
+// The same options Streamdown 1.3 gave rehype-katex.
+const KATEX_OPTIONS = { errorColor: "var(--color-muted-foreground)" }
+
+/**
+ * Options for `rehype-harden`, the URL hardening Streamdown 1.6 runs as a
+ * rehype plugin instead of taking `allowed*Prefixes` props.
+ *
+ * Streamdown's own default enables every protocol and `data:` images, so this
+ * pins both off: only the built-in safe schemes pass.
+ */
+export function getMarkdownHardenOptions(policy: MarkdownUrlPolicy) {
+  return {
+    defaultOrigin: DEFAULT_MARKDOWN_ORIGIN,
+    allowedLinkPrefixes: [...policy.allowedLinkPrefixes],
+    allowedImagePrefixes: [...policy.allowedImagePrefixes],
+    allowDataImages: false,
+    allowedProtocols: [],
+  }
+}
+
+/**
+ * Rehype plugins for every hardened Streamdown call site.
+ *
+ * Passing `rehypePlugins` replaces Streamdown's defaults (raw HTML, KaTeX,
+ * its own sanitizer and a permissive `rehype-harden`), so this list rebuilds
+ * the whole pipeline:
+ *
+ * 1. `rehype-raw` and `rehype-katex`, as Streamdown 1.3 prepended them.
+ * 2. Strip inline styles outside KaTeX output, then sanitize with a
+ *    KaTeX-aware schema (only `http(s)`, `mailto`, `irc(s)` and `xmpp` links
+ *    and `http(s)` images survive).
+ * 3. `rehype-harden` with the given URL policy. It is the only harden step,
+ *    so Streamdown's permissive default never runs alongside it.
+ */
+export function getStreamdownRehypePlugins(
+  policy: MarkdownUrlPolicy = CHAT_MARKDOWN_URL_POLICY
+): StreamdownRehypePlugins {
+  return [
+    rehypeRaw,
+    [rehypeKatex, KATEX_OPTIONS],
+    stripStylesOutsideKatex,
+    [rehypeSanitize, sanitizeSchema],
+    [harden, getMarkdownHardenOptions(policy)],
+  ]
 }

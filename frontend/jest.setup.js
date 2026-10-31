@@ -61,19 +61,19 @@ jest.mock("nanoid", () => ({
   nanoid: () => "test-id",
 }))
 
-// Mock react-markdown
-jest.mock("react-markdown", () => ({
-  __esModule: true,
-  default: ({ children }) => children,
-}))
-
 // Mock streamdown
 jest.mock("streamdown", () => ({
   Streamdown: ({ children }) => children,
+  defaultRehypePlugins: {},
+  defaultRemarkPlugins: {},
 }))
 
-// Mock rehype-katex and rehype-sanitize (ESM-only) for Jest
+// Mock rehype-katex, rehype-raw and rehype-sanitize (ESM-only) for Jest
 jest.mock("rehype-katex", () => {
+  const plugin = () => (tree) => tree
+  return plugin
+})
+jest.mock("rehype-raw", () => {
   const plugin = () => (tree) => tree
   return plugin
 })
