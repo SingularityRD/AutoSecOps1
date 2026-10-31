@@ -7,7 +7,19 @@ import pytest
 from fastmcp import FastMCP
 from starlette.testclient import TestClient
 
+from autosecops import config
 from autosecops.mcp import __main__ as mcp_main
+from autosecops.temporal.codec import reset_temporal_payload_secret_cache
+
+
+@pytest.fixture(autouse=True)
+def _plaintext_payloads(  # pyright: ignore[reportUnusedFunction]
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", False)
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING", None)
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN", None)
+    reset_temporal_payload_secret_cache()
 
 
 def _stateless_replica_app():
@@ -132,3 +144,34 @@ def test_main_stops_on_keyboard_interrupt(monkeypatch: pytest.MonkeyPatch) -> No
     mcp_main.main()
 
     assert len(attempts) == 1
+
+
+def test_main_exits_without_retry_when_payload_encryption_has_no_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts: list[int] = []
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(mcp_main, "_run_mcp_server", lambda: attempts.append(1))
+    monkeypatch.setattr(mcp_main, "AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS", 3)
+
+    with pytest.raises(SystemExit, match="1"):
+        mcp_main.main()
+
+    assert attempts == []
+
+
+def test_main_starts_when_payload_encryption_has_a_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts: list[int] = []
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        '{"current_key_id": "v1", "keys": {"v1": "' + "a" * 64 + '"}}',
+    )
+    monkeypatch.setattr(mcp_main, "_run_mcp_server", lambda: attempts.append(1))
+
+    mcp_main.main()
+
+    assert attempts == [1]

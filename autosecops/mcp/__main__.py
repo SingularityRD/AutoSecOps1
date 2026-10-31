@@ -6,6 +6,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import sys
 import time
@@ -34,8 +35,28 @@ def _run_mcp_server() -> None:
     )
 
 
+def _check_temporal_payload_encryption() -> None:
+    """Exit when payload encryption is enabled without a usable keyring.
+
+    The MCP server only reaches Temporal on its first tool call, so without
+    this check a missing keyring or IAM permission would start a healthy
+    server whose tools all fail. A configuration error is not retried.
+    """
+    from autosecops.temporal.codec import (
+        TemporalPayloadEncryptionConfigError,
+        ensure_temporal_payload_encryption_ready,
+    )
+
+    try:
+        asyncio.run(ensure_temporal_payload_encryption_ready())
+    except TemporalPayloadEncryptionConfigError as e:
+        logger.error("MCP server cannot start", error=str(e))
+        raise SystemExit(1) from None
+
+
 def main() -> None:
     """Start the MCP server with bounded startup retries."""
+    _check_temporal_payload_encryption()
     max_attempts = max(AUTOSECOPS_MCP__STARTUP_MAX_ATTEMPTS, 1)
     for attempt in range(1, max_attempts + 1):
         try:
