@@ -60,15 +60,14 @@ def test_import_and_reload_falls_back_when_loader_missing(
         importlib.invalidate_caches()
         return sentinel
 
-    monkeypatch.setitem(sys.modules, module_name, dummy)
-    monkeypatch.setattr(
-        "autosecops.registry.repository.importlib.import_module", fake_import
-    )
-
     def boom(_: ModuleType) -> ModuleType:  # pragma: no cover - should not run
         raise AssertionError("reload should not have been called")
 
-    monkeypatch.setattr("autosecops.registry.repository.importlib.reload", boom)
+    # Patch through the module object: resolving a dotted string target
+    # imports modules, which would run into the patched `import_module`.
+    monkeypatch.setitem(sys.modules, module_name, dummy)
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    monkeypatch.setattr(importlib, "reload", boom)
 
     try:
         result = import_and_reload(module_name)

@@ -132,7 +132,8 @@ def pagination_signing_secret(monkeypatch: pytest.MonkeyPatch) -> None:
 class TestCursorPaginator:
     """Test the base cursor paginator functionality."""
 
-    def test_encode_decode_cursor(self, session: AsyncSession):
+    @pytest.mark.anyio
+    async def test_encode_decode_cursor(self, session: AsyncSession):
         """Test cursor encoding and decoding."""
         paginator = BaseCursorPaginator(session)
         timestamp = datetime.now(UTC)
@@ -152,7 +153,8 @@ class TestCursorPaginator:
         assert decoded.sort_value == timestamp
         assert decoded.id == entity_id
 
-    def test_decode_invalid_cursor(self, session: AsyncSession):
+    @pytest.mark.anyio
+    async def test_decode_invalid_cursor(self, session: AsyncSession):
         """Test decoding invalid cursors."""
         paginator = BaseCursorPaginator(session)
 
@@ -172,7 +174,8 @@ class TestCursorPaginator:
         with pytest.raises(ValueError, match="Invalid cursor format"):
             paginator.decode_cursor(incomplete_data)
 
-    def test_decode_invalid_cursor_is_a_client_error(self, session: AsyncSession):
+    @pytest.mark.anyio
+    async def test_decode_invalid_cursor_is_a_client_error(self, session: AsyncSession):
         """Malformed cursors map to a 4xx through the AutoSecOps handler."""
         paginator = BaseCursorPaginator(session)
 
@@ -180,7 +183,8 @@ class TestCursorPaginator:
             paginator.decode_cursor("null")
         assert isinstance(exc_info.value, ValueError)
 
-    def test_cursor_roundtrip_with_microseconds(self, session: AsyncSession):
+    @pytest.mark.anyio
+    async def test_cursor_roundtrip_with_microseconds(self, session: AsyncSession):
         """Test that cursor encoding preserves microsecond precision."""
         paginator = BaseCursorPaginator(session)
         # Create timestamp with microseconds
