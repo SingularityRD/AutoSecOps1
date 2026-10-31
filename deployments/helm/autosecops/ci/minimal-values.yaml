@@ -6,6 +6,7 @@ secrets:
   serviceKey: placeholder-service-key
   signingSecret: placeholder-signing-secret
   userAuthSecret: placeholder-user-auth-secret
+  temporalPayloadEncryptionKeyring: '{"current_key_id":"v1","keys":{"v1":"placeholder-temporal-payload-root-secret"}}'
 externalPostgres:
   host: postgres.example.internal
   auth:

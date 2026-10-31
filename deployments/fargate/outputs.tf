@@ -196,3 +196,13 @@ output "core_db_sg_id" {
   description = "The ID of the core database security group"
   value       = module.ecs.core_db_sg_id
 }
+
+output "temporal_payload_encryption_keyring_arn" {
+  description = "ARN of the Secrets Manager secret holding the Temporal payload encryption keyring. Back it up with the other platform secrets; rotate it in place."
+  value       = module.ecs.temporal_payload_encryption_keyring_arn
+}
+
+output "temporal_payload_encryption_active" {
+  description = "Whether the services encrypt Temporal payloads after this apply. False with temporal_payload_encryption_enabled = true means the keyring is still rolling out: wait until the ECS services are stable, then run terraform apply again."
+  value       = module.ecs.temporal_payload_encryption_active
+}

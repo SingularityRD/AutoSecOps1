@@ -306,11 +306,11 @@ Temporal persists workflow and agent inputs and outputs for the life of an execu
 - AutoSecOps masks secret values as `***` in action results, and masking runs before it persists the result, so history holds the masked form.
 - Large triggers and action results move to object storage automatically. Workflow state keeps a scoped reference, which bounds how much data one run pushes through durable history.
 
-Two limits apply. Masking is literal substring replacement, so it misses an encoded or otherwise transformed copy of a secret. Payload encryption is a deployment setting (`TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED`) that ships off by default — enable it wherever Temporal history can hold sensitive data.
+Two limits apply. Masking is literal substring replacement, so it misses an encoded or otherwise transformed copy of a secret. Payload encryption is a deployment setting (`TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED`): new installs from `env.sh`, the Helm chart, and the Fargate Terraform turn it on. For installs that predate that default, an upgrade behaves differently per platform; see [Updating](/self-hosting/updating#temporal-payload-encryption). With encryption on, a service refuses to start without a usable keyring rather than falling back to plaintext.
 
 ### Encryption keys
 
-AutoSecOps generates no key material of its own. You provision two things and supply them to the deployment: `AUTOSECOPS__DB_ENCRYPTION_KEY`, the key behind credential encryption, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING`, the keyring behind workflow history encryption.
+The running services generate no key material of their own. Two keys protect data at rest, and you supply both to the deployment: `AUTOSECOPS__DB_ENCRYPTION_KEY`, the key behind credential encryption, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING`, the keyring behind workflow history encryption. The install tooling can create them for you: `env.sh` generates both into `.env`, and the Fargate Terraform generates the keyring in Secrets Manager. The Helm chart never generates keys, because a value generated at render time would change on the next upgrade.
 
 Store both in the secret manager your platform already provides, and keep them out of application configuration and version control. On Kubernetes, the recommended production deployment, use a Kubernetes Secret synced from your own secret manager by External Secrets Operator rather than one created by hand.
 

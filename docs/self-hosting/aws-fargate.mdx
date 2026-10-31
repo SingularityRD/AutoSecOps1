@@ -148,6 +148,27 @@ terraform apply
 
 The services connect to RDS as the non-owner `autosecops_app` role, so tenant row-level security applies to them. Terraform generates its password into Secrets Manager, and the API task's migrations container creates the role as the RDS master user before the API starts. `rls_mode` defaults to `enforce`. On the first apply after upgrading, worker tasks that start before the API migrations finish fail to authenticate and ECS restarts them. See [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation) to verify isolation.
 
+## Temporal payload encryption
+
+`temporal_payload_encryption_enabled` defaults to `true`, so the services encrypt workflow inputs, results, and failures before they reach the Temporal database. Unless you pass `temporal_payload_encryption_keyring_arn`, the services use a keyring Terraform generates in Secrets Manager with a random key ID and root secret, and Terraform grants the API, worker, executor, and MCP task roles `secretsmanager:GetSecretValue` on it. The `temporal_payload_encryption_keyring_arn` output names the secret; back it up with the other platform secrets.
+
+Terraform generates the root secret once and keeps it in state, so later applies never rotate it. The state then holds the root secret, as it already holds the database passwords, so keep the state backend encrypted and access-controlled. To rotate, edit the secret in Secrets Manager as described in [Rotate the keyring](/self-hosting/security#rotate-the-keyring); Terraform ignores changes to its value.
+
+Terraform keeps the generated keyring while `temporal_payload_encryption_generate_keyring` is `true` (the default), whatever you set for `temporal_payload_encryption_enabled` or `temporal_payload_encryption_keyring_arn`, so existing encrypted history stays readable. To retire it after moving to your own `temporal_payload_encryption_keyring_arn`, copy its keys into your keyring, then set `temporal_payload_encryption_generate_keyring = false`. Terraform then deletes the secret with a 30-day recovery window. Do not turn generation back on to recover it: Terraform would create a different keyring, and history encrypted under the old one stays unreadable. Restore the deleted secret in Secrets Manager instead.
+
+### How encryption turns on
+
+ECS replaces the services one at a time, so during an apply old and new tasks run side by side. A task without the keyring cannot decode a payload that an upgraded task encrypted, and the Temporal SDK fails that activity attempt. Many AutoSecOps activities run with a single attempt, so the workflow fails with it. Terraform therefore turns encryption on in two steps:
+
+1. On a new stack, every task starts with the keyring, so encryption is on from the first apply.
+2. On an existing stack, the first apply gives every service the keyring with encryption still off, and records the rollout in the SSM parameter path `/<name_prefix>/autosecops/temporal-payload-keyring-rollout`. The `temporal_payload_encryption_active` output is `false`. Wait until the services are stable (`aws ecs wait services-stable`), then run `terraform apply` again: the rollout marker is present, encryption turns on, and the output reads `true`.
+
+Pointing the stack at a different keyring ARN starts the two steps again. If your stack already encrypted payloads with your own `temporal_payload_encryption_keyring_arn` before you upgraded, set `temporal_payload_encryption_assume_keyring_rolled_out = true` so the first apply keeps encryption on.
+
+Terraform detects an existing stack by listing ECS clusters and reads the rollout marker from SSM Parameter Store, so the identity that runs Terraform needs `ecs:ListClusters`, `ssm:GetParametersByPath`, and permission to manage that SSM parameter.
+
+To keep an existing stack storing payloads in plaintext, set `temporal_payload_encryption_enabled = false`. See [Updating](/self-hosting/updating#temporal-payload-encryption).
+
 ## Temporal DB SSL enforcement
 
 For the bundled Fargate `temporalio/auto-setup` deployment, `temporal_db_force_ssl` defaults to `false`:

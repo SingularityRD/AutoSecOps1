@@ -25,11 +25,14 @@ from autosecops.temporal.codec import (
     EncryptionPayloadCodec,
     TemporalEncryptionKeyring,
     TemporalPayloadCodecError,
+    TemporalPayloadEncryptionConfigError,
     TemporalPayloadKeyring,
     decode_payloads,
+    ensure_temporal_payload_encryption_ready,
     get_payload_codec,
     reset_temporal_payload_codec_cache,
     reset_temporal_payload_secret_cache,
+    validate_temporal_payload_encryption_config,
 )
 
 WORKSPACE_ID = uuid.uuid4()
@@ -879,3 +882,256 @@ async def test_decode_payloads_handles_compressed_then_encrypted_when_both_disab
     result = await decode_payloads(encoded)
     assert result[0].data == large_data
     assert result[0].metadata.get("encoding") == b"json/plain"
+
+
+# --- Mixed histories and rotation ---
+
+
+async def _encrypt_as_workspace(
+    codec: EncryptionPayloadCodec, payload: Payload
+) -> Payload:
+    token = _set_workspace_role()
+    try:
+        return (await codec.encode([payload]))[0]
+    finally:
+        ctx_role.reset(token)
+
+
+@pytest.mark.anyio
+async def test_decode_payloads_handles_mixed_plaintext_and_rotated_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One history can hold plaintext, old-key, and new-key payloads.
+
+    This is the shape of a workflow that started before encryption was turned
+    on and kept running across a key rotation: replay must decode all of them.
+    """
+    keys = {"v1": "unit-test-root-key-v1", "v2": "unit-test-root-key-v2"}
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        _keyring_json(current_key_id="v1", keys=keys),
+    )
+    plaintext = Payload(metadata={"encoding": b"json/plain"}, data=b'{"n":0}')
+    null = Payload(metadata={"encoding": b"binary/null"}, data=b"")
+    encrypted_v1 = await _encrypt_as_workspace(
+        EncryptionPayloadCodec(enabled=True),
+        Payload(metadata={"encoding": b"json/plain"}, data=b'{"n":1}'),
+    )
+
+    reset_temporal_payload_secret_cache()
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        _keyring_json(current_key_id="v2", keys=keys),
+    )
+    encrypted_v2 = await _encrypt_as_workspace(
+        EncryptionPayloadCodec(enabled=True),
+        Payload(metadata={"encoding": b"json/plain"}, data=b'{"n":2}'),
+    )
+    assert encrypted_v1.metadata["autosecops_key_id"] == b"v1"
+    assert encrypted_v2.metadata["autosecops_key_id"] == b"v2"
+
+    decoded = await decode_payloads([plaintext, encrypted_v1, null, encrypted_v2])
+
+    assert [p.data for p in decoded] == [b'{"n":0}', b'{"n":1}', b"", b'{"n":2}']
+    assert all(
+        p.metadata["encoding"] in {b"json/plain", b"binary/null"} for p in decoded
+    )
+
+
+@pytest.mark.anyio
+async def test_plaintext_payloads_decode_without_any_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy plaintext never needs a keyring lookup, enabled or not."""
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    payload = Payload(metadata={"encoding": b"json/plain"}, data=b'{"legacy":1}')
+
+    decoded = await EncryptionPayloadCodec(enabled=True).decode([payload])
+
+    assert decoded[0] == payload
+
+
+@pytest.mark.anyio
+async def test_retiring_a_key_too_early_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dropping a key that history still references makes those payloads fail.
+
+    Rotation must keep retired keys until no retained history uses them.
+    """
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        _keyring_json(current_key_id="v1", keys={"v1": "unit-test-root-key-v1"}),
+    )
+    encrypted_v1 = await _encrypt_as_workspace(
+        EncryptionPayloadCodec(enabled=True),
+        Payload(metadata={"encoding": b"json/plain"}, data=b'{"old":true}'),
+    )
+
+    reset_temporal_payload_secret_cache()
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        _keyring_json(current_key_id="v2", keys={"v2": "unit-test-root-key-v2"}),
+    )
+
+    with pytest.raises(TemporalPayloadCodecError):
+        await decode_payloads([encrypted_v1])
+
+
+@pytest.mark.anyio
+async def test_same_key_id_with_different_secret_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reusing a key id for a new secret cannot silently decrypt old payloads."""
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        _keyring_json(keys={"v1": "unit-test-root-key-original"}),
+    )
+    encrypted = await _encrypt_as_workspace(
+        EncryptionPayloadCodec(enabled=True),
+        Payload(metadata={"encoding": b"json/plain"}, data=b"{}"),
+    )
+
+    reset_temporal_payload_secret_cache()
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
+        _keyring_json(keys={"v1": "unit-test-root-key-replaced"}),
+    )
+
+    with pytest.raises(TemporalPayloadCodecError):
+        await decode_payloads([encrypted])
+
+
+# --- Startup validation ---
+
+
+def test_validate_config_is_a_noop_when_disabled() -> None:
+    validate_temporal_payload_encryption_config()
+
+
+def test_validate_config_fails_when_enabled_without_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+
+    with pytest.raises(TemporalPayloadEncryptionConfigError) as exc_info:
+        validate_temporal_payload_encryption_config()
+
+    message = str(exc_info.value)
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING" in message
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN" in message
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false" in message
+
+
+@pytest.mark.parametrize(
+    "keyring",
+    [
+        "not json",
+        '{"current_key_id": "v2", "keys": {"v1": "do-not-echo-this-secret"}}',
+        '{"current_key_id": "v1", "keys": {"v1": ""}}',
+        '{"current_key_id": "v1", "keys": {}}',
+        "change-me-temporal-payload-keyring",
+    ],
+)
+def test_validate_config_rejects_malformed_keyring_without_echoing_it(
+    monkeypatch: pytest.MonkeyPatch, keyring: str
+) -> None:
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING", keyring)
+
+    with pytest.raises(TemporalPayloadEncryptionConfigError) as exc_info:
+        validate_temporal_payload_encryption_config()
+
+    message = str(exc_info.value)
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING is not a valid keyring" in message
+    assert "do-not-echo-this-secret" not in message
+    assert exc_info.value.__cause__ is None
+
+
+def test_validate_config_accepts_a_valid_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_encryption(monkeypatch)
+    validate_temporal_payload_encryption_config()
+
+
+@pytest.mark.anyio
+async def test_ensure_ready_loads_the_inline_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_encryption(monkeypatch)
+    await ensure_temporal_payload_encryption_ready()
+
+
+@pytest.mark.anyio
+async def test_ensure_ready_is_a_noop_when_disabled_without_keyring() -> None:
+    """Existing installs without a keyring keep starting in plaintext mode."""
+    await ensure_temporal_payload_encryption_ready()
+
+
+@pytest.mark.anyio
+async def test_ensure_ready_fails_fast_when_arn_keyring_is_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:autosecops",
+    )
+
+    class SecretsManagerClient:
+        def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+            raise EndpointConnectionError(endpoint_url="https://secretsmanager")
+
+    class Session:
+        def client(self, *, service_name: str) -> SecretsManagerClient:
+            return SecretsManagerClient()
+
+    monkeypatch.setattr(temporal_codec.boto3.session, "Session", lambda: Session())
+
+    with pytest.raises(
+        TemporalPayloadEncryptionConfigError,
+        match="keyring could not be loaded",
+    ):
+        await ensure_temporal_payload_encryption_ready()
+
+
+@pytest.mark.anyio
+async def test_ensure_ready_does_not_echo_an_invalid_arn_keyring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", True)
+    monkeypatch.setattr(
+        config,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:autosecops",
+    )
+
+    class SecretsManagerClient:
+        def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+            return {
+                "SecretString": '{"current_key_id": "v9", '
+                '"keys": {"v1": "do-not-echo-this-secret"}}'
+            }
+
+    class Session:
+        def client(self, *, service_name: str) -> SecretsManagerClient:
+            return SecretsManagerClient()
+
+    monkeypatch.setattr(temporal_codec.boto3.session, "Session", lambda: Session())
+
+    with pytest.raises(TemporalPayloadEncryptionConfigError) as exc_info:
+        await ensure_temporal_payload_encryption_ready()
+
+    assert "current_key_id must be present in keys" in str(exc_info.value)
+    assert "do-not-echo-this-secret" not in str(exc_info.value)

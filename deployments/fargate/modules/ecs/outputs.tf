@@ -173,3 +173,13 @@ output "caddy_sg_id" {
   value       = aws_security_group.caddy.id
   description = "The ID of the caddy security group"
 }
+
+output "temporal_payload_encryption_keyring_arn" {
+  description = "ARN of the Secrets Manager secret holding the Temporal payload encryption keyring (generated or supplied)"
+  value       = local.temporal_payload_encryption_keyring_arn
+}
+
+output "temporal_payload_encryption_active" {
+  description = "Whether the services encrypt Temporal payloads after this apply. False with temporal_payload_encryption_enabled = true means the keyring is still rolling out: wait until the ECS services are stable, then run terraform apply again."
+  value       = local.temporal_payload_encryption_active
+}

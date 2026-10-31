@@ -33,6 +33,33 @@ dotenv_replace() {
     eval sed $sed_option "s$delimiter^${env_var_name}=.*$delimiter${env_var_name}=${new_value}$delimiter" $file_path
 }
 
+# Replace a whole `NAME=value` line without passing the value through sed or
+# eval, so values with quotes, braces, or `#` (such as a JSON keyring) stay
+# intact. Keeps the file's permissions.
+dotenv_replace_literal() {
+    local env_var_name=$1
+    local new_value=$2
+    local file_path=$3
+    local tmp_file
+    tmp_file=$(mktemp "${file_path}.XXXXXX")
+    ENV_NAME="$env_var_name" ENV_VALUE="$new_value" awk '
+        BEGIN { name = ENVIRON["ENV_NAME"]; value = ENVIRON["ENV_VALUE"] }
+        index($0, name "=") == 1 { print name "=" value; next }
+        { print }
+    ' "$file_path" > "$tmp_file" && cat "$tmp_file" > "$file_path"
+    rm -f "$tmp_file"
+}
+
+# Print a Temporal payload encryption keyring with one random 256-bit root
+# secret. Single-quoted so Docker Compose reads the JSON literally.
+generate_temporal_payload_keyring() {
+    local key_id=$1
+    local root_secret
+    root_secret=$(openssl rand -hex 32)
+    printf "'{\"current_key_id\":\"%s\",\"keys\":{\"%s\":\"%s\"}}'" \
+        "$key_id" "$key_id" "$root_secret"
+}
+
 # Placeholder values shipped in .env.example. A .env that still contains one of
 # these must never be deployed. `your-*` values are placeholders from older
 # releases of .env.example.
@@ -205,6 +232,10 @@ check_env_file() {
         if [ "$(dotenv_get "TEMPORAL__UI_VERSION" "$file_path")" = "latest" ]; then
             echo -e "${YELLOW}Warning: TEMPORAL__UI_VERSION=latest is not pinned. Set it to a specific Temporal UI release.${NC}"
         fi
+        if [ "$(dotenv_get "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED" "$file_path")" != "true" ]; then
+            echo -e "${YELLOW}Warning: TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED is not true, so workflow inputs and results are stored in plaintext in the Temporal database.${NC}"
+            echo -e "${YELLOW}Enable it: https://docs.singularityrd.com/self-hosting/security#temporal-payload-encryption${NC}"
+        fi
         if [ -z "$(dotenv_get "AUTOSECOPS__AUTH_ALLOWED_DOMAINS" "$file_path")" ]; then
             echo -e "${YELLOW}Note: AUTOSECOPS__AUTH_ALLOWED_DOMAINS is blank, so any email domain can sign up. Set it to your organization's domains.${NC}"
         fi
@@ -277,6 +308,9 @@ echo -e "${YELLOW}Generating a Fernet encryption key for the database...${NC}"
 # Use a cross-platform base64 command (works on both Linux and macOS)
 db_fernet_key=$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')
 
+echo -e "${YELLOW}Generating a Temporal payload encryption keyring...${NC}"
+temporal_payload_keyring=$(generate_temporal_payload_keyring "v1")
+
 echo -e "${YELLOW}Creating new .env from .env.example...${NC}"
 cp .env.example .env
 
@@ -285,6 +319,8 @@ dotenv_replace "AUTOSECOPS__SERVICE_KEY" "$service_key" "$env_file"
 dotenv_replace "AUTOSECOPS__SIGNING_SECRET" "$signing_secret" "$env_file"
 dotenv_replace "AUTOSECOPS__DB_ENCRYPTION_KEY" "$db_fernet_key" "$env_file"
 dotenv_replace "USER_AUTH_SECRET" "$user_auth_secret" "$env_file"
+dotenv_replace_literal "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING" "$temporal_payload_keyring" "$env_file"
+dotenv_replace "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED" "true" "$env_file"
 
 # Prompt user for environment mode
 while true; do

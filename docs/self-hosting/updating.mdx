@@ -35,7 +35,7 @@ SingularityRD supports the latest two minor release trains, each for 12 months a
 5. On a multi-tenant deployment, check that `AUTOSECOPS__LICENSE_KEY` is set on every service and grants `multi_tenant`. With `AUTOSECOPS__EE_MULTI_TENANT=true`, more than one organization, and no such license, the `api` service refuses to start. See [Multi-tenant deployments](/self-hosting/license#multi-tenant-deployments).
 
 <Warning>
-  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, and `USER_AUTH_SECRET` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable.
+  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, `USER_AUTH_SECRET`, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable, and a keyring missing a key makes the workflow history encrypted under it unreadable.
 </Warning>
 
 ## Docker Compose
@@ -315,6 +315,42 @@ Upgrade with `helm upgrade` and the new chart version. See [Upgrade the Helm cha
 ## Terraform deployments
 
 AWS Fargate deployments of AutoSecOps are configured using Terraform. Take manual RDS snapshots first, as described in [Backup and restore](/self-hosting/backup-restore#aws-fargate). Then extract the Terraform stack from the new image version, set the Terraform variable `autosecops_image_tag` to that version, and run `terraform apply`. See [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) for the full steps.
+
+## Temporal payload encryption
+
+New installs encrypt Temporal payloads by default (see [Temporal payload encryption](/self-hosting/security#temporal-payload-encryption)). An existing install behaves differently on the next upgrade depending on the platform:
+
+| Deployment | What happens on upgrade |
+| --- | --- |
+| Docker Compose | Nothing changes. An `.env` without `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED` keeps the `false` default, and `env-migration.sh` writes `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false` with an empty keyring. `./env.sh --check` warns about plaintext payloads in production mode. |
+| Kubernetes | `autosecops.temporal.payloadEncryption.enabled` now defaults to `true`. With chart-created secrets, `helm upgrade` fails with `no keyring is configured` until you choose, and nothing is deployed. With `secrets.existingSecret`, `helm upgrade` looks up the Secret and fails the same way, before the migration hook, when it lacks the `temporalPayloadEncryptionKeyring` key. `helm template` and GitOps renders cannot see the Secret, so with those, new pods wait in `CreateContainerConfigError` until the Secret has the key. Set `enabled: false` for this upgrade, then follow the steps below. |
+| AWS Fargate | `temporal_payload_encryption_enabled` now defaults to `true`. The next `terraform apply` generates a keyring and gives it to every service with encryption still off; the apply after that, once the services are stable, turns encryption on. See [How encryption turns on](/self-hosting/aws-fargate#how-encryption-turns-on). Set `temporal_payload_encryption_enabled = false` to stay on plaintext. |
+
+### Turn encryption on for an existing install
+
+Turn encryption on in two deployments, the same way you [rotate the keyring](/self-hosting/security#rotate-the-keyring). While a deployment rolls out, services on the old configuration run next to upgraded ones. If an upgraded service encrypted a payload that a service without the keyring then picks up, the Temporal SDK fails that activity attempt, and AutoSecOps runs many activities with a single attempt, so the workflow fails. Giving every service the keyring first avoids this, because decoding uses the keyring even while encryption is off.
+
+1. Generate a keyring and back it up with your other platform secrets:
+
+   ```bash
+   printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
+   ```
+
+2. Give every service the keyring, with encryption still off:
+   - Docker Compose: add `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING='<keyring>'` (single-quoted) to `.env`, keep `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false`, and run `docker compose up -d`.
+   - Kubernetes: add the `temporalPayloadEncryptionKeyring` key to the core Secret (or set `secrets.temporalPayloadEncryptionKeyring`) and `helm upgrade` with `autosecops.temporal.payloadEncryption.enabled=false`. With `secrets.existingSecret`, pods do not restart on a Secret change, so also run `kubectl rollout restart deployment -l app.kubernetes.io/instance=<release>`.
+   - Fargate: `terraform apply` does this step for you.
+
+   Wait until every API, worker, executor, agent, and MCP instance runs the new configuration.
+
+3. Turn encryption on and deploy again:
+   - Docker Compose: set `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true` and run `docker compose up -d`.
+   - Kubernetes: `helm upgrade` with `autosecops.temporal.payloadEncryption.enabled=true`.
+   - Fargate: run `terraform apply` again.
+
+   With encryption on, the API, MCP server, and workers refuse to start without a usable keyring, so a configuration mistake shows up at startup rather than as failed workflows.
+
+Workflow history written before the change stays plaintext and stays readable; running workflows continue and replay normally. To turn encryption off again, set it to `false` but keep the keyring configured until encrypted history expires.
 
 ## Update integrations
 
