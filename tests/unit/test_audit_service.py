@@ -45,6 +45,7 @@ from autosecops.audit.types import (
     AuditWebhookConfig,
 )
 from autosecops.auth import users as users_module
+from autosecops.auth.mfa.policy import SessionMfaState
 from autosecops.auth.types import PlatformRole, Role
 from autosecops.auth.users import UserManager
 from autosecops.authz.scopes import ADMIN_SCOPES
@@ -548,6 +549,7 @@ async def test_auth_success_audit_emits_to_platform_and_org_sinks(
             "resource_type": "auth",
             "action": "sign_in",
             "resource_id": user_id,
+            "status": AuditEventStatus.SUCCESS,
             "data": {"auth_method": "basic"},
             "include_actor_label": False,
         }
@@ -602,6 +604,7 @@ async def test_auth_success_audit_emits_superuser_auth_only_to_platform_sink(
         "resource_type": "auth",
         "action": "sign_in",
         "resource_id": user_id,
+        "status": AuditEventStatus.SUCCESS,
         "data": {"auth_method": "basic"},
         "include_actor_label": False,
     }
@@ -777,10 +780,16 @@ async def test_on_after_login_attributes_single_org_member_to_that_org(
         "single_organization_for_audit",
         AsyncMock(return_value=org_id),
     )
+    monkeypatch.setattr(
+        users_module,
+        "new_session_mfa_state",
+        AsyncMock(return_value=SessionMfaState.NOT_REQUIRED),
+    )
     manager = UserManager.__new__(UserManager)
     manager.logger = MagicMock()
     manager.user_db = MagicMock()
     manager.user_db.update = AsyncMock()
+    manager._user_db = manager.user_db
 
     await manager.on_after_login(user, request=None, response=None)
 
@@ -789,6 +798,69 @@ async def test_on_after_login_attributes_single_org_member_to_that_org(
         role = call["role"]
         assert isinstance(role, Role)
         assert role.organization_id == org_id
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("mfa_state", "side_effect", "expected_mfa_state"),
+    [
+        (SessionMfaState.CHALLENGE_REQUIRED, None, "challenge_required"),
+        (SessionMfaState.ENROLLMENT_REQUIRED, None, "enrollment_required"),
+        (None, RuntimeError("db down"), "unknown"),
+    ],
+)
+async def test_on_after_login_with_mfa_pending_is_an_attempt_not_a_success(
+    monkeypatch: pytest.MonkeyPatch,
+    mfa_state: SessionMfaState | None,
+    side_effect: Exception | None,
+    expected_mfa_state: str,
+) -> None:
+    """A password without the security key must not read as a sign-in."""
+    org_id = uuid.uuid4()
+    user = MagicMock()
+    user.id = uuid.uuid4()
+    user.is_superuser = False
+    calls: list[dict[str, Any]] = []
+
+    @asynccontextmanager
+    async def fake_with_session(
+        role: Role | PlatformRole | None = None,
+        *,
+        session=None,
+        audit_sink=None,
+    ):
+        class FakeAuditService:
+            async def create_event(self, **kwargs):
+                calls.append({"audit_sink": audit_sink, "kwargs": kwargs})
+
+        yield FakeAuditService()
+
+    monkeypatch.setattr(AuditService, "with_session", fake_with_session)
+    monkeypatch.setattr(
+        users_module,
+        "single_organization_for_audit",
+        AsyncMock(return_value=org_id),
+    )
+    monkeypatch.setattr(
+        users_module,
+        "new_session_mfa_state",
+        AsyncMock(return_value=mfa_state, side_effect=side_effect),
+    )
+    manager = UserManager.__new__(UserManager)
+    manager.logger = MagicMock()
+    manager.user_db = MagicMock()
+    manager.user_db.update = AsyncMock()
+    manager._user_db = manager.user_db
+
+    await manager.on_after_login(user, request=None, response=None)
+
+    assert [call["audit_sink"] for call in calls] == ["platform", "organization"]
+    for call in calls:
+        assert call["kwargs"]["status"] == AuditEventStatus.ATTEMPT
+        assert call["kwargs"]["data"] == {
+            "auth_method": "unknown",
+            "mfa_state": expected_mfa_state,
+        }
 
 
 @pytest.mark.anyio

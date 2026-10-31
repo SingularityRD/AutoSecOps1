@@ -60,7 +60,11 @@ from autosecops.auth.ip_allowlist_enforcement import (
     current_client_ip,
     is_ip_allowed_for_org,
 )
-from autosecops.auth.mfa.policy import get_session_mfa_state
+from autosecops.auth.mfa.policy import (
+    SessionMfaState,
+    get_session_mfa_state,
+    new_session_mfa_state,
+)
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
 from autosecops.auth.types import CredentialRevocation, PlatformRole, Role
@@ -250,7 +254,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     async def _audit_organization_for_safe(self, user: User) -> OrganizationID | None:
         """:func:`single_organization_for_audit`, or the platform sink on error."""
-        return await _audit_organization_for_safe(user)
+        return await audit_organization_for_user(user)
 
     async def admin_update(
         self,
@@ -664,11 +668,27 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             audit_org_id := await self._audit_organization_for_safe(user)
         ) is not None:
             org_ids.add(audit_org_id)
+        # A session that still owes a security key is not signed in yet: the
+        # /auth/mfa routes record the sign-in once the key is verified.
+        mfa_state = await self._new_session_mfa_state(user)
         await self._emit_auth_success_audit(
             user=user,
             auth_method=self._auth_method_from_request(request),
             org_ids=org_ids,
+            mfa_state=mfa_state,
         )
+
+    async def _new_session_mfa_state(self, user: User) -> SessionMfaState | None:
+        """The MFA state of the session just created, or ``None`` if unknown."""
+        try:
+            return await new_session_mfa_state(self._user_db.session, user)
+        except Exception as exc:
+            self.logger.warning(
+                "Failed to resolve MFA state for sign-in audit",
+                user_id=str(user.id),
+                error_type=type(exc).__name__,
+            )
+            return None
 
     async def on_after_register(
         self, user: User, request: Request | None = None
@@ -786,6 +806,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         user: User,
         auth_method: str,
         org_ids: set[OrganizationID] | None = None,
+        mfa_state: SessionMfaState | None = SessionMfaState.NOT_REQUIRED,
     ) -> None:
         """Emit sanitized auth success events to the relevant audit sinks.
 
@@ -797,7 +818,17 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         context, since that would attribute a non-org-specific login (including
         platform-superuser sessions) into org-controlled audit sinks.
         A superuser sign-in always reaches the platform sink as well.
+
+        A session that still owes a security key (or whose MFA state could
+        not be read) is recorded as ``ATTEMPT`` with ``data.mfa_state``, not
+        ``SUCCESS``: a stolen password alone must not read as a sign-in.
         """
+        data: dict[str, AuditMetadataValue] = {"auth_method": auth_method}
+        if mfa_state is None or mfa_state.is_pending:
+            status = AuditEventStatus.ATTEMPT
+            data["mfa_state"] = mfa_state.value if mfa_state else "unknown"
+        else:
+            status = AuditEventStatus.SUCCESS
         if user.is_superuser or not org_ids:
             audit_role = PlatformRole(
                 type="user",
@@ -813,7 +844,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                         resource_type="auth",
                         action="sign_in",
                         resource_id=user.id,
-                        data={"auth_method": auth_method},
+                        status=status,
+                        data=data,
                         include_actor_label=False,
                     )
             except Exception as exc:
@@ -842,7 +874,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                             resource_type="auth",
                             action="sign_in",
                             resource_id=user.id,
-                            data={"auth_method": auth_method},
+                            status=status,
+                            data=data,
                             include_actor_label=False,
                         )
                 except Exception as exc:
@@ -1451,7 +1484,7 @@ async def single_organization_for_audit(user: User) -> OrganizationID | None:
     return org_ids[0] if len(org_ids) == 1 else None
 
 
-async def _audit_organization_for_safe(user: User) -> OrganizationID | None:
+async def audit_organization_for_user(user: User) -> OrganizationID | None:
     """:func:`single_organization_for_audit`, or the platform sink on error."""
     try:
         return await single_organization_for_audit(user)
@@ -1473,7 +1506,7 @@ async def _audit_sign_in_failure(
 ) -> None:
     """Audit a refused sign-in by a known account; never raises."""
     if organization_id is None:
-        organization_id = await _audit_organization_for_safe(user)
+        organization_id = await audit_organization_for_user(user)
     await emit_user_auth_event(
         user_id=user.id,
         resource_type="auth",

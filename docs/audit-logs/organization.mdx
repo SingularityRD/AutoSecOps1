@@ -57,7 +57,7 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 | `agent_preset` | `update` | An agent preset was updated or restored to an earlier version. |
 | `agent_session` | `delete` | An agent session and its history were deleted. |
 | `agent_session` | `update` | An agent session's title, preset, or MCP integrations changed. |
-| `auth` | `sign_in` | A user signed in (`SUCCESS`), or a sign-in was refused (`FAILURE`, with `data.failure_reason`). |
+| `auth` | `sign_in` | A user signed in (`SUCCESS`), started a sign-in that still needs a security key (`ATTEMPT`), or a sign-in was refused (`FAILURE`, with `data.failure_reason`). |
 | `auth` | `sign_out` | A user signed out. |
 | `case` | `create` | A case was created. |
 | `case` | `delete` | A case was deleted. |
@@ -149,7 +149,8 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 An organization-scoped sign-in emits `auth` `sign_in` to this sink and to the platform sink.
 A sign-in without organization context reaches this sink when the account is a member of this organization only; superusers and members of several organizations reach the platform sink only.
 Sign-out, password, and refused sign-in events for a known account follow the same rule, and never carry the password, token, or submitted email.
-`data.failure_reason` on a refused sign-in is one of `invalid_credentials`, `inactive_account`, `auth_policy`, or `ip_not_allowed`.
+`data.failure_reason` on a refused sign-in is one of `invalid_credentials`, `inactive_account`, `auth_policy`, `ip_not_allowed`, or `mfa_failed`.
+When the account must use a security key, the password, OIDC, or SAML step records `auth` `sign_in` with status `ATTEMPT` and `data.mfa_state` (`challenge_required`, `enrollment_required`, or `unknown`). The sign-in completes, as `SUCCESS` with `data.auth_method` `security_key` or `recovery_code`, only once the key or a recovery code verifies; a key or code that does not verify records `FAILURE` with `mfa_failed`. A password alone never records a successful sign-in.
 
 ## Event payload
 

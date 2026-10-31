@@ -62,6 +62,8 @@ class AuthAuditFailureReason(StrEnum):
     """The credential is past its expiry time."""
     INVALID_TOKEN = "invalid_token"
     """A one-time token, such as a password reset token, was invalid or used."""
+    MFA_FAILED = "mfa_failed"
+    """The password step passed but the security key or recovery code did not."""
 
 
 class CredentialOperation(StrEnum):
