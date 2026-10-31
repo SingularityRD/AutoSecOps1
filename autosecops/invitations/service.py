@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import ColumnElement, and_, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import NoResultFound
@@ -73,6 +74,20 @@ INVITATION_TTL = timedelta(days=7)
 RESEND_COOLDOWN: Final = timedelta(seconds=60)
 
 
+class InvitationTokenUnrecoverableError(Exception):
+    """The stored ciphertext of one invitation's token cannot be decrypted.
+
+    Raised for a corrupted ciphertext or one written under another
+    ``AUTOSECOPS__DB_ENCRYPTION_KEY``, for example after restoring another
+    environment's dump. It concerns that row alone: a missing or malformed key
+    affects every row and raises ``ValueError`` instead.
+    """
+
+    def __init__(self, invitation_id: uuid.UUID) -> None:
+        super().__init__(f"Cannot decrypt the token of invitation {invitation_id}")
+        self.invitation_id = invitation_id
+
+
 def _generate_token() -> str:
     return secrets.token_urlsafe(48)[:64]
 
@@ -82,9 +97,12 @@ def _generate_token() -> str:
 # ``invitation.token`` holds ``hash_bearer_token(raw)``, so database read access
 # does not yield a usable link. ``encrypted_token`` keeps the raw value under
 # the database encryption key for the email outbox and copy-link actions.
-# Rows the previous app version inserts during a rolling upgrade hold the raw
-# token with ``token_hashed`` false; they match by raw value only while that
-# flag is false, so a digest read from the database never works as a token.
+# Rows written before this release, or by the previous app version during a
+# rolling upgrade, hold the raw token with ``token_hashed`` false; this version
+# matches them by raw value only while that flag is false, so a digest read
+# from the database never works as a token here. A pre-hashing app version
+# still compares raw values, so do not run it against hashed rows: the
+# migration's downgrade revokes pending hashed invitations for that reason.
 
 
 def _issue_token() -> IssuedInvitationToken:
@@ -124,8 +142,8 @@ async def reveal_stored_invitation_token(
 ) -> str:
     """Return the raw token for an invitation from its stored columns.
 
-    A row hashed by the upgrade migration has no ciphertext, so it is issued a
-    fresh token here, which retires any link emailed for it before the upgrade.
+    A row hashed by the contract migration has no ciphertext, so it is issued a
+    fresh token here, which retires any link emailed for it before hashing.
     Does not commit.
 
     Args:
@@ -140,11 +158,14 @@ async def reveal_stored_invitation_token(
 
     Raises:
         NoResultFound: If the row was deleted while rotating its token.
+        InvitationTokenUnrecoverableError: If this row's ciphertext cannot be
+            decrypted with the configured key.
+        ValueError: If the database encryption key is missing or malformed.
     """
     if not token_hashed:
         return token
     if encrypted_token is not None:
-        return _decrypt_token(encrypted_token)
+        return _decrypt_token(invitation_id, encrypted_token)
 
     issued = _issue_token()
     rotated = await session.execute(
@@ -160,7 +181,7 @@ async def reveal_stored_invitation_token(
     )
     if rotated.scalar_one_or_none() is not None:
         logger.info(
-            "Issued a new token for an invitation hashed during upgrade; links "
+            "Issued a new token for an invitation hashed by migration; links "
             "sent for it earlier no longer work",
             invitation_id=str(invitation_id),
         )
@@ -174,7 +195,7 @@ async def reveal_stored_invitation_token(
     ).one_or_none()
     if current is None or current.encrypted_token is None:
         raise NoResultFound("Invitation not found")
-    return _decrypt_token(current.encrypted_token)
+    return _decrypt_token(invitation_id, current.encrypted_token)
 
 
 async def reveal_invitation_token(session: AsyncSession, invitation: Invitation) -> str:
@@ -195,8 +216,12 @@ async def reveal_invitation_token(session: AsyncSession, invitation: Invitation)
     return raw
 
 
-def _decrypt_token(encrypted_token: bytes) -> str:
-    return decrypt_value(encrypted_token, key=get_db_encryption_key()).decode("utf-8")
+def _decrypt_token(invitation_id: uuid.UUID, encrypted_token: bytes) -> str:
+    key = get_db_encryption_key()
+    try:
+        return decrypt_value(encrypted_token, key=key).decode("utf-8")
+    except InvalidToken as e:
+        raise InvitationTokenUnrecoverableError(invitation_id) from e
 
 
 # --- Create

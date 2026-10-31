@@ -35,10 +35,12 @@ from autosecops.invitations.schemas import (
 )
 from autosecops.invitations.service import (
     InvitationService,
+    InvitationTokenUnrecoverableError,
     accept_invitation_for_user,
     find_invitation_by_token,
     reveal_invitation_token,
 )
+from autosecops.logger import logger
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
 
@@ -184,7 +186,15 @@ async def list_my_pending_invitations(
     pending_invitations: list[PendingInvitationRead] = []
     for invitation, organization, inviter in rows:
         inviter_name, inviter_email = _get_user_display_name_and_email(inviter)
-        token = await reveal_invitation_token(session, invitation)
+        try:
+            token = await reveal_invitation_token(session, invitation)
+        except InvitationTokenUnrecoverableError:
+            # One unreadable row must not hide the user's other invitations.
+            logger.exception(
+                "Skipping pending invitation whose stored token cannot be decrypted",
+                invitation_id=str(invitation.id),
+            )
+            continue
 
         pending_invitations.append(
             PendingInvitationRead.model_validate(
@@ -199,7 +209,7 @@ async def list_my_pending_invitations(
                 }
             )
         )
-    # Persist any token issued to a row hashed during upgrade.
+    # Persist any token issued to a row hashed by migration.
     await session.commit()
     return pending_invitations
 
@@ -332,6 +342,18 @@ async def get_invitation_token(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found"
         ) from e
-    token = await reveal_invitation_token(session, invitation)
+    try:
+        token = await reveal_invitation_token(session, invitation)
+    except InvitationTokenUnrecoverableError as e:
+        logger.exception(
+            "Invitation token cannot be decrypted", invitation_id=str(invitation_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This invitation's link cannot be recovered. Revoke it and invite "
+                "the user again."
+            ),
+        ) from e
     await session.commit()
     return InvitationTokenRead(token=token)
