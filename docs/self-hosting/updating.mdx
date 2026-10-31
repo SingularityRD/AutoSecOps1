@@ -54,13 +54,16 @@ You can upgrade across several versions at once. The migrations apply every inte
     ```
   </Step>
   <Step title="Migrate the environment variables">
-    Copy the environment variables migration script `env-migration.sh` and
-    template `.env.example` into your deployment directory, then run the
-    script. It backs up your `.env` and adds any new or changed variables.
+    Copy the environment variables migration script `env-migration.sh`, the
+    `env.sh` helper, and the template `.env.example` into your deployment
+    directory, then run the script. It backs up your `.env`, adds any new or
+    changed variables, and sets the [Redis password](#redis-password) when
+    `.env` has none. `./env.sh --check` then confirms no placeholder remains.
 
     ```bash
-    cp autosecops-<version>/env-migration.sh autosecops-<version>/.env.example .
-    chmod +x env-migration.sh && ./env-migration.sh
+    cp autosecops-<version>/env-migration.sh autosecops-<version>/env.sh autosecops-<version>/.env.example .
+    chmod +x env-migration.sh env.sh && ./env-migration.sh
+    ./env.sh --check
     ```
   </Step>
   <Step title="Replace the Compose files, Caddyfile, and scripts">
@@ -100,6 +103,20 @@ You can upgrade across several versions at once. The migrations apply every inte
     services start. Then [verify isolation](/self-hosting/security#verify-isolation).
   </Step>
 </Steps>
+
+## Redis password
+
+The bundled Redis (Valkey) requires a password from the release that adds `REDIS_PASSWORD` to `.env.example`. Earlier installs accepted unauthenticated connections from every container on the `core` network.
+
+- `./env-migration.sh` sets `REDIS_PASSWORD` in `.env`. If you skipped it, run `./env.sh --upgrade`: it backs up `.env` and adds the password, and running it again changes nothing.
+- Both reuse the password from `REDIS_URL` when it has one, so installs that added a password to `REDIS_URL` by hand keep it. Otherwise they generate one. Remove any `redis` `command` override with `--requirepass` from `docker-compose.override.yml`: the `redis` service now sets the password itself.
+- Without `REDIS_PASSWORD`, `docker compose up` stops with `REDIS_PASSWORD is not set. Run ./env.sh --upgrade`. With the `.env.example` placeholder, the `redis` container exits with the same instruction.
+- Redis keeps its data: the password does not change the `valkey-data` volume. `docker compose up -d` recreates `redis` and every service with the new setting.
+- If `REDIS_URL` points to an external Redis without a password, the services now send `REDIS_PASSWORD` to it and the connection fails. Enable authentication on that Redis and put its password in `REDIS_URL`, which takes precedence.
+
+The same release adds [memory limits](/self-hosting/docker-compose#resource-limits) and [log rotation](/self-hosting/docker-compose#log-rotation) to every Compose service. A service that used more memory than its new limit before the upgrade restarts with `OOMKilled: true` in `docker inspect`; raise its `AUTOSECOPS__<SERVICE>_MEMORY_LIMIT` in `.env`. `docker compose up -d` recreates the containers, which applies both.
+
+On Kubernetes, the chart now refuses an inline `externalRedis.auth.url` without a password. Add the password to the URL, or set `externalRedis.auth.allowUnauthenticated: true` to keep an unauthenticated Redis.
 
 ## Upgrade the Temporal database
 

@@ -134,9 +134,10 @@ id=$(docker create ghcr.io/singularityrd/autosecops:<version>)
 docker cp "$id":/opt/autosecops/install/. autosecops-<version>/
 docker rm "$id"
 
-# 2. Copy the env migration script and env template, then update your existing .env
-cp autosecops-<version>/env-migration.sh autosecops-<version>/.env.example .
-chmod +x env-migration.sh && ./env-migration.sh
+# 2. Copy the env scripts and env template, then update your existing .env
+cp autosecops-<version>/env-migration.sh autosecops-<version>/env.sh autosecops-<version>/.env.example .
+chmod +x env-migration.sh env.sh && ./env-migration.sh
+./env.sh --check
 
 # 3. Back up and replace the Docker Compose files
 cp docker-compose.yml docker-compose.yml.bak
@@ -157,7 +158,7 @@ The `redis` service runs Valkey and stores its data in the `valkey-data` volume.
 
 The `temporal_postgres_db` service runs PostgreSQL 16. If your `temporal-db` volume holds PostgreSQL 13 data from an earlier release, the service stops with a message until you [upgrade the Temporal database](/self-hosting/updating#upgrade-the-temporal-database) or pin `TEMPORAL__POSTGRES_IMAGE=postgres:13` in `.env`.
 
-The migration script creates a backup of your existing `.env` before rewriting it.
+The migration script creates a backup of your existing `.env` before rewriting it. It also sets `REDIS_PASSWORD`, which the bundled Redis requires from this release on; see [Updating AutoSecOps](/self-hosting/updating#redis-password).
 After the stack starts, verify that your containers are healthy and that you can sign in successfully.
 
 ## Scaling
@@ -186,11 +187,59 @@ To size executor replicas, concurrency settings, and PostgreSQL connections for 
 
 For production workloads that exceed single-host capacity, consider [converting to Docker Swarm](#convert-to-docker-swarm) or deploying on Kubernetes.
 
+## Resource limits
+
+Every long-running service has a memory limit, so a leak or a runaway workload in one container cannot take memory from PostgreSQL or Temporal. Docker restarts a container that exceeds its limit, and `docker inspect` reports `OOMKilled: true` for it. Swap stays off for limited containers.
+
+| Service | Memory limit | Variable |
+| :------ | -----------: | :------- |
+| caddy | 256m | `AUTOSECOPS__CADDY_MEMORY_LIMIT` |
+| api | 4g | `AUTOSECOPS__API_MEMORY_LIMIT` |
+| worker | 4g | `AUTOSECOPS__WORKER_MEMORY_LIMIT` |
+| background-worker | 2g | `AUTOSECOPS__BACKGROUND_WORKER_MEMORY_LIMIT` |
+| executor | 8g | `AUTOSECOPS__EXECUTOR_MEMORY_LIMIT` |
+| agent-worker | 4g | `AUTOSECOPS__AGENT_WORKER_MEMORY_LIMIT` |
+| agent-executor | 16g | `AUTOSECOPS__AGENT_EXECUTOR_MEMORY_LIMIT` |
+| litellm | 8g | `AUTOSECOPS__LITELLM_MEMORY_LIMIT` |
+| mcp | 2g | `AUTOSECOPS__MCP_MEMORY_LIMIT` |
+| ui | 2g | `AUTOSECOPS__UI_MEMORY_LIMIT` |
+| postgres_db | 8g | `AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT` |
+| temporal | 8g | `AUTOSECOPS__TEMPORAL_MEMORY_LIMIT` |
+| temporal_postgres_db | 4g | `AUTOSECOPS__TEMPORAL_POSTGRES_DB_MEMORY_LIMIT` |
+| temporal_ui | 512m | `AUTOSECOPS__TEMPORAL_UI_MEMORY_LIMIT` |
+| redis | 2g | `AUTOSECOPS__REDIS_MEMORY_LIMIT` |
+| minio | 2g | `AUTOSECOPS__MINIO_MEMORY_LIMIT` |
+
+The limits are ceilings, not reservations, so their sum may exceed the host's memory. Raise a limit in `.env`, e.g. `AUTOSECOPS__EXECUTOR_MEMORY_LIMIT=12g`, or set it to `0` to remove it.
+
+CPU limits are opt-in: set `AUTOSECOPS__<SERVICE>_CPU_LIMIT`, e.g. `AUTOSECOPS__EXECUTOR_CPU_LIMIT=4`. Docker refuses to start a container whose CPU limit exceeds the host's core count, so the default `0` leaves CPU unlimited. On a shared host, cap the executors so a burst of actions cannot starve PostgreSQL.
+
+Every service restarts on failure (`unless-stopped`; `mcp` stops after three failed starts).
+
+## Log rotation
+
+Every service writes Docker `json-file` logs that rotate at 50 MB and keep 5 files, so one container holds at most 250 MB of logs. Change the bounds in `.env`:
+
+```bash
+AUTOSECOPS__DOCKER_LOG_MAX_SIZE=100m
+AUTOSECOPS__DOCKER_LOG_MAX_FILE=10
+```
+
+To ship logs to syslog, journald, or a collector instead, override `logging` per service in `docker-compose.override.yml`.
+
+## Redis authentication
+
+The bundled Redis (Valkey) requires `REDIS_PASSWORD` from `.env`, which `env.sh` generates. `docker compose up` stops with a message when `.env` has no `REDIS_PASSWORD`, and the `redis` container exits when the value is empty or the `.env.example` placeholder. Production Compose publishes no Redis port; the services reach it on the internal `core` network.
+
+For an external Redis, put its credentials in `REDIS_URL`, e.g. `rediss://:password@redis.example.com:6379`; a password in the URL takes precedence over `REDIS_PASSWORD`.
+
 ## Convert to Docker Swarm
 
 Docker Swarm lets you scale individual services with resource limits and replicas across one or more nodes.
 
 ### Service resource recommendations
+
+Swarm ignores the `mem_limit` and `cpus` settings described in [Resource limits](#resource-limits); set `deploy.resources` per service instead.
 
 | Service | CPU (cores) | Memory | Replicas |
 | :------ | ----------: | -----: | -------: |

@@ -28,7 +28,7 @@ The Docker Compose stack runs 18 containers. Only `caddy` is exposed externally;
 | `temporal_ui` | 8081 (not exposed) | Temporal web UI |
 | `minio` | 9000, 9001 | S3-compatible object storage |
 | `minio-init` | — | One-shot MinIO data-volume ownership initialization |
-| `redis` | 6379 | Cache and message broker (Valkey, Redis-compatible) |
+| `redis` | 6379 | Cache and message broker (Valkey, Redis-compatible). Requires `REDIS_PASSWORD`; no host port. |
 | `migrations` | — | One-shot database migration runner |
 
 ## Networking
@@ -98,7 +98,7 @@ See [SAML configuration](/authentication/saml) for provider-specific setup instr
 
 <AccordionGroup>
   <Accordion title="Can I use an external PostgreSQL or Redis?">
-    Yes. Update `AUTOSECOPS__DB_URI` to point to your managed PostgreSQL 15 or newer instance and `REDIS_URL` for Redis. For Temporal, update the Temporal PostgreSQL credentials in your `.env` file.
+    Yes. Update `AUTOSECOPS__DB_URI` to point to your managed PostgreSQL 15 or newer instance and `REDIS_URL` for Redis, with its password in the URL. For Temporal, update the Temporal PostgreSQL credentials in your `.env` file.
 
     See [Security](/self-hosting/security) for production credential recommendations.
   </Accordion>
