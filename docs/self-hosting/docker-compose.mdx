@@ -141,7 +141,7 @@ chmod +x env-migration.sh && ./env-migration.sh
 # 3. Back up and replace the Docker Compose files
 cp docker-compose.yml docker-compose.yml.bak
 cp autosecops-<version>/docker-compose.yml autosecops-<version>/docker-compose.sandbox.yml .
-cp autosecops-<version>/backup_compose.sh autosecops-<version>/restore_compose.sh .
+cp autosecops-<version>/backup_compose.sh autosecops-<version>/restore_compose.sh autosecops-<version>/support_bundle.sh .
 
 # 4. Back up and replace the Caddyfile
 cp Caddyfile Caddyfile.bak

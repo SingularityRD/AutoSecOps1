@@ -322,7 +322,7 @@ Actions, agent skills, and integrations that call public SaaS APIs fail without 
     Verify the new bundle, then run `./load-images.sh load` or `./load-images.sh push <registry>/<prefix>` again. Pushing a new version adds tags beside the old ones, so you can roll back.
   </Step>
   <Step title="Update Docker Compose">
-    From the new `install/` directory, copy `env-migration.sh` and `.env.example` next to your `.env` and run `./env-migration.sh`. Replace `docker-compose.yml`, `docker-compose.sandbox.yml`, and `Caddyfile` with the new copies, set `AUTOSECOPS__IMAGE_TAG` to the new version if you pinned it, update the image lines `load` or `push` printed, and run `docker compose up -d`. See [Updating AutoSecOps](/self-hosting/docker-compose#updating-autosecops).
+    From the new `install/` directory, copy `env-migration.sh` and `.env.example` next to your `.env` and run `./env-migration.sh`. Replace `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `backup_compose.sh`, `restore_compose.sh`, and `support_bundle.sh` with the new copies, set `AUTOSECOPS__IMAGE_TAG` to the new version if you pinned it, update the image lines `load` or `push` printed, and run `docker compose up -d`. See [Updating AutoSecOps](/self-hosting/docker-compose#updating-autosecops).
   </Step>
   <Step title="Update Helm">
     Run `helm upgrade autosecops charts/autosecops-<version>.tgz --namespace autosecops -f values.yaml -f registry-values.yaml --wait --timeout 15m`. The migrations Job runs before the services roll.

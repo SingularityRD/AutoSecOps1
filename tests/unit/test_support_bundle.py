@@ -337,3 +337,20 @@ def test_kubernetes_finds_the_api_deployment_by_label(
         assert probe == {"autosecops_version": "1.0.0"}
     else:
         assert "rerun with --api-deployment" in probe["probe_error"]
+
+
+@pytest.mark.parametrize(
+    "page",
+    ["updating.mdx", "docker-compose.mdx", "air-gapped.mdx"],
+)
+def test_upgrade_steps_copy_the_support_bundle_script(page: str) -> None:
+    """Every documented Compose upgrade path refreshes support_bundle.sh."""
+    text = (ROOT / "docs" / "self-hosting" / page).read_text()
+    copy_lines = [
+        line
+        for line in text.splitlines()
+        if "restore_compose.sh" in line and ("cp " in line or "Replace" in line)
+    ]
+    assert copy_lines, page
+    for line in copy_lines:
+        assert "support_bundle.sh" in line, line
