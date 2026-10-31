@@ -13,3 +13,11 @@ REGISTRY_ACTIONS_PATH: str = "/registry/actions"
 
 PLATFORM_REGISTRY_NAMESPACE: str = "platform"
 """Storage namespace for platform-scoped registry artifacts (S3 prefix segment)."""
+
+API_SIDE_CUSTOM_SYNC_REFUSED = (
+    "Custom registry repositories sync only on the executor, so their code "
+    "never runs in the API service. Set "
+    "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED=true (the default) to sync this "
+    "repository."
+)
+"""Error for a custom-origin sync that would run repository code in the API."""

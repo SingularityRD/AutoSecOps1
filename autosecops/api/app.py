@@ -220,6 +220,7 @@ from autosecops.organization.management import (
     get_default_organization_id,
 )
 from autosecops.organization.router import router as org_router
+from autosecops.process_hardening import protect_process_from_inspection
 from autosecops.query.errors import (
     AutoSecOpsQueryOverflowError,
     AutoSecOpsQueryTimeoutError,
@@ -278,6 +279,9 @@ from autosecops.workspaces.service import WorkspaceService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # The API can run registry sync, which starts repository code as this
+    # process's user. Keep this process unreadable to it through /proc.
+    protect_process_from_inspection()
     get_agent_backends()  # Fail startup on invalid or duplicate installed plugins.
     # USER_AUTH_SECRET is required for all auth types — UserManager uses it
     # for password reset and email verification token signing. Validated here

@@ -1,5 +1,4 @@
 import asyncio
-import os
 from typing import cast
 
 import aiofiles
@@ -12,6 +11,7 @@ from autosecops.exceptions import AutoSecOpsSettingsError
 from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.git.types import GitUrl
 from autosecops.logger import logger
+from autosecops.process_env import tool_subprocess_env
 from autosecops.registry.repositories.schemas import GitCommitInfo
 from autosecops.registry.repositories.service import RegistryReposService
 from autosecops.settings.service import get_setting_cached
@@ -165,7 +165,7 @@ async def run_git(
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=os.environ.copy() | env.to_dict(),
+            env=tool_subprocess_env(env.to_dict()),
             cwd=cwd,
         )
 
