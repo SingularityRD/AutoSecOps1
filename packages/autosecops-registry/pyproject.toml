@@ -56,7 +56,7 @@ dependencies = [
     "slack-sdk==3.42.0",
     "sqlalchemy==2.0.45",
     "tavily-python==0.7.6",
-    "tenacity==8.3.0",
+    "tenacity==9.2.1",
 ]
 dynamic = ["version"]
 

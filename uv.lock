@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -15,8 +15,8 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-temporalio = "2026-10-29T00:00:00Z"
 pyasn1 = "2026-10-28T00:00:00Z"
+temporalio = "2026-10-29T00:00:00Z"
 
 [manifest]
 members = [
@@ -684,7 +684,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "==2.0.45" },
     { name = "starlette", specifier = "==1.3.1" },
     { name = "temporalio", specifier = "==1.35.0" },
-    { name = "tenacity", specifier = "==8.3.0" },
+    { name = "tenacity", specifier = "==9.2.1" },
     { name = "tiktoken", specifier = "==0.14.0" },
     { name = "tomli", specifier = "==2.2.1" },
     { name = "uv", specifier = "==0.13.4" },
@@ -865,7 +865,7 @@ requires-dist = [
     { name = "slack-sdk", specifier = "==3.42.0" },
     { name = "sqlalchemy", specifier = "==2.0.45" },
     { name = "tavily-python", specifier = "==0.7.6" },
-    { name = "tenacity", specifier = "==8.3.0" },
+    { name = "tenacity", specifier = "==9.2.1" },
     { name = "types-aioboto3", extras = ["s3", "sts"], marker = "extra == 'dev'", specifier = "==15.5.0" },
     { name = "types-boto3", extras = ["s3", "sts"], marker = "extra == 'dev'", specifier = "==1.42.25" },
 ]
@@ -6009,11 +6009,11 @@ wheels = [
 
 [[package]]
 name = "tenacity"
-version = "8.3.0"
+version = "9.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/32/6c/57df6196ce52c464cf8556e8f697fec5d3469bb8cd319c1685c0a090e0b4/tenacity-8.3.0.tar.gz", hash = "sha256:953d4e6ad24357bceffbc9707bc74349aca9d245f68eb65419cf0c249a1949a2", size = 43608, upload-time = "2024-05-07T08:48:17.099Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/9e/497c1c8ebe5a5b5d1d4a7511aea22c0bb1a97e3170d98abdef0e1b34265a/tenacity-9.2.1.tar.gz", hash = "sha256:a606b5c808d0cded4a359d5b9932d867ff2a6a6b64d37350260fd01bbdf83839", size = 58261, upload-time = "2026-10-07T12:13:01.633Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/a1/6bb0cbebefb23641f068bb58a2bc56da9beb2b1c550242e3c540b37698f3/tenacity-8.3.0-py3-none-any.whl", hash = "sha256:3649f6443dbc0d9b01b9d8020a9c4ec7a1ff5f6f3c6c8a036ef371f573fe9185", size = 25934, upload-time = "2024-05-07T08:48:14.696Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/26/1ff2b0721ac66a3ec5b1402b333110b352ab0a8724052ac279a7b82d40c4/tenacity-9.2.1-py3-none-any.whl", hash = "sha256:9e56f17539296baab7beabb08b92f6ee3d7be92d8be72d763360677c2ad6580e", size = 32310, upload-time = "2026-10-07T12:13:00.102Z" },
 ]
 
 [[package]]
