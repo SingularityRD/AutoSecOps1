@@ -27,7 +27,7 @@ dependencies = [
     "boto3==1.40.61",
     "cloudflare==5.2.0",
     "crowdstrike-falconpy==1.6.2",
-    "cryptography==50.0.0",
+    "cryptography==50.0.2",
     "databricks-sdk==0.133.0",
     "dnspython==2.9.0",
     "docker==7.1.0",
@@ -81,6 +81,12 @@ ignore_missing_imports = true
 
 [tool.pyrefly]
 search-path = ["."]
+
+[tool.ruff.lint]
+# This file is its own Ruff config root. Pin the rule set Ruff selected by
+# default before 0.17 widened its defaults, so a Ruff bump cannot silently
+# change which rules gate the registry package.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
