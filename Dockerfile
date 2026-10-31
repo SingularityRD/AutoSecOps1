@@ -433,6 +433,7 @@ COPY --from=registry-manifest --chown=apiuser:apiuser /app/.registry-artifacts /
 COPY --chmod=0755 ./env.sh ./env-migration.sh \
     ./scripts/backup_compose.sh \
     ./scripts/restore_compose.sh \
+    ./scripts/support_bundle.sh \
     /opt/autosecops/install/
 COPY --chmod=0644 \
     ./docker-compose.yml \

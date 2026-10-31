@@ -69,11 +69,13 @@ INSTALL_FILES = (
     "env-migration.sh",
     "backup_compose.sh",
     "restore_compose.sh",
+    "support_bundle.sh",
 )
 # Install files whose source is not at the repository root.
 INSTALL_SOURCES = {
     "backup_compose.sh": REPO / "scripts" / "backup_compose.sh",
     "restore_compose.sh": REPO / "scripts" / "restore_compose.sh",
+    "support_bundle.sh": REPO / "scripts" / "support_bundle.sh",
 }
 NOTICE_FILES = {
     "autosecops.md": REPO / "THIRD_PARTY_NOTICES.md",
@@ -468,7 +470,8 @@ docs (`/self-hosting/air-gapped`).
 - `images/`: the container images, saved with `docker save`.
 - `images.txt`: name, tag, digest, and settings of every image.
 - `install/`: Docker Compose files, `Caddyfile`, `.env.example`, `env.sh`,
-  `env-migration.sh`, `backup_compose.sh`, and `restore_compose.sh`.
+  `env-migration.sh`, `backup_compose.sh`, `restore_compose.sh`, and
+  `support_bundle.sh`.
 - `charts/autosecops-{version}.tgz`: the Helm chart.
 - `load-images.sh`: verifies, loads, and pushes the images.
 - `THIRD_PARTY_NOTICES/`: third-party licenses.

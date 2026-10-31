@@ -1,0 +1,71 @@
+---
+title: Support bundle
+description: "Collect versions, image digests, service status, the database migration revision, license entitlement status, and redacted logs into one archive for SingularityRD support."
+keywords: ["support bundle", "diagnostics", "troubleshooting", "logs", "support_bundle.sh"]
+---
+
+`support_bundle.sh` collects what SingularityRD support needs to diagnose a problem into one `autosecops-support-<timestamp>.tar.gz`. Attach it to every support request.
+
+## What the bundle contains
+
+| File | Contents |
+| --- | --- |
+| `summary.txt` | Collection time, host kernel, Docker and Compose versions, or kubectl and Helm release |
+| `settings.txt` | Docker Compose only. Every key in `.env`; values only for non-secret settings such as `AUTOSECOPS__IMAGE_TAG` and `AUTOSECOPS__EXECUTOR_BACKEND`, and `<set>` or `<empty>` for everything else |
+| `services.txt` | Status of every Compose service, or of the release's pods, Deployments, and Jobs |
+| `images.txt` | Image reference and resolved digest of every container |
+| `probe.json` | AutoSecOps version, alembic revision, and license status, plan, expiry, and entitlements, read inside the API container |
+| `events.txt` | Kubernetes only. Namespace events |
+| `logs/` | Recent logs of every service or pod |
+
+The script never collects secret values. It reads no license key or credential, includes `.env` values only from an allowlist, and passes every collected file through a redactor that replaces passwords, tokens, API keys, JWTs, private keys, AWS access key IDs, and credentials in URLs with `[REDACTED]`. The archive is created with mode `0600`.
+
+Your own workflow and integration logs can still contain data your policy treats as sensitive, such as hostnames or user names. Review the archive before you send it:
+
+```bash
+tar -tzf autosecops-support-<timestamp>.tar.gz
+tar -xzf autosecops-support-<timestamp>.tar.gz && less autosecops-support-<timestamp>/logs/api.log
+```
+
+## Docker Compose
+
+Every AutoSecOps image ships `support_bundle.sh` with the other install files in `/opt/autosecops/install`. Copy it next to `docker-compose.yml` if you do not have it yet, then run it from that directory:
+
+```bash
+id=$(docker create ghcr.io/singularityrd/autosecops:<version>)
+docker cp "$id":/opt/autosecops/install/support_bundle.sh .
+docker rm "$id"
+chmod +x support_bundle.sh
+
+./support_bundle.sh -o /tmp
+```
+
+It collects the last 24 hours of logs, at most 5000 lines per service. Change that with `--since 2h` and `--tail 20000`. If you run several Compose files, set `COMPOSE_FILE` as you do for `docker compose`. The script needs GNU `sed`, which every Linux distribution ships.
+
+## Kubernetes
+
+Run it from any machine with `kubectl` access to the namespace:
+
+```bash
+./support_bundle.sh --kubernetes --namespace autosecops --release autosecops -o /tmp
+```
+
+`--release` selects the pods labeled `app.kubernetes.io/instance=<release>`. The probe runs in the `api` container of the `<release>-api` Deployment; pass `--api-deployment` if you set `fullnameOverride`.
+
+## AWS Fargate
+
+The script does not reach into ECS tasks. Collect the equivalent with the AWS CLI, using your `name_prefix` (default `autosecops`):
+
+```bash
+aws ecs describe-services --cluster <name_prefix>-cluster \
+  --services $(aws ecs list-services --cluster <name_prefix>-cluster --query 'serviceArns' --output text) \
+  --query 'services[].{name:serviceName,running:runningCount,desired:desiredCount,taskDefinition:taskDefinition}' > services.json
+aws logs tail /ecs/<name_prefix> --since 24h | ./support_bundle.sh --redact > logs.txt
+```
+
+`--redact` applies the bundle's redactor to any text on standard input. Add the AutoSecOps version from `GET /api/info` and the image tag (`TF_VAR_autosecops_image_tag`) to your request.
+
+## Related pages
+
+- See [Support policy](/self-hosting/support-policy) for which versions SingularityRD supports and how to reach support.
+- See [Updating AutoSecOps](/self-hosting/updating#watch-the-migrations) for reading migration logs during an upgrade.
