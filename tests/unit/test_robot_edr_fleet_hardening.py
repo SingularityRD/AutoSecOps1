@@ -16,6 +16,7 @@ import re
 import secrets
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -36,7 +37,7 @@ from autosecops.exceptions import (
     AutoSecOpsValidationError,
 )
 from autosecops.redis.client import get_redis_client
-from autosecops.robot_edr import fleet, fleet_replay
+from autosecops.robot_edr import fleet, fleet_replay, fleet_throttle
 from autosecops.robot_edr import fleet_wire as wire
 from autosecops.robot_edr.evidence import RobotEvidenceService
 from autosecops.robot_edr.schemas import (
@@ -579,6 +580,10 @@ async def test_401_audit_events_are_aggregated(
         events.append(kwargs)
 
     monkeypatch.setattr(fleet, "_audit", _capture)
+    # Count every refusal in one fresh minute: a real minute boundary mid-loop
+    # restarts the counters, and earlier tests share the source address.
+    minute_s = (30_000_000 + secrets.randbelow(1_000_000)) * 60.0
+    monkeypatch.setattr(fleet_throttle, "time", SimpleNamespace(time=lambda: minute_s))
     stranger = new_key()
     for _ in range(40):
         response = await robot_api.get(
@@ -590,8 +595,7 @@ async def test_401_audit_events_are_aggregated(
             },
         )
         assert response.status_code == 401
-    assert 1 <= len(events) <= 3
-    assert events[0]["data"]["failures_this_minute"] == 1
+    assert [e["data"]["failures_this_minute"] for e in events] == [1, 10]
     assert events[-1]["data"]["presented_key_id"] == stranger.key_id
 
 
