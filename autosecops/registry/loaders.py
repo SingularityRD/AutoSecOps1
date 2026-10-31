@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Literal, NoReturn
 
 from autosecops_registry import RegistrySecretTypeValidator
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, create_model
 
 from autosecops import config
 from autosecops.db.models import RegistryAction
@@ -18,6 +18,7 @@ from autosecops.registry.actions.schemas import (
     RegistryActionImplValidator,
     RegistryActionUDFImpl,
 )
+from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
 from autosecops.registry.repository import (
     RegisterKwargs,
     attach_validators,
@@ -101,6 +102,80 @@ def get_bound_action_impl(
             template_action=impl.template_action,
             origin=action.origin,
         )
+
+
+def imports_customer_code(action: RegistryAction) -> bool:
+    """Return whether binding this action would import customer code.
+
+    Template actions are data, and builtin UDFs come from the platform's own
+    package. Every other UDF comes from a customer repository.
+    """
+    impl = RegistryActionImplValidator.validate_python(action.implementation)
+    return impl.type == "udf" and action.origin != DEFAULT_REGISTRY_ORIGIN
+
+
+def _args_model_from_interface(
+    name: str, interface: Mapping[str, Any] | None
+) -> type[BaseModel]:
+    """Build an argument model from a stored ``interface.expects`` JSON schema.
+
+    The model checks argument names only: which are required and, when the
+    schema forbids extra properties, which are unknown. Value types are not
+    checked, because templates pass expressions that resolve at run time.
+    """
+    expects = (interface or {}).get("expects") or {}
+    properties: Mapping[str, Any] = expects.get("properties") or {}
+    required = set(expects.get("required") or ())
+    fields: dict[str, Any] = {
+        field: ((Any, ...) if field in required else (Any, None))
+        for field in properties
+    }
+    extra = "forbid" if expects.get("additionalProperties") is False else "allow"
+    return create_model(
+        f"{name.replace('.', '__')}__Args",
+        __config__=ConfigDict(extra=extra),
+        **fields,
+    )
+
+
+def get_bound_action_from_metadata(action: RegistryAction) -> BoundRegistryAction:
+    """Bind a customer UDF from its stored metadata, without importing it.
+
+    Platform processes hold credentials, so they never import customer
+    repository code. The bound action cannot run; it validates argument names
+    against the interface recorded when the repository was synced.
+
+    Args:
+        action: The registry action row.
+
+    Returns:
+        A bound action for validation only.
+    """
+    secrets = [
+        RegistrySecretTypeValidator.validate_python(secret)
+        for secret in action.secrets or []
+    ]
+    args_cls = _args_model_from_interface(
+        f"{action.namespace}.{action.name}", action.interface
+    )
+    return BoundRegistryAction(
+        fn=_not_implemented,
+        type="udf",
+        name=action.name,
+        namespace=action.namespace,
+        description=action.description,
+        secrets=secrets,
+        args_cls=args_cls,
+        args_docs={},
+        rtype_cls=Any,
+        rtype_adapter=TypeAdapter(Any),
+        default_title=action.default_title,
+        display_group=action.display_group,
+        doc_url=action.doc_url,
+        author=action.author,
+        deprecated=action.deprecated,
+        origin=action.origin,
+    )
 
 
 def get_bound_action_from_manifest(

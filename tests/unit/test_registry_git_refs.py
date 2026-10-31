@@ -193,7 +193,9 @@ async def test_install_remote_repository_uses_ref_free_url(
         resolve.assert_not_awaited()
     else:
         resolve.assert_awaited_once_with(REMOTE, ref=resolved_ref, env=SSH_ENV)
-    install.assert_awaited_once_with(REMOTE, commit_sha=expected_sha, env=SSH_ENV)
+    install.assert_awaited_once_with(
+        REMOTE, commit_sha=expected_sha, env=SSH_ENV, target_dir=None
+    )
 
 
 @pytest.mark.anyio
