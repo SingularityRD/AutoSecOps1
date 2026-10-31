@@ -11,7 +11,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from autosecops.api.app import app as api_app
-from autosecops.auth.credentials import AuthenticatedUserOnly, SuperuserRole
+from autosecops.auth.credentials import (
+    AuthenticatedUserOnly,
+    SuperuserRole,
+    SuperuserStepUpRole,
+)
 from autosecops.auth.dependencies import (
     ExecutorWorkspaceRole,
     OrgActorRole,
@@ -94,6 +98,7 @@ def _test_client(
         WorkspaceServiceAccountRole,
         ExecutorWorkspaceRole,
         SuperuserRole,
+        SuperuserStepUpRole,
         AuthenticatedUserOnly,
         OrgActorRole,
         OrganizationServiceAccountRole,

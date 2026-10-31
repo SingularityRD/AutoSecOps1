@@ -3,11 +3,11 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
-from typing import Any, cast, get_args
+from typing import Annotated, Any, cast, get_args
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
@@ -39,6 +39,7 @@ from autosecops.agent.session.router import (
     fork_session,
     get_session,
     get_session_vercel,
+    list_agent_backends,
     list_sessions,
     remove_session_artifact,
     router,
@@ -66,11 +67,13 @@ from autosecops.chat.schemas import (
 )
 from autosecops.db.engine import get_async_session
 from autosecops.exceptions import (
+    AgentProviderCredentialsNotFoundError,
     AutoSecOpsConflictError,
     AutoSecOpsNotFoundError,
     AutoSecOpsServiceError,
     AutoSecOpsValidationError,
     EntitlementRequired,
+    ScopeDeniedError,
 )
 
 
@@ -515,7 +518,6 @@ async def _call_send_message(
     request: Any,
     role: Role,
 ) -> tuple[Any, AsyncMock]:
-    db_session = AsyncMock()
     with (
         patch(
             "autosecops.agent.session.router.AgentSessionService.with_session",
@@ -535,15 +537,8 @@ async def _call_send_message(
                 Any,
                 SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
             ),
-            db_session=db_session,
         )
     with_session_mock.assert_called_once_with(role=role)
-    # A live Redis stream must not pin the request's pooled DB connection for
-    # the stream's lifetime; an immediately finished response needs no release.
-    if stream_new_mock.await_count:
-        db_session.close.assert_awaited_once()
-    else:
-        db_session.close.assert_not_awaited()
     return response, stream_new_mock
 
 
@@ -787,7 +782,6 @@ async def test_send_message_new_turn_preserves_only_uncertain_dispatch(
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
-                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == 500
@@ -859,11 +853,95 @@ async def test_send_message_maps_conflicting_decision_to_409() -> None:
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
-                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == 409
     assert "already recorded" in str(exc_info.value.detail)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("exc", "expected_status"),
+    [
+        (
+            AgentProviderCredentialsNotFoundError(
+                "No credentials found for provider 'example'. "
+                "Please configure credentials for this provider first."
+            ),
+            status.HTTP_409_CONFLICT,
+        ),
+        (AutoSecOpsNotFoundError("Agent preset not found"), status.HTTP_404_NOT_FOUND),
+    ],
+)
+async def test_send_message_maps_missing_provider_credentials_to_409(
+    exc: AutoSecOpsNotFoundError, expected_status: int
+) -> None:
+    """Missing provider credentials are a 409; other not-found errors from turn
+    start stay 404. The pre-stream 404 path is covered by
+    test_send_message_does_not_reset_stream_when_validation_fails."""
+    session_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+    agent_session = _agent_session_stub(id=session_id, workspace_id=workspace_id)
+    role = Role(
+        type="service",
+        service_id="autosecops-api",
+        workspace_id=workspace_id,
+        organization_id=uuid.uuid4(),
+        scopes=frozenset({"agent:execute"}),
+    )
+    request = VercelChatRequest(
+        message=UIMessage(
+            id="msg-1",
+            role="user",
+            parts=[{"type": "text", "text": "hello"}],
+        ),
+        model="gemini-2.5-flash",
+        model_provider="gemini",
+    )
+
+    fake_svc = SimpleNamespace(
+        session=AsyncMock(),
+        is_legacy_session=AsyncMock(return_value=False),
+        validate_turn_request=AsyncMock(return_value=agent_session),
+        get_session=AsyncMock(return_value=agent_session),
+        run_turn=AsyncMock(side_effect=exc),
+        is_first_prompt_for_session=AsyncMock(return_value=False),
+        build_initial_artifact=AsyncMock(return_value=None),
+        clear_active_turn=AsyncMock(return_value=None),
+    )
+    fake_stream = SimpleNamespace(
+        error=AsyncMock(return_value=None),
+        done=AsyncMock(return_value=None),
+        sse=Mock(return_value=_empty_event_stream()),
+    )
+
+    with (
+        patch(
+            "autosecops.agent.session.router.AgentSessionService.with_session",
+            return_value=_AsyncContext(fake_svc),
+        ),
+        patch(
+            "autosecops.agent.session.router.AgentStream.new",
+            AsyncMock(return_value=fake_stream),
+        ),
+    ):
+        raw_send_message = cast(Any, send_message).__wrapped__
+        with pytest.raises(HTTPException) as exc_info:
+            await raw_send_message(
+                session_id=session_id,
+                request=request,
+                role=role,
+                http_request=cast(
+                    Any,
+                    SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
+                ),
+            )
+
+    assert exc_info.value.status_code == expected_status
+    assert exc_info.value.detail == str(exc)
+    # Nothing runs: the turn's stream and reservation are rolled back.
+    fake_svc.clear_active_turn.assert_awaited_once()
+    fake_stream.sse.assert_not_called()
 
 
 @pytest.mark.anyio
@@ -907,7 +985,6 @@ async def test_send_message_rejects_teammate_session() -> None:
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
-                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -979,7 +1056,6 @@ async def test_send_message_does_not_reset_stream_when_validation_fails(
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
-                db_session=AsyncMock(),
             )
 
     assert exc_info.value.status_code == status_code
@@ -1065,7 +1141,6 @@ async def test_send_message_requires_entitlement_for_workspace_chat_parent(
                     Any,
                     SimpleNamespace(is_disconnected=AsyncMock(return_value=False)),
                 ),
-                db_session=AsyncMock(),
             )
 
     fake_svc.run_turn.assert_not_awaited()
@@ -1291,7 +1366,6 @@ async def test_stream_session_events_lifecycle(
     )
     fake_stream = SimpleNamespace(sse=Mock(return_value=_empty_event_stream()))
     finished_sse = Mock(return_value=_empty_event_stream())
-    db_session = AsyncMock()
 
     with (
         patch(
@@ -1314,7 +1388,6 @@ async def test_stream_session_events_lifecycle(
                 headers=headers, is_disconnected=AsyncMock(return_value=False)
             ),
             session_id=session_id,
-            db_session=db_session,
             format="vercel",
         )
 
@@ -1342,7 +1415,6 @@ async def test_stream_session_events_lifecycle(
             session_id=session_id, workspace_id=workspace_id, stream_id=stream_id
         )
         # A live stream must not pin the request's pooled DB connection.
-        db_session.close.assert_awaited_once()
 
 
 @pytest.mark.anyio
@@ -1363,7 +1435,6 @@ async def test_stream_session_events_reads_legacy_workspace_chat_without_entitle
         get_legacy_chat=AsyncMock(return_value=legacy_chat),
     )
     fake_stream = SimpleNamespace(sse=Mock(return_value=_empty_event_stream()))
-    db_session = AsyncMock()
 
     with (
         patch(
@@ -1387,12 +1458,10 @@ async def test_stream_session_events_reads_legacy_workspace_chat_without_entitle
                 is_disconnected=AsyncMock(return_value=False),
             ),
             session_id=session_id,
-            db_session=db_session,
         )
 
     assert isinstance(response, StreamingResponse)
     fake_stream.sse.assert_called_once()
-    db_session.close.assert_awaited_once()
 
 
 @pytest.mark.anyio
@@ -1437,6 +1506,10 @@ async def test_create_session_rejects_unavailable_backend_with_bad_request(
             return_value={} if backend_state == "missing" else {"external": provider},
         ),
         patch.object(provider, "is_enabled", return_value=False),
+        patch(
+            "autosecops.agent.backends.access.is_org_entitled",
+            AsyncMock(return_value=True),
+        ),
         pytest.raises(HTTPException) as exc_info,
     ):
         await cast(Any, create_session).__wrapped__(
@@ -1455,50 +1528,25 @@ async def test_create_session_rejects_unavailable_backend_with_bad_request(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("entity_type", "backend_id", "expected"),
-    [
-        # Chats without a choice take the configured backend.
-        (AgentSessionEntity.WORKSPACE_CHAT, None, "external"),
-        (AgentSessionEntity.AGENT_PRESET, None, "external"),
-        (AgentSessionEntity.CASE, None, "external"),
-        # An explicit choice wins over the configured backend.
-        (AgentSessionEntity.AGENT_PRESET, "oss", "oss"),
-        # Surfaces that need the built-in workflow keep it.
-        (AgentSessionEntity.AGENT_PRESET_BUILDER, None, "oss"),
-        (AgentSessionEntity.EXTERNAL_CHANNEL, None, "oss"),
-        (AgentSessionEntity.WORKFLOW, None, "oss"),
-    ],
+    ("entitled", "expected"), [(False, ["oss"]), (True, ["oss", "external"])]
 )
-async def test_create_session_applies_configured_chat_backend(
-    entity_type: AgentSessionEntity, backend_id: str | None, expected: str
+async def test_list_agent_backends_hides_non_default_without_entitlement(
+    entitled: bool, expected: list[str]
 ) -> None:
-    session_stub = _agent_session_stub(backend_id=expected)
-    fake_svc = SimpleNamespace(create_session=AsyncMock(return_value=session_stub))
-    request = AgentSessionCreate(entity_type=entity_type, entity_id=uuid.uuid4())
-    if backend_id is not None:
-        request = AgentSessionCreate(
-            entity_type=entity_type, entity_id=uuid.uuid4(), backend_id=backend_id
-        )
     with (
         patch(
-            "autosecops.agent.session.router.AgentSessionService", return_value=fake_svc
+            "autosecops.agent.session.router.get_agent_backends",
+            return_value={"oss": DefaultBackend(), "external": DefaultBackend()},
         ),
         patch(
-            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
-            AsyncMock(),
-        ),
-        patch(
-            "autosecops.agent.session.router.config.AUTOSECOPS__AGENT_CHAT_BACKEND",
-            "external",
+            "autosecops.agent.backends.access.is_org_entitled",
+            AsyncMock(return_value=entitled),
         ),
     ):
-        await cast(Any, create_session).__wrapped__(
-            request=request,
-            role=_read_role(session_stub.workspace_id),
-            session=AsyncMock(),
+        backends = await cast(Any, list_agent_backends).__wrapped__(
+            role=_read_role(uuid.uuid4()), session=AsyncMock()
         )
-    sent = fake_svc.create_session.await_args.args[0]
-    assert sent.backend_id == expected
+    assert [backend.id for backend in backends] == expected
 
 
 @pytest.mark.anyio
@@ -1801,3 +1849,174 @@ def test_session_read_reports_backend_controls(
     # A disabled backend controls nothing.
     assert read.capabilities.steering is (enabled and steering)
     assert read.capabilities.withdrawing is (enabled and withdrawing)
+
+
+class _TrackedSession:
+    def __init__(self) -> None:
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def _session_release_app(
+    tracked: _TrackedSession, role: Role
+) -> tuple[FastAPI, list[bool]]:
+    """App whose auth dependency shares the request session, as in production."""
+    app = FastAPI()
+    app.include_router(router)
+
+    async def tracked_session() -> AsyncIterator[_TrackedSession]:
+        yield tracked
+
+    async def role_with_session(
+        session: Annotated[Any, Depends(get_async_session)],
+    ) -> Role:
+        assert session is tracked
+        return role
+
+    role_dependency = get_args(WorkspaceActorRouteRole)[1].dependency
+    app.dependency_overrides[get_async_session] = tracked_session
+    app.dependency_overrides[role_dependency] = role_with_session
+    released_at_first_chunk: list[bool] = []
+    return app, released_at_first_chunk
+
+
+def _released_event_stream(
+    tracked: _TrackedSession, released_at_first_chunk: list[bool]
+) -> AsyncIterator[str]:
+    async def events() -> AsyncIterator[str]:
+        released_at_first_chunk.append(tracked.closed)
+        yield "data: {}\n\n"
+
+    return events()
+
+
+def _vercel_chat_request() -> VercelChatRequest:
+    return VercelChatRequest(
+        message=UIMessage(
+            id="msg-1", role="user", parts=[{"type": "text", "text": "hello"}]
+        ),
+        model="gpt-4o-mini",
+        model_provider="openai",
+    )
+
+
+def test_stream_session_events_releases_request_session_before_streaming() -> None:
+    """The live stream reads only Redis, so it must not pin a DB connection."""
+    session_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+    tracked = _TrackedSession()
+    app, released_at_first_chunk = _session_release_app(
+        tracked, _make_stream_role(workspace_id)
+    )
+    agent_session = _agent_session_stub(id=session_id, workspace_id=workspace_id)
+    fake_svc = SimpleNamespace(
+        get_session=AsyncMock(return_value=agent_session),
+        get_stream_resume_state=AsyncMock(
+            return_value=_stream_state(
+                lifecycle=TurnLifecycle.RUNNING,
+                curr_run_id=uuid.uuid4(),
+                active_stream_id=uuid.uuid4(),
+                has_live_stream=True,
+            )
+        ),
+    )
+    fake_stream = SimpleNamespace(
+        sse=Mock(
+            side_effect=lambda *_a, **_kw: _released_event_stream(
+                tracked, released_at_first_chunk
+            )
+        )
+    )
+    with (
+        patch(
+            "autosecops.agent.session.router.AgentSessionService.with_session",
+            return_value=_AsyncContext(fake_svc),
+        ),
+        patch(
+            "autosecops.agent.session.router.AgentStream.new",
+            AsyncMock(return_value=fake_stream),
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get(f"/agent/sessions/{session_id}/stream")
+
+    assert response.status_code == 200
+    assert response.text == "data: {}\n\n"
+    assert released_at_first_chunk == [True]
+
+
+def test_send_message_releases_request_session_before_streaming() -> None:
+    """Sending a message streams the turn without pinning a DB connection."""
+    session_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+    tracked = _TrackedSession()
+    app, released_at_first_chunk = _session_release_app(
+        tracked, _execute_role(workspace_id)
+    )
+    agent_session = _agent_session_stub(id=session_id, workspace_id=workspace_id)
+    fake_svc = SimpleNamespace(
+        session=AsyncMock(),
+        is_legacy_session=AsyncMock(return_value=False),
+        validate_turn_request=AsyncMock(return_value=agent_session),
+        run_turn=AsyncMock(
+            return_value=ChatResponse(
+                stream_url="/stream",
+                chat_id=session_id,
+                curr_run_id=uuid.uuid4(),
+            )
+        ),
+        is_first_prompt_for_session=AsyncMock(return_value=False),
+    )
+    fake_stream = _fake_stream()
+    fake_stream.sse = Mock(
+        side_effect=lambda *_a, **_kw: _released_event_stream(
+            tracked, released_at_first_chunk
+        )
+    )
+    with (
+        patch(
+            "autosecops.agent.session.router.AgentSessionService.with_session",
+            return_value=_AsyncContext(fake_svc),
+        ),
+        patch(
+            "autosecops.agent.session.router.AgentStream.new",
+            AsyncMock(return_value=fake_stream),
+        ),
+        patch(
+            "autosecops.agent.session.router.require_workspace_chat_entitlement_for_entity",
+            AsyncMock(return_value=None),
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.post(
+            f"/agent/sessions/{session_id}/messages",
+            json=_vercel_chat_request().model_dump(mode="json"),
+        )
+
+    assert response.status_code == 200
+    assert response.text == "data: {}\n\n"
+    fake_svc.run_turn.assert_awaited_once()
+    assert released_at_first_chunk == [True]
+
+
+def test_send_message_still_requires_execute_scope() -> None:
+    """Releasing the session early leaves route authorization in place."""
+    session_id = uuid.uuid4()
+    tracked = _TrackedSession()
+    app, _ = _session_release_app(tracked, _read_role(uuid.uuid4()))
+    with (
+        patch(
+            "autosecops.agent.session.router.AgentSessionService.with_session"
+        ) as with_session_mock,
+        TestClient(app) as client,
+        pytest.raises(ScopeDeniedError),
+    ):
+        client.post(
+            f"/agent/sessions/{session_id}/messages",
+            json=_vercel_chat_request().model_dump(mode="json"),
+        )
+
+    with_session_mock.assert_not_called()
+    assert tracked.closed

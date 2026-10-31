@@ -18,6 +18,7 @@ from autosecops.config import (
     env_ports,
     env_proxy_url,
 )
+from autosecops.feature_flags.enums import FeatureFlag
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO_ROOT / "autosecops" / "config.py"
@@ -440,6 +441,7 @@ def test_fargate_sensitive_settings_are_ecs_secrets(name: str, tf_var: str) -> N
 DB_RUNTIME_ROLE_COMPOSE_SERVICES = (
     "api",
     "worker",
+    "background-worker",
     "executor",
     "agent-worker",
     "litellm",
@@ -811,14 +813,15 @@ def test_bound_env_uses_default_for_empty_string(
     assert result == 10
 
 
-def test_agent_runtime_feature_flag_is_loaded_from_environment(
+def test_removed_agent_runtime_feature_flag_is_ignored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Deployments that still set the removed flag keep starting."""
     try:
         with monkeypatch.context() as env:
-            env.setenv("AUTOSECOPS__FEATURE_FLAGS", "agent-runtime")
+            env.setenv("AUTOSECOPS__FEATURE_FLAGS", "agent-runtime,forms")
             reloaded_config = importlib.reload(autosecops_config)
-            assert reloaded_config.AUTOSECOPS__FEATURE_FLAGS == {"agent-runtime"}
+            assert reloaded_config.AUTOSECOPS__FEATURE_FLAGS == {FeatureFlag.FORMS}
     finally:
         importlib.reload(autosecops_config)
 
@@ -1337,3 +1340,41 @@ def test_env_sh_check_refuses_placeholder_secrets(tmp_path: Path) -> None:
         check=False,
     )
     assert accepted.returncode == 0, accepted.stdout
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1.5"])
+def test_background_activity_capacity_rejects_invalid_values(monkeypatch, value):
+    try:
+        with monkeypatch.context() as env:
+            env.setenv("AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES", value)
+            with pytest.raises(ValueError):
+                importlib.reload(autosecops_config)
+    finally:
+        importlib.reload(autosecops_config)
+
+
+@pytest.mark.parametrize("path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda p: p.name)
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "AUTOSECOPS__AGENT_SANDBOX_TIMEOUT",
+        "AUTOSECOPS__CONTEXT_COMPRESSION_ENABLED",
+        "AUTOSECOPS__CONTEXT_COMPRESSION_THRESHOLD_KB",
+    ],
+)
+def test_background_worker_shared_settings_match_other_services(
+    path: Path, setting: str
+) -> None:
+    """Background activities use the same validation and payload codec settings."""
+    source = path.read_text()
+    values = []
+    for service in ("api", "worker", "background-worker", "executor", "agent-executor"):
+        block = re.search(
+            rf"(?ms)^  {service}:\n(?P<body>.*?)(?=^  [a-z][a-z0-9_-]*:\n|\Z)",
+            source,
+        )
+        assert block is not None
+        value = re.search(rf"{setting}:\s*(\S+)", block["body"])
+        assert value is not None, service
+        values.append(value[1])
+    assert len(set(values)) == 1, values

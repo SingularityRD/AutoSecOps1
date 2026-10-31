@@ -25,6 +25,12 @@ def prepare_runtime_config() -> Path:
         raise FileNotFoundError(f"LiteLLM config not found: {source_config}")
 
     runtime_config = Path("/app/litellm_config.yaml")
+    # Release images create this link at build time; /app is read-only then.
+    if (
+        runtime_config.is_file()
+        and runtime_config.read_bytes() == source_config.read_bytes()
+    ):
+        return runtime_config
     temp_symlink = runtime_config.with_suffix(f".yaml.{os.getpid()}.tmp")
     try:
         temp_symlink.symlink_to(source_config)

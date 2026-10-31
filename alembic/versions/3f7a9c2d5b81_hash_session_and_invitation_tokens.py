@@ -1,7 +1,7 @@
 """Add columns for storing session and invitation tokens as digests.
 
 Revision ID: 3f7a9c2d5b81
-Revises: 9b4d6e2f1a37
+Revises: 21042b4645f1
 Create Date: 2026-10-30 22:00:00.000000
 
 Session cookies (``access_token.token``) and invitation links
@@ -54,7 +54,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "3f7a9c2d5b81"
-down_revision: str | None = "9b4d6e2f1a37"
+down_revision: str | None = "21042b4645f1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -139,6 +139,7 @@ resource "aws_iam_policy" "secrets_access" {
         Action = ["secretsmanager:GetSecretValue"]
         Resource = concat(compact([
           var.autosecops_db_encryption_key_arn,
+          var.autosecops_db_encryption_previous_keys_arn,
           var.autosecops_service_key_arn,
           var.autosecops_signing_secret_arn,
           var.oauth_client_id_arn,

@@ -173,7 +173,9 @@ def test_create_squashfs_image_makes_mount_root_traversable(
     monkeypatch.setattr(
         artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_MEM", "256M"
     )
-    monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
+    monkeypatch.setattr(
+        artifact.shutil, "which", lambda _name, **_kwargs: "/usr/bin/mksquashfs"
+    )
 
     def fake_subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         staging_dir = Path(cmd[1])
@@ -205,7 +207,9 @@ def test_create_squashfs_image_makes_restrictive_files_readable(
     monkeypatch.setattr(
         artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
-    monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
+    monkeypatch.setattr(
+        artifact.shutil, "which", lambda _name, **_kwargs: "/usr/bin/mksquashfs"
+    )
 
     def fake_subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         staged_module = Path(cmd[1]) / "module.py"
@@ -236,7 +240,9 @@ def test_create_squashfs_image_preserves_symlinks(
     monkeypatch.setattr(
         artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
-    monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
+    monkeypatch.setattr(
+        artifact.shutil, "which", lambda _name, **_kwargs: "/usr/bin/mksquashfs"
+    )
 
     def fake_subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         staging_dir = Path(cmd[1])
@@ -280,7 +286,9 @@ async def test_build_artifact_from_installed_environment_overlays_symlinked_pack
     monkeypatch.setattr(
         artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
-    monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
+    monkeypatch.setattr(
+        artifact.shutil, "which", lambda _name, **_kwargs: "/usr/bin/mksquashfs"
+    )
 
     output_dir = tmp_path / "out"
     squashfs_path = output_dir / "site-packages.squashfs"
@@ -333,7 +341,9 @@ async def test_build_artifact_from_installed_environment_skips_unrelated_symlink
     monkeypatch.setattr(
         artifact.config, "AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED", True
     )
-    monkeypatch.setattr(artifact.shutil, "which", lambda _name: "/usr/bin/mksquashfs")
+    monkeypatch.setattr(
+        artifact.shutil, "which", lambda _name, **_kwargs: "/usr/bin/mksquashfs"
+    )
 
     output_dir = tmp_path / "out"
     squashfs_path = output_dir / "site-packages.squashfs"

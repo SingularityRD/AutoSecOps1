@@ -78,7 +78,9 @@ from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
 from autosecops.registry.loaders import (
     LoaderMode,
     get_bound_action_from_manifest,
+    get_bound_action_from_metadata,
     get_bound_action_impl,
+    imports_customer_code,
 )
 from autosecops.registry.repository import Repository
 from autosecops.registry.sync.service import RegistrySyncService
@@ -1837,7 +1839,12 @@ async def validate_action_template(
             and (reg_action := await ra_service.get_action_or_none(step.action))
             is not None
         ):
-            bound_action = get_bound_action_impl(reg_action, mode="validation")
+            # Never import customer repository code in a platform process.
+            bound_action = (
+                get_bound_action_from_metadata(reg_action)
+                if imports_customer_code(reg_action)
+                else get_bound_action_impl(reg_action, mode="validation")
+            )
         else:
             # Action not found in the repo or DB
             val_errs.append(

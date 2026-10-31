@@ -113,6 +113,12 @@ class EffectiveEntitlements(Schema):
         title="Robot EDR",
         description="Whether workspaces may register robots and ingest RoboDR findings",
     )
+    agent_runtime_preview: bool = Field(
+        default=False,
+        title="Agent runtime preview",
+        description="Whether agent backends other than the built-in one may be"
+        " listed and used to create or fork agent sessions",
+    )
 
 
 class TierRead(Schema):

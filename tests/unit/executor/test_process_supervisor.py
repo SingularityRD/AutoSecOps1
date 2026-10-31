@@ -34,8 +34,13 @@ def _process_is_running(pid: int) -> bool:
 
 
 async def _wait_for_file(path: Path) -> None:
+    """Wait until the action has published its PIDs.
+
+    The action writes the file atomically, but also require content so a
+    reader never sees a created-but-empty file.
+    """
     for _ in range(500):
-        if path.exists():
+        if path.exists() and path.read_text().strip():
             return
         await asyncio.sleep(0.01)
     raise AssertionError(f"Timed out waiting for {path}")
@@ -61,6 +66,15 @@ from pathlib import Path
 
 pid_file = Path(sys.argv[1])
 mode = sys.argv[2]
+
+
+def publish_pids(*pids):
+    # Write then rename so readers never observe a partially written file.
+    tmp = pid_file.with_suffix(".tmp")
+    tmp.write_text(" ".join(str(pid) for pid in pids))
+    os.replace(tmp, pid_file)
+
+
 child = subprocess.Popen(
     [sys.executable, "-c", "import time; time.sleep(30)"],
     stdin=subprocess.DEVNULL,
@@ -77,9 +91,9 @@ outer_pid = int(
     )
 )
 if mode == "stop-monitor-kill-supervisor":
-    pid_file.write_text(f"{os.getpid()} {child.pid} {monitor_pid} {outer_pid}")
+    publish_pids(os.getpid(), child.pid, monitor_pid, outer_pid)
 else:
-    pid_file.write_text(f"{os.getpid()} {child.pid}")
+    publish_pids(os.getpid(), child.pid)
 if mode == "failure":
     raise SystemExit(23)
 if mode == "kill-monitor":

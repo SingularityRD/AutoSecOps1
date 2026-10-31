@@ -40,6 +40,7 @@ dependencies = [
     "defusedxml==0.7.1",
     "email-validator==2.2.0",
     "fastapi-users[sqlalchemy,oauth]==15.0.5",
+    "fido2==2.2.1",
     "fastapi[standard]==0.137.1",
     "fastmcp==3.4.10",
     "google-auth==2.48.0",
@@ -104,7 +105,7 @@ members = ["packages/*"]
 exclude-newer = "7 days"
 # Security fixes allowed inside the cooldown; each is also pinned exactly.
 # Remove on or after 2026-11-05: once the 7-day cutoff passes, these block upgrades.
-exclude-newer-package = { temporalio = "2026-10-29T00:00:00Z" }
+exclude-newer-package = { temporalio = "2026-10-29T00:00:00Z", pyasn1 = "2026-10-28T00:00:00Z" }
 # Keep overrides only for requirements that conflict with our pinned versions.
 override-dependencies = [
     # LiteLLM requires boto3>=1.43.1,<2.0; aioboto3 pins boto3<1.40.62.
@@ -125,12 +126,13 @@ constraint-dependencies = [
     "filelock==4.2.1",
     "mako==1.4.2",
     "pillow==13.0.0",
-    "pyasn1==0.6.4",
+    # GHSA-2qm8-x737-gmw5, GHSA-fm9c-5rcf-2q5p, GHSA-mm57-4v3p-rchx, GHSA-9m75-vc3g-4x39.
+    "pyasn1==0.6.5",
     "python-multipart==0.0.31",
     # GHSA-xmj3-9gf7-h52w.
     "setuptools==84.1.0",
     "urllib3==2.8.0",
-    "virtualenv==21.14.10",
+    "virtualenv==21.14.13",
 ]
 
 [dependency-groups]

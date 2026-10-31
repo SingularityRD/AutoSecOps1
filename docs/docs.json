@@ -325,6 +325,7 @@
               "tools/snowflake",
               "tools/socket",
               "tools/splunk",
+              "tools/spur",
               "tools/sublime",
               "tools/tavily",
               "tools/tenable_sc",
@@ -382,7 +383,8 @@
               "self-hosting/tls",
               "self-hosting/environment-variables",
               "self-hosting/license",
-              "self-hosting/security"
+              "self-hosting/security",
+              "self-hosting/support"
             ]
           },
           {
@@ -405,6 +407,7 @@
               "authentication/basic",
               "authentication/saml",
               "authentication/oidc",
+              "authentication/mfa",
               "authentication/scim"
             ]
           },

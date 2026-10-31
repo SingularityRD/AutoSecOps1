@@ -41,6 +41,7 @@ from autosecops.auth.ip_allowlist_enforcement import (
     enforce_org_ip_allowlist,
     enforce_platform_admin_ip_allowlist,
 )
+from autosecops.auth.mfa.dependencies import VerifiedMfaSession, enforce_step_up
 from autosecops.auth.rate_limit import check_api_key_failures, record_api_key_failure
 from autosecops.auth.secrets import get_service_key
 from autosecops.auth.types import PlatformRole, Role
@@ -1553,6 +1554,25 @@ SuperuserRole = Annotated[PlatformRole, Depends(_require_superuser)]
 Returns a PlatformRole which is distinct from Role - platform operations
 are not scoped to any organization or workspace.
 """
+
+
+async def _require_superuser_step_up(
+    role: SuperuserRole,
+    mfa_session: VerifiedMfaSession,
+) -> PlatformRole:
+    """Require a recent security key verification for a privileged admin action.
+
+    Applies to platform admin actions that change or could compromise customer
+    organizations. ``AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS`` skips it.
+    """
+    await enforce_step_up(mfa_session, allow_platform_admin_bypass=True)
+    return role
+
+
+require_superuser_step_up = _require_superuser_step_up
+
+SuperuserStepUpRole = Annotated[PlatformRole, Depends(_require_superuser_step_up)]
+"""``SuperuserRole`` plus a security key verification within the step-up window."""
 
 
 # --- Authenticated User Only (No Organization Context) ---

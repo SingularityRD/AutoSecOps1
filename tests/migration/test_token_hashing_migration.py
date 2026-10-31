@@ -15,7 +15,7 @@ from sqlalchemy.pool import NullPool
 from autosecops.auth.crypto import hash_bearer_token
 from tests.database import TEST_DB_CONFIG
 
-PREVIOUS_REVISION = "9b4d6e2f1a37"
+PREVIOUS_REVISION = "21042b4645f1"
 HASHING_REVISION = "3f7a9c2d5b81"
 REPO_ROOT = Path(__file__).parents[2]
 

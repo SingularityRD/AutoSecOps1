@@ -199,6 +199,11 @@ async def test_custom_sync_rejects_actions_that_shadow_builtin_registry(
 ) -> None:
     """A custom registry cannot redefine an action name the builtin registry owns."""
     monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    # Exercise the shadow check through the subprocess path, which production
+    # refuses for custom origins (see the refusal test below).
+    monkeypatch.setattr(
+        RegistrySyncService, "_refuse_repository_code_here", lambda *_args: None
+    )
 
     session.add(
         Organization(
@@ -725,3 +730,43 @@ async def test_sync_via_temporal_git_preserves_unexpected_secret_check_error(
 
     get_org_secret_by_name.assert_awaited_once_with(REGISTRY_GIT_SSH_KEY_SECRET_NAME)
     get_temporal_client.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_api_side_sync_refuses_custom_repository_code(
+    session: AsyncSession,
+    mock_org_id: uuid.UUID,
+    mocker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With executor-hosted sync off, custom code never runs in the API."""
+    monkeypatch.setattr(config, "AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED", False)
+    session.add(
+        Organization(
+            id=mock_org_id,
+            name="Refusal Test Org",
+            slug=f"refusal-test-{mock_org_id.hex[:8]}",
+            is_active=True,
+        )
+    )
+    await session.flush()
+    role = Role(
+        type="service",
+        user_id=mock_org_id,
+        organization_id=mock_org_id,
+        workspace_id=uuid.uuid4(),
+        service_id="autosecops-runner",
+    )
+    repo = await RegistryReposService(session, role).create_repository(
+        RegistryRepositoryCreate(
+            origin="git+ssh://git@example.com/acme/refused-registry.git"
+        )
+    )
+    fetch = mocker.patch(
+        "autosecops.registry.sync.base_service.fetch_actions_from_subprocess"
+    )
+
+    with pytest.raises(RegistrySyncError, match="sync only on the executor"):
+        await RegistrySyncService(session, role).sync_repository_v2(repo, commit=False)
+
+    fetch.assert_not_called()
