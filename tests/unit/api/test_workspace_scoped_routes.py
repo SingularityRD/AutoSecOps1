@@ -38,9 +38,6 @@ WORKSPACE_ROUTE_PREFIXES = [
 ]
 
 WORKSPACE_ROUTE_ROLE_TYPES = (WorkspaceActorRouteRole, WorkspaceUserRouteRole)
-WORKSPACE_ROUTE_AUTH_EXEMPTIONS = {
-    ("/workspaces/{workspace_id}/editor/field-schema", frozenset({"GET"})),
-}
 OPENAPI_LEGACY_EXCEPTIONS = {
     "/integrations": {"/integrations/callback"},
 }
@@ -154,12 +151,11 @@ def test_workspace_scoped_public_route_aliases_share_handlers_and_auth() -> None
         )
 
         role_hint = _workspace_role_hint(canonical_route)
-        if role_hint is None:
-            assert _route_key(canonical_route) in WORKSPACE_ROUTE_AUTH_EXEMPTIONS, (
-                f"Workspace route missing role dependency: {canonical_route.path}"
-            )
-            continue
-
+        # Every workspace-scoped route must authorize the caller; there are no
+        # unauthenticated exemptions.
+        assert role_hint is not None, (
+            f"Workspace route missing role dependency: {canonical_route.path}"
+        )
         assert _is_workspace_route_role(role_hint), (
             f"Workspace route is not using a route-aware role: {canonical_route.path}"
         )

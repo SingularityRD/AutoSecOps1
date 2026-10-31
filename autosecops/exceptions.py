@@ -37,6 +37,23 @@ class AutoSecOpsValidationError(AutoSecOpsException):
     """AutoSecOps user-facing validation error"""
 
 
+class AgentCatalogModelAmbiguousError(AutoSecOpsValidationError):
+    """Raised when a model name matches several enabled catalog rows.
+
+    A runtime lookup by ``(model_provider, model_name)`` must not pick one of
+    several endpoints on the caller's behalf, because each row can route
+    prompts to a different model server with different credentials.
+    """
+
+    def __init__(self, *, model_provider: str, model_name: str) -> None:
+        super().__init__(
+            "Several enabled catalog models match provider "
+            f"{model_provider!r} and model {model_name!r}"
+        )
+        self.model_provider = model_provider
+        self.model_name = model_name
+
+
 class AutoSecOpsConflictError(AutoSecOpsException):
     """AutoSecOps user-facing resource conflict error"""
 
