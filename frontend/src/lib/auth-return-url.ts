@@ -7,6 +7,7 @@ const BLOCKED_POST_AUTH_RETURN_URL_PREFIXES = [
   "/auth",
   "/sign-in",
   "/sign-up",
+  "/verify-email",
 ] as const
 const MCP_AUTH_CONTINUE_PATH = "/oauth/mcp/continue"
 const MCP_AUTH_LEGACY_SELECT_ORG_PATH = "/oauth/mcp/select-org"

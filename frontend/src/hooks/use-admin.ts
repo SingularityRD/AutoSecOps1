@@ -69,6 +69,7 @@ import {
   adminUpdateRegistrySettings,
   adminUpdateSecuritySettings,
   adminUpdateTier,
+  adminVerifyUserEmail,
   type IPAllowlistCheckRequest,
   type IPAllowlistCheckResult,
   OpenAPI,
@@ -489,12 +490,21 @@ export function useAdminUsers() {
     },
   })
 
+  const { mutateAsync: verifyUserEmail, isPending: verifyEmailPending } =
+    useMutation<AdminUserRead, Error, string>({
+      mutationFn: (userId) => adminVerifyUserEmail({ userId }),
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+    })
+
   return {
     users,
     isLoading,
     error,
     resetUserMfa,
     resetMfaPending,
+    verifyUserEmail,
+    verifyEmailPending,
     createUser,
     createPending,
     promoteToSuperuser,
