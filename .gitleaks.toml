@@ -16,6 +16,7 @@ description = "Code that names a key or pattern instead of holding a value"
 regexTarget = "line"
 regexes = [
     '''key=self\._encryption_key''',
+    '''client_id=auth_client_id''',
     '''pattern=AWS_SECRET_ID_PATTERN''',
     '''(private|embedded)_key: (ed25519\.)?Ed25519PrivateKey''',
 ]

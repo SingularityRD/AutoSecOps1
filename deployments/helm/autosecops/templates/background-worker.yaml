@@ -1,0 +1,24 @@
+{{- define "autosecops.backgroundWorker.container" -}}
+{{- $v := .Values.backgroundWorker -}}
+command: ["python", "-m", "autosecops.background.worker"]
+{{ include "autosecops.backendEnvFrom" . }}
+env:
+  - name: AUTOSECOPS__SERVICE_NAME
+    value: background-worker
+  - name: AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES
+    value: {{ $v.maxConcurrentActivities | toString | quote }}
+  {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "background-worker") | nindent 2 }}
+  {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
+{{ include "autosecops.probes" $v }}
+{{- end }}
+
+{{- if .Values.backgroundWorker.enabled }}
+{{- $ctx := dict "root" . "component" "background-worker" "values" .Values.backgroundWorker }}
+{{- include "autosecops.deployment" (merge (dict
+    "image" (include "autosecops.image" .)
+    "pullPolicy" .Values.image.pullPolicy
+    "container" (include "autosecops.backgroundWorker.container" .)
+    "backend" true
+  ) $ctx) }}
+{{ include "autosecops.componentExtras" $ctx }}
+{{- end }}

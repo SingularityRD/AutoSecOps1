@@ -1130,7 +1130,7 @@ export function ServiceAccountsManager({
                         <SquarePenIcon className="size-3.5" />
                       </RowActionButton>
                       <RowActionButton
-                        label="Issue new API key"
+                        label="Create API key"
                         className="size-7"
                         disabled={
                           Boolean(serviceAccount.disabled_at) || !canUpdate
@@ -1365,7 +1365,7 @@ export function ServiceAccountsManager({
       >
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>Issue new API key</DialogTitle>
+            <DialogTitle>Create API key</DialogTitle>
             <DialogDescription>
               {issueTarget?.active_api_key?.name ? (
                 <>

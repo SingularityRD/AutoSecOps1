@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
+from autosecops.cases.durations.reconciliation import CaseDurationBackfills
 from autosecops.db.engine import get_async_session_bypass_rls_context_manager
 from autosecops.db.models import Case, CaseDurationDefinition, Workspace
 from autosecops.db.session_events import AfterCommitQueue
@@ -429,6 +430,10 @@ def enqueue_workspace_case_duration_backfill_after_commit(
     reason: CaseDurationSyncReason,
 ) -> None:
     """Register a workspace-wide duration backfill after the transaction commits."""
+    if (backfills := CaseDurationBackfills.of(session)) is not None:
+        if workspace_id not in backfills.workspaces:
+            backfills.workspaces.append(workspace_id)
+        return
 
     async def _sync_inline() -> bool:
         return await sync_workspace_case_durations_inline(workspace_id=workspace_id)

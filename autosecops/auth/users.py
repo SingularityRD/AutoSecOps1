@@ -60,6 +60,7 @@ from autosecops.auth.ip_allowlist_enforcement import (
     current_client_ip,
     is_ip_allowed_for_org,
 )
+from autosecops.auth.mfa.policy import get_session_mfa_state
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
 from autosecops.auth.types import PlatformRole, Role
@@ -71,6 +72,7 @@ from autosecops.db.engine import (
     get_async_session_auth_context_manager,
     get_async_session_bypass_rls_context_manager,
 )
+from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
     ExternalUser,
@@ -942,6 +944,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # NOTE(security): Never log the token; it marks the email as verified.
         self.logger.info("Email verification requested", user_id=str(user.id))
 
+    async def on_before_delete(
+        self, user: User, request: Request | None = None
+    ) -> None:
+        # The user delete cascades to refresh tokens and memberships; lock
+        # first so a concurrent MCP token rotation cannot deadlock with it.
+        await lock_mcp_refresh_token_users(self._user_db.session, [user.id])
+
     async def saml_callback(
         self,
         *,
@@ -1148,6 +1157,15 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
             user = await user_manager.get(user_manager.parse_id(access_token.user_id))
         except (UserNotExists, InvalidID):
             return None
+
+        # A session waiting on a security key challenge or enrollment is not
+        # signed in. Only the /auth/mfa routes accept it.
+        if isinstance(self.database, SQLAlchemyAccessTokenDatabase):
+            mfa_state = await get_session_mfa_state(
+                self.database.session, user, access_token
+            )
+            if mfa_state.is_pending:
+                return None
 
         await self._touch_last_seen(access_token)
         return user

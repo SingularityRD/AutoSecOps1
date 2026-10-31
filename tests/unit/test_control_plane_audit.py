@@ -22,6 +22,7 @@ from autosecops.db.models import WebhookApiKey
 from autosecops.dsl.common import DSLInput
 from autosecops.exceptions import (
     AutoSecOpsConflictError,
+    AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
     ScopeDeniedError,
 )
@@ -725,6 +726,25 @@ async def test_webhook_create_rejects_existing_workflow_webhook(
     session.add.assert_not_called()
     session.commit.assert_not_awaited()
     assert AuditEventStatus.SUCCESS not in [call["status"] for call in calls]
+
+
+@pytest.mark.anyio
+async def test_webhook_create_rejects_missing_workflow() -> None:
+    role = _role()
+    session = _webhook_session()
+    session.scalar = AsyncMock(return_value=None)
+    role_token = ctx_role.set(role)
+    try:
+        with pytest.raises(AutoSecOpsNotFoundError):
+            await webhook_service.create_webhook(
+                role=role,
+                session=cast(Any, session),
+                workflow_id=WorkflowUUID.new_uuid4(),
+                params=WebhookCreate(status="online"),
+            )
+    finally:
+        ctx_role.reset(role_token)
+    session.add.assert_not_called()
 
 
 @pytest.mark.anyio

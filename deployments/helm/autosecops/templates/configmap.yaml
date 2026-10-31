@@ -12,6 +12,7 @@ data:
   LOG_LEVEL: {{ $a.logLevel | quote }}
   AUTOSECOPS__APP_ENV: {{ $a.appEnv | quote }}
   AUTOSECOPS__LOG_FORMAT: {{ $a.logFormat | quote }}
+  AUTOSECOPS__DB_ENCRYPTION_ALGORITHM: {{ $a.dbEncryptionAlgorithm | quote }}
   AUTOSECOPS__FEATURE_FLAGS: {{ $a.featureFlags | quote }}
   AUTOSECOPS__EE_MULTI_TENANT: {{ $a.eeMultiTenant | toString | quote }}
   AUTOSECOPS__RLS_MODE: {{ $a.rlsMode | quote }}
@@ -67,6 +68,7 @@ data:
   TEMPORAL__CLUSTER_URL: {{ .Values.externalTemporal.clusterUrl | quote }}
   TEMPORAL__CLUSTER_NAMESPACE: {{ .Values.externalTemporal.namespace | quote }}
   TEMPORAL__CLUSTER_QUEUE: {{ .Values.externalTemporal.taskQueue | quote }}
+  AUTOSECOPS__BACKGROUND_QUEUE: {{ .Values.backgroundWorker.queue | quote }}
   TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED: {{ $a.temporal.payloadEncryption.enabled | toString | quote }}
   TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN: {{ $a.temporal.payloadEncryption.keyringArn | quote }}
   TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS: {{ $a.temporal.payloadEncryption.cacheTtlSeconds | toString | quote }}

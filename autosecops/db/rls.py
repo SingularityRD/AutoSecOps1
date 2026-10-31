@@ -17,6 +17,8 @@ Key features:
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -236,6 +238,36 @@ async def set_rls_context_from_role(
         user_id=effective_role.user_id,
         bypass=False,
     )
+
+
+_SET_BYPASS_SQL = text(f"SELECT set_config('{RLS_VAR_BYPASS}', :bypass, true)")
+
+
+@asynccontextmanager
+async def rls_bypass_for_statement(session: AsyncSession) -> AsyncIterator[None]:
+    """Lift tenant RLS for statements inside the current transaction only.
+
+    Use this only for statements whose WHERE clause already scopes rows
+    explicitly. Its purpose is locking shared platform rows (for example
+    platform catalog entries) that a tenant may read but not update: under RLS,
+    ``SELECT ... FOR SHARE`` silently skips rows the UPDATE policy hides, so the
+    lock would not be taken. Locks persist until the transaction ends; the
+    session's own bypass setting is restored on exit.
+
+    Args:
+        session: The SQLAlchemy async session, inside a transaction.
+    """
+    await session.execute(_SET_BYPASS_SQL, {"bypass": RLS_BYPASS_ON})
+    try:
+        yield
+    finally:
+        context = session.sync_session.info.get(_RLS_CONTEXT_INFO_KEY)
+        restore = (
+            RLS_BYPASS_ON
+            if isinstance(context, _RLSContext) and context.bypass
+            else RLS_BYPASS_OFF
+        )
+        await session.execute(_SET_BYPASS_SQL, {"bypass": restore})
 
 
 async def clear_rls_context(session: AsyncSession) -> None:

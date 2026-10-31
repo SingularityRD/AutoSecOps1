@@ -6245,6 +6245,16 @@
               }
             }
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSyncExportError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -6501,7 +6511,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceSyncExportRequest"
+                "$ref": "#/components/schemas/WorkspaceSyncExportRequest-Input"
               }
             }
           }
@@ -6516,6 +6526,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSyncExportError"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "422": {
             "description": "Validation Error",
@@ -6578,6 +6598,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSyncExportError"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "422": {
             "description": "Validation Error",
@@ -17265,7 +17295,7 @@
           "agent-sessions"
         ],
         "summary": "List Agent Backends",
-        "description": "List enabled installed backends available to new sessions.",
+        "description": "List enabled installed backends this organization may start sessions on.",
         "operationId": "agent-sessions-list_agent_backends",
         "security": [
           {
@@ -17365,7 +17395,7 @@
             }
           },
           "403": {
-            "description": "Workspace Chat entitlement or parent session write access required"
+            "description": "Workspace Chat or agent backend entitlement, or parent session write access required"
           },
           "404": {
             "description": "Parent session not found in this workspace"
@@ -43068,6 +43098,1569 @@
           }
         ]
       }
+    },
+    "/workspaces/{workspace_id}/workflows/sync/operations": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Create Sync Operation",
+        "description": "Accept a preview and return before any Git or resource work begins.",
+        "operationId": "workflows-create_sync_operation",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncOperationCreate-Input"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationRead"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-Create Sync Operation"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "List Sync Operations",
+        "description": "Recover the initiating actor's operations after a reload or reconnect.",
+        "operationId": "workflows-list_sync_operations",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SyncOperationRead_"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-List Sync Operations"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Get Sync Operation",
+        "description": "Poll durable progress without starting or mutating the operation.",
+        "operationId": "workflows-get_sync_operation",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationRead"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-Get Sync Operation"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/apply": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Apply Sync Operation",
+        "description": "Send a stable apply command to the existing lifecycle workflow.",
+        "operationId": "workflows-apply_sync_operation",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncOperationCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationRead"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-Apply Sync Operation"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/retry": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Retry Sync Operation",
+        "description": "Send a stable retry command to the existing lifecycle workflow.",
+        "operationId": "workflows-retry_sync_operation",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncOperationCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationRead"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-Retry Sync Operation"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "List Sync Diffs",
+        "description": "Read one bounded page of diff metadata, without loading file contents.",
+        "operationId": "workflows-list_sync_diffs",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncDiffPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-List Sync Diffs"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs/{index}": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Get Sync Diff",
+        "description": "Load one selected file diff on demand.",
+        "operationId": "workflows-get_sync_diff",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "title": "Index"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullResourceDiff"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScopeDeniedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SyncOperationError"
+                    }
+                  ],
+                  "title": "Response 403 Workflows-Get Sync Diff"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOperationError"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/agent/sessions/{session_id}/pending": {
+      "get": {
+        "tags": [
+          "agent-sessions"
+        ],
+        "summary": "List Pending Messages",
+        "description": "List the user messages the model has not read yet, in send order.\n\nCovers steers waiting to join the running turn and messages queued for a\nlater turn. The list is short-lived and small, so it is not paginated. Only\nthe session's owner sees it: the messages are theirs until the model reads\nthem.",
+        "operationId": "agent-sessions-list_pending_messages",
+        "security": [
+          {
+            "APIKeyCookie": []
+          },
+          {
+            "ServiceAccountApiKeyBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionPendingRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/managed-resources/source": {
+      "get": {
+        "tags": [
+          "admin",
+          "admin:managed-resources"
+        ],
+        "summary": "Get Source",
+        "description": "Get the workspace managed resources are published from.",
+        "operationId": "admin-get_source",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSourceSettingRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "admin",
+          "admin:managed-resources"
+        ],
+        "summary": "Set Source",
+        "description": "Set the managed resources source and pin its Git binding.",
+        "operationId": "admin-set_source",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedSourceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSourceRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "admin",
+          "admin:managed-resources"
+        ],
+        "summary": "Clear Source",
+        "description": "Remove the managed resources source setting.",
+        "operationId": "admin-clear_source",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
+    "/admin/managed-resources/source/tags": {
+      "get": {
+        "tags": [
+          "admin",
+          "admin:managed-resources"
+        ],
+        "summary": "List Source Tags",
+        "description": "List tags in the managed resources source repository, newest first.",
+        "operationId": "admin-list_source_tags",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_GitTagInfo_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/settings/security/mfa": {
+      "get": {
+        "tags": [
+          "admin",
+          "admin:settings"
+        ],
+        "summary": "Get Mfa Settings",
+        "description": "Whether platform admins must sign in with a security key.",
+        "operationId": "admin-get_mfa_settings",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaPolicyRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "admin",
+          "admin:settings"
+        ],
+        "summary": "Update Mfa Settings",
+        "description": "Require a security key at sign-in for platform admins.\n\n``AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS`` is the break-glass override.",
+        "operationId": "admin-update_mfa_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaPolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaPolicyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{user_id}/mfa/reset": {
+      "post": {
+        "tags": [
+          "admin",
+          "admin:users"
+        ],
+        "summary": "Reset User Mfa",
+        "description": "Remove a user's security keys and recovery codes after they lose access.\n\nIf a policy still requires MFA, the user must register a new key at their\nnext sign-in.",
+        "operationId": "admin-reset_user_mfa",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/security/mfa": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get Mfa Policy",
+        "description": "Whether members must sign in with a security key.",
+        "operationId": "settings-get_mfa_policy",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaPolicyRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Mfa Policy",
+        "description": "Require (or stop requiring) a security key at sign-in for all members.\n\nApplies to password, OIDC, and SAML sign-in. Members without a key must\nregister one before they can continue. The caller must already have one.",
+        "operationId": "settings-update_mfa_policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaPolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaPolicyRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
+    "/auth/mfa/status": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get Mfa Status",
+        "operationId": "auth-get_mfa_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/sign-out": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign Out Pending Session",
+        "description": "End the current session, including one that is waiting on MFA.",
+        "operationId": "auth-sign_out_pending_session",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/auth/mfa/webauthn/register/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Begin Registration",
+        "operationId": "auth-begin_registration",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebAuthnOptionsRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/webauthn/register/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Complete Registration",
+        "operationId": "auth-complete_registration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAuthnRegistrationVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebAuthnRegistrationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/webauthn/authenticate/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Begin Authentication",
+        "operationId": "auth-begin_authentication",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebAuthnOptionsRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/webauthn/authenticate/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Complete Authentication",
+        "description": "Verify a security key. Satisfies both the sign-in challenge and step-up.",
+        "operationId": "auth-complete_authentication",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAuthnAuthenticationVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/recovery-codes/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Verify Recovery Code",
+        "description": "Sign in with a one-time recovery code instead of a security key.",
+        "operationId": "auth-verify_recovery_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryCodeVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/recovery-codes": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Regenerate Recovery Codes",
+        "description": "Replace all recovery codes. Previous codes stop working.",
+        "operationId": "auth-regenerate_recovery_codes",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/credentials": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "List Credentials",
+        "operationId": "auth-list_credentials",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebAuthnCredentialRead"
+                  },
+                  "type": "array",
+                  "title": "Response Auth-List Credentials"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/credentials/{credential_id}": {
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Rename Credential",
+        "operationId": "auth-rename_credential",
+        "parameters": [
+          {
+            "name": "credential_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Credential Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAuthnCredentialUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebAuthnCredentialRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Delete Credential",
+        "operationId": "auth-delete_credential",
+        "parameters": [
+          {
+            "name": "credential_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Credential Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -47559,6 +49152,12 @@
             "type": "boolean",
             "title": "Withdrawing",
             "description": "Whether a running turn can take back pending user messages",
+            "default": false
+          },
+          "listing_pending": {
+            "type": "boolean",
+            "title": "Listing Pending",
+            "description": "Whether the session can list messages the model has not read",
             "default": false
           }
         },
@@ -60058,6 +61657,12 @@
             "title": "Robot EDR",
             "description": "Whether workspaces may register robots and ingest RoboDR findings",
             "default": false
+          },
+          "agent_runtime_preview": {
+            "type": "boolean",
+            "title": "Agent runtime preview",
+            "description": "Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions",
+            "default": false
           }
         },
         "type": "object",
@@ -60241,7 +61846,8 @@
           "semantic_search",
           "forms",
           "tunnels",
-          "robot_edr"
+          "robot_edr",
+          "agent_runtime_preview"
         ],
         "title": "Entitlement",
         "description": "Available feature entitlements."
@@ -60322,6 +61928,11 @@
             "type": "boolean",
             "title": "Robot EDR",
             "description": "Whether workspaces may register robots and ingest RoboDR findings"
+          },
+          "agent_runtime_preview": {
+            "type": "boolean",
+            "title": "Agent runtime preview",
+            "description": "Whether agent backends other than the built-in one may be listed and used to create or fork agent sessions"
           }
         },
         "type": "object",
@@ -60918,7 +62529,6 @@
           "ai-ranking",
           "workflow-concurrency-limits",
           "agent-fs-persistence",
-          "agent-runtime",
           "workspace-sync-github-archive",
           "forms"
         ],
@@ -63651,7 +65261,7 @@
             "type": "string",
             "format": "password",
             "title": "Token",
-            "description": "GitLab personal/project/group access token with api scope.",
+            "description": "GitLab access token with api scope. Project and group tokens also require write_repository for Git sync pushes.",
             "writeOnly": true
           }
         },
@@ -67889,6 +69499,18 @@
             ],
             "title": "Status",
             "default": "available"
+          },
+          "input_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Schema"
           }
         },
         "type": "object",
@@ -88901,67 +90523,6 @@
         "title": "WorkspaceSyncExportPreviewRequest",
         "description": "Request a dry-run projection of what an export would push to Git."
       },
-      "WorkspaceSyncExportRequest": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Message",
-            "description": "Commit message for the export."
-          },
-          "branch": {
-            "type": "string",
-            "title": "Branch",
-            "description": "Target branch to commit to."
-          },
-          "create_pr": {
-            "type": "boolean",
-            "title": "Create Pr",
-            "description": "Whether to open a pull request for the commit.",
-            "default": false
-          },
-          "pr_base_branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pr Base Branch",
-            "description": "Base branch for the pull request, if created."
-          },
-          "resources": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ResourceRef"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resources",
-            "description": "Specific resources to export, or ``None`` to export all."
-          },
-          "include_schedules": {
-            "type": "boolean",
-            "title": "Include Schedules",
-            "description": "Whether to include workflow schedules in the export.",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "message",
-          "branch"
-        ],
-        "title": "WorkspaceSyncExportRequest",
-        "description": "Request to commit selected workspace resources to a Git branch."
-      },
       "WorkspaceSyncExportResult": {
         "properties": {
           "commit": {
@@ -91868,6 +93429,1148 @@
         ],
         "title": "LicenseUsageRead",
         "description": "Current usage counted against license limits."
+      },
+      "AgentPendingMessageRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "The ID the client sent the message under"
+          },
+          "type": {
+            "$ref": "#/components/schemas/PendingMessageType",
+            "description": "`steer` waits to join the running turn; `message` waits to start a later turn"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "text",
+          "created_at"
+        ],
+        "title": "AgentPendingMessageRead",
+        "description": "A user message the model has not read yet."
+      },
+      "AgentSessionPendingRead": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentPendingMessageRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "items"
+        ],
+        "title": "AgentSessionPendingRead",
+        "description": "The session's user messages the model has not read, in send order."
+      },
+      "GitTagInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Tag name"
+          },
+          "commit_sha": {
+            "type": "string",
+            "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+            "title": "Commit Sha",
+            "description": "SHA of the commit the tag points to (SHA-1 or SHA-256)"
+          },
+          "date": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Date",
+            "description": "Tag date in ISO format. The provider's tag date when it has one, otherwise the tagged commit's date."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "commit_sha",
+          "date"
+        ],
+        "title": "GitTagInfo",
+        "description": "Git tag information for repository management."
+      },
+      "ManagedSourceRead": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "git_provider": {
+            "$ref": "#/components/schemas/VcsProvider"
+          },
+          "git_repo_url": {
+            "type": "string",
+            "title": "Git Repo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "organization_id",
+          "git_provider",
+          "git_repo_url"
+        ],
+        "title": "ManagedSourceRead",
+        "description": "The workspace managed resources are published from, and its Git binding."
+      },
+      "ManagedSourceSettingRead": {
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManagedSourceRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ManagedSourceSettingRead",
+        "description": "The managed resources source setting; ``source`` is null when unset."
+      },
+      "ManagedSourceUpdate": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id"
+        ],
+        "title": "ManagedSourceUpdate",
+        "description": "Set the managed resources source.\n\nThe workspace must have a Git sync provider and repository URL; both are\npinned with the setting."
+      },
+      "MfaPolicyRead": {
+        "properties": {
+          "mfa_required": {
+            "type": "boolean",
+            "title": "Mfa Required"
+          },
+          "webauthn_available": {
+            "type": "boolean",
+            "title": "Webauthn Available"
+          },
+          "webauthn_unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webauthn Unavailable Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_required",
+          "webauthn_available"
+        ],
+        "title": "MfaPolicyRead"
+      },
+      "MfaPolicyUpdate": {
+        "properties": {
+          "mfa_required": {
+            "type": "boolean",
+            "title": "Mfa Required",
+            "description": "Require a security key or passkey at sign-in. Users without one must register one at their next sign-in."
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_required"
+        ],
+        "title": "MfaPolicyUpdate"
+      },
+      "MfaStatusRead": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/SessionMfaState"
+          },
+          "has_credentials": {
+            "type": "boolean",
+            "title": "Has Credentials"
+          },
+          "required_by_policy": {
+            "type": "boolean",
+            "title": "Required By Policy"
+          },
+          "webauthn_available": {
+            "type": "boolean",
+            "title": "Webauthn Available"
+          },
+          "webauthn_unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webauthn Unavailable Reason"
+          },
+          "recovery_codes_remaining": {
+            "type": "integer",
+            "title": "Recovery Codes Remaining"
+          },
+          "step_up_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Expires At",
+            "description": "When the current step-up verification stops satisfying checks."
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "has_credentials",
+          "required_by_policy",
+          "webauthn_available",
+          "recovery_codes_remaining"
+        ],
+        "title": "MfaStatusRead"
+      },
+      "Page_GitTagInfo_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GitTagInfo"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Next-page cursor"
+          },
+          "prev_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Cursor",
+            "description": "Previous-page cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Page[GitTagInfo]"
+      },
+      "Page_SyncOperationRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SyncOperationRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Next-page cursor"
+          },
+          "prev_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Cursor",
+            "description": "Previous-page cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Page[SyncOperationRead]"
+      },
+      "PendingMessageType": {
+        "type": "string",
+        "enum": [
+          "steer",
+          "message"
+        ]
+      },
+      "RecoveryCodeVerify": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "RecoveryCodeVerify"
+      },
+      "RecoveryCodesRead": {
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "RecoveryCodesRead"
+      },
+      "ScopeDeniedErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "const": "insufficient_scope",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "required_scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Scopes"
+          },
+          "missing_scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Scopes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "required_scopes",
+          "missing_scopes"
+        ],
+        "title": "ScopeDeniedErrorDetail",
+        "description": "Structured explanation of an authorization scope denial."
+      },
+      "ScopeDeniedResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ScopeDeniedErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ScopeDeniedResponse",
+        "description": "HTTP 403 response emitted by the scope-denial exception handler."
+      },
+      "SessionMfaState": {
+        "type": "string",
+        "enum": [
+          "not_required",
+          "verified",
+          "challenge_required",
+          "enrollment_required"
+        ],
+        "title": "SessionMfaState"
+      },
+      "SyncDiffPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PullResourceDiff"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "SyncDiffPage",
+        "description": "A stable page of diff metadata; file text is fetched separately."
+      },
+      "SyncDirection": {
+        "type": "string",
+        "enum": [
+          "push",
+          "pull"
+        ]
+      },
+      "SyncOperationCommand": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Command Id"
+          },
+          "preview_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Preview Revision"
+          },
+          "state_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "State Revision"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "preview_revision",
+          "state_revision"
+        ],
+        "title": "SyncOperationCommand",
+        "description": "Repeat the same command ID and reviewed revisions after a lost response."
+      },
+      "SyncOperationCreate-Input": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SyncDirection"
+          },
+          "push": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceSyncExportRequest-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pull": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowSyncPullRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compare_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compare Ref"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "direction"
+        ],
+        "title": "SyncOperationCreate",
+        "description": "Start a preview; reuse the client-generated ID after a lost response."
+      },
+      "SyncOperationCreate-Output": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SyncDirection"
+          },
+          "push": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceSyncExportRequest-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pull": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowSyncPullRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compare_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compare Ref"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "direction"
+        ],
+        "title": "SyncOperationCreate",
+        "description": "Start a preview; reuse the client-generated ID after a lost response."
+      },
+      "SyncOperationError": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "SyncOperationError",
+        "description": "Expected operation conflict and diff lookup failures."
+      },
+      "SyncOperationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SyncDirection"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SyncStatus"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/SyncStage"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "commit_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceSyncExportPreview"
+              },
+              {
+                "$ref": "#/components/schemas/PullResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SyncPushResult"
+              },
+              {
+                "$ref": "#/components/schemas/PullResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "diff_count": {
+            "type": "integer",
+            "title": "Diff Count",
+            "default": 0
+          },
+          "can_retry": {
+            "type": "boolean",
+            "title": "Can Retry",
+            "default": false
+          },
+          "data_applied": {
+            "type": "boolean",
+            "title": "Data Applied",
+            "default": false
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/SyncOperationCreate-Output"
+          },
+          "preview_revision": {
+            "type": "integer",
+            "title": "Preview Revision",
+            "default": 0
+          },
+          "state_revision": {
+            "type": "integer",
+            "title": "State Revision",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "direction",
+          "status",
+          "stage",
+          "created_at",
+          "expires_at",
+          "inputs"
+        ],
+        "title": "SyncOperationRead",
+        "description": "Small polling response, independent of the number of synced files."
+      },
+      "SyncPushResult": {
+        "properties": {
+          "commit": {
+            "$ref": "#/components/schemas/CommitInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "commit"
+        ],
+        "title": "SyncPushResult",
+        "description": "Compact durable push receipt; file details stay in paginated artifacts."
+      },
+      "SyncStage": {
+        "type": "string",
+        "enum": [
+          "fetching",
+          "preparing",
+          "awaiting_confirmation",
+          "applying",
+          "finishing",
+          "finished"
+        ]
+      },
+      "SyncStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "ready",
+          "applying",
+          "completed",
+          "failed",
+          "expired"
+        ]
+      },
+      "WebAuthnAuthenticationVerify": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential",
+            "description": "PublicKeyCredential.toJSON() output from navigator.credentials.get()."
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential"
+        ],
+        "title": "WebAuthnAuthenticationVerify"
+      },
+      "WebAuthnCredentialRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "aaguid": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Aaguid"
+          },
+          "transports": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Transports"
+          },
+          "backup_eligible": {
+            "type": "boolean",
+            "title": "Backup Eligible"
+          },
+          "backup_state": {
+            "type": "boolean",
+            "title": "Backup State"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "aaguid",
+          "transports",
+          "backup_eligible",
+          "backup_state",
+          "created_at",
+          "last_used_at"
+        ],
+        "title": "WebAuthnCredentialRead"
+      },
+      "WebAuthnCredentialUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "WebAuthnCredentialUpdate"
+      },
+      "WebAuthnOptionsRead": {
+        "properties": {
+          "public_key": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Public Key",
+            "description": "PublicKeyCredential{Creation,Request}Options as JSON (base64url)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "public_key"
+        ],
+        "title": "WebAuthnOptionsRead"
+      },
+      "WebAuthnRegistrationResult": {
+        "properties": {
+          "credential": {
+            "$ref": "#/components/schemas/WebAuthnCredentialRead"
+          },
+          "recovery_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Codes",
+            "description": "One-time recovery codes, returned only for the first security key."
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential"
+        ],
+        "title": "WebAuthnRegistrationResult"
+      },
+      "WebAuthnRegistrationVerify": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential",
+            "description": "PublicKeyCredential.toJSON() output from navigator.credentials.create()."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential",
+          "name"
+        ],
+        "title": "WebAuthnRegistrationVerify"
+      },
+      "WorkflowExportCode": {
+        "type": "string",
+        "enum": [
+          "publish_required",
+          "missing_definition",
+          "no_actions",
+          "invalid_definition",
+          "missing_child_workflow"
+        ]
+      },
+      "WorkflowExportDiagnostic": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workflow Id",
+            "description": "Authorized local workflow ID."
+          },
+          "workflow_title": {
+            "type": "string",
+            "title": "Workflow Title",
+            "description": "Workflow display title."
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id",
+            "description": "Existing stable Git ID."
+          },
+          "source_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Path",
+            "description": "Existing repository path."
+          },
+          "stage": {
+            "$ref": "#/components/schemas/WorkflowExportStage",
+            "description": "Export stage that failed."
+          },
+          "code": {
+            "$ref": "#/components/schemas/WorkflowExportCode",
+            "description": "Machine-readable corrective error code."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Safe corrective message without workflow inputs."
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "workflow_title",
+          "stage",
+          "code",
+          "message"
+        ],
+        "title": "WorkflowExportDiagnostic",
+        "description": "Safe workflow context for an export that cannot proceed."
+      },
+      "WorkflowExportStage": {
+        "type": "string",
+        "enum": [
+          "definition",
+          "dependency"
+        ]
+      },
+      "WorkspaceSyncExportError": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Human-readable failure summary."
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowExportDiagnostic"
+            },
+            "type": "array",
+            "title": "Diagnostics"
+          },
+          "omitted_count": {
+            "type": "integer",
+            "title": "Omitted Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "WorkspaceSyncExportError",
+        "description": "Additive diagnostics while retaining the legacy string detail field."
+      },
+      "WorkspaceSyncExportRequest-Input": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Message",
+            "description": "Commit message for the export."
+          },
+          "branch": {
+            "type": "string",
+            "title": "Branch",
+            "description": "Target branch to commit to."
+          },
+          "create_pr": {
+            "type": "boolean",
+            "title": "Create Pr",
+            "description": "Whether to open a pull request for the commit.",
+            "default": false
+          },
+          "pr_base_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Base Branch",
+            "description": "Base branch for the pull request, if created."
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resources",
+            "description": "Specific resources to export, or ``None`` to export all."
+          },
+          "include_schedules": {
+            "type": "boolean",
+            "title": "Include Schedules",
+            "description": "Whether to include workflow schedules in the export.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "branch"
+        ],
+        "title": "WorkspaceSyncExportRequest",
+        "description": "Request to commit selected workspace resources to a Git branch."
+      },
+      "WorkspaceSyncExportRequest-Output": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Message",
+            "description": "Commit message for the export."
+          },
+          "branch": {
+            "type": "string",
+            "title": "Branch",
+            "description": "Target branch to commit to."
+          },
+          "create_pr": {
+            "type": "boolean",
+            "title": "Create Pr",
+            "description": "Whether to open a pull request for the commit.",
+            "default": false
+          },
+          "pr_base_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Base Branch",
+            "description": "Base branch for the pull request, if created."
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resources",
+            "description": "Specific resources to export, or ``None`` to export all."
+          },
+          "include_schedules": {
+            "type": "boolean",
+            "title": "Include Schedules",
+            "description": "Whether to include workflow schedules in the export.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "branch"
+        ],
+        "title": "WorkspaceSyncExportRequest",
+        "description": "Request to commit selected workspace resources to a Git branch."
       }
     },
     "securitySchemes": {
