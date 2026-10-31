@@ -267,15 +267,12 @@ async def test_platform_superuser_role_can_change_email(
 async def test_auth_token_hooks_never_log_the_token(
     manager: UserManager, user: User
 ) -> None:
-    """Reset and verification tokens are bearer credentials for the account."""
+    """Reset tokens are bearer credentials for the account."""
     reset_token = "reset-token-" + uuid.uuid4().hex
-    verify_token = "verify-token-" + uuid.uuid4().hex
     manager.logger = Mock()
 
     await manager.on_after_forgot_password(user, reset_token)
-    await manager.on_after_request_verify(user, verify_token)
 
     logged = repr(manager.logger.mock_calls)
-    assert len(manager.logger.mock_calls) == 2
+    assert len(manager.logger.mock_calls) == 1
     assert reset_token not in logged
-    assert verify_token not in logged

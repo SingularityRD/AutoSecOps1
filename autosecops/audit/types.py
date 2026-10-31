@@ -67,6 +67,7 @@ AuditAction = Literal[
     "withdraw",
     "request",
     "revert",
+    "verify",
 ]
 AuditResourceType = Literal[
     "user",
