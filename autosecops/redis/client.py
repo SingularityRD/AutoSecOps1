@@ -143,7 +143,7 @@ class RedisClient:
                 loop_id=id(RedisClient._loop),
                 new_loop_id=id(current_loop),
             )
-            await self.close()
+            await self._release_previous_loop()
             self._init_pool()
 
         if RedisClient._client is None:
@@ -684,6 +684,18 @@ class RedisClient:
         RedisClient._loop = None
         if closed:
             logger.info("Redis connection closed")
+
+    async def _release_previous_loop(self) -> None:
+        """Release the client and pool bound to the previous event loop."""
+        previous_loop = RedisClient._loop
+        if previous_loop is None or not previous_loop.is_closed():
+            await self.close()
+            return
+        # Closing a socket schedules a callback on its own loop, which raises
+        # once that loop is closed. Its connections went away with the loop.
+        RedisClient._client = None
+        RedisClient._pool = None
+        RedisClient._loop = None
 
     async def _reset_connection(self) -> None:
         """Reset the Redis client and pool so the next attempt reinitializes them."""

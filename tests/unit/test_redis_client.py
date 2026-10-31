@@ -127,16 +127,36 @@ def test_get_client_reuses_same_event_loop() -> None:
 
 def test_get_client_reinitializes_after_loop_change() -> None:
     client = RedisClient()
+    first_loop = asyncio.new_event_loop()
+    try:
+        first_client = first_loop.run_until_complete(client._get_client())
+        assert len(DummyRedis.instances) == 1
 
-    first_client = asyncio.run(client._get_client())
-    assert len(DummyRedis.instances) == 1
-
-    second_client = asyncio.run(client._get_client())
+        second_client = asyncio.run(client._get_client())
+    finally:
+        first_loop.close()
 
     assert second_client is not first_client
     assert len(DummyRedis.instances) == 2
     assert DummyRedis.instances[0].closed is True
     assert DummyConnectionPool.instances[0].disconnected is True
+
+
+def test_get_client_drops_connections_of_a_closed_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _closed_loop_disconnect(self: DummyConnectionPool) -> None:
+        raise RuntimeError("Event loop is closed")
+
+    monkeypatch.setattr(DummyConnectionPool, "disconnect", _closed_loop_disconnect)
+    client = RedisClient()
+
+    first_client = asyncio.run(client._get_client())
+    second_client = asyncio.run(client._get_client())
+
+    assert second_client is not first_client
+    assert len(DummyRedis.instances) == 2
+    assert DummyRedis.instances[0].closed is False
 
 
 def test_xadd_retries_after_transport_error() -> None:
