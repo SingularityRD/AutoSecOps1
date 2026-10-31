@@ -382,6 +382,16 @@ async def test_custom_roles_respect_preset_and_tenant_boundaries(
         "/rbac/roles", json={"name": "ghost", "scope_ids": [str(uuid.uuid4())]}
     )
     assert missing_scope.status_code == 404
+    # Both rejected creates flushed the role before raising. Production closes
+    # the request session without a commit, so neither row may survive.
+    rejected = await session.scalar(
+        select(func.count())
+        .select_from(DBRole)
+        .where(DBRole.name.in_(["too strong", "ghost"]))
+    )
+    assert rejected == 0
+    # Discarding those writes expired the tenant's loaded rows.
+    await session.refresh(tenant.org)
 
     read_scope = await session.scalar(
         select(Scope.id).where(

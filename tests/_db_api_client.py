@@ -6,6 +6,10 @@ harness mounts the routers under test on a bare FastAPI app with the real
 application exception handlers, binds every database dependency to the test's
 ``session`` fixture, and resolves every ``RoleACL`` dependency to a role the
 test can swap between requests.
+
+Each request runs like a production request: it starts from committed state,
+and anything it flushed without committing is rolled back when it ends, as
+production discards it when it closes the request session.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ import httpx
 from fastapi import APIRouter, FastAPI
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops.api.app import app as api_app
@@ -80,20 +85,53 @@ async def db_api_client(
             for call in _role_dependencies(route.dependant):
                 app.dependency_overrides[call] = _current_role
 
+    # Writes flushed since the last commit or rollback. A request that leaves
+    # any behind would lose them in production, where the session is closed
+    # without a commit.
+    unsaved_writes = False
+
+    def _on_flush(*_: object) -> None:
+        nonlocal unsaved_writes
+        unsaved_writes = True
+
+    def _on_transaction_end(*_: object) -> None:
+        nonlocal unsaved_writes
+        unsaved_writes = False
+
+    sync_session = session.sync_session
+    event.listen(sync_session, "after_flush", _on_flush)
+    event.listen(sync_session, "after_commit", _on_transaction_end)
+    event.listen(sync_session, "after_soft_rollback", _on_transaction_end)
+
     async def _session() -> AsyncGenerator[AsyncSession, None]:
-        # Production closes the request session, discarding a failed flush.
-        # The shared test session must be rolled back instead, or the next
-        # request and fixture teardown hit PendingRollbackError.
+        # A production request reads only committed state. Commit releases
+        # the savepoint holding the test's own seed writes; the outer
+        # transaction still discards them at teardown.
+        if session.in_transaction():
+            await session.commit()
         try:
             yield session
-        except Exception:
-            if not session.is_active:
+        finally:
+            # Production closes the request session without committing, which
+            # discards whatever the route flushed but did not commit, and
+            # discards a failed flush. Roll back to the savepoint so such a
+            # write cannot reach later requests or the test's own reads.
+            # Rollback expires every loaded instance, so a clean request
+            # (nothing pending, nothing flushed since its last commit) skips it.
+            pending = session.new or session.dirty or session.deleted
+            if unsaved_writes or pending or not session.is_active:
                 await session.rollback()
-            raise
 
     app.dependency_overrides[get_async_session] = _session
     app.dependency_overrides[get_async_session_bypass_rls] = _session
 
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
+    try:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            yield client
+    finally:
+        event.remove(sync_session, "after_flush", _on_flush)
+        event.remove(sync_session, "after_commit", _on_transaction_end)
+        event.remove(sync_session, "after_soft_rollback", _on_transaction_end)

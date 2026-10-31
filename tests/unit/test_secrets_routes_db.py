@@ -148,6 +148,10 @@ async def test_update_and_delete_by_id_and_short_id(
     assert updated.status_code == 200, updated.text
     assert updated.json()["keys"] == ["ROTATED"]
     assert "new-value" not in updated.text
+    # The rotation must be committed, not only flushed into the request.
+    listed = (await client.get("/secrets")).json()
+    [stored] = [item for item in listed if item["id"] == first["id"]]
+    assert stored["keys"] == ["ROTATED"]
 
     assert (await client.delete(f"/secrets/{first['id']}")).status_code == 204
     assert (await client.delete(f"/secrets/{first['id']}")).status_code == 404
