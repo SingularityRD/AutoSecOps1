@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool
-from sqlalchemy.schema import DropSchema
 
 from autosecops import config
 from autosecops.auth.types import Role
+from autosecops.cases.service import CaseFieldsService
 from autosecops.db.models import (
     Organization,
     OrganizationTier,
@@ -27,7 +27,6 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.exceptions import EntitlementRequired, LicenseLimitExceeded
-from autosecops.identifiers.workflow import WorkspaceUUID
 from autosecops.licensing import enforcement
 from autosecops.licensing.types import (
     LicenseLimitName,
@@ -154,20 +153,21 @@ class WorkspaceDatabase:
 
         async with self.session_factory() as session:
             await _set_transaction_timeouts(session)
-            workspace_ids = list(
-                (
-                    await session.scalars(
-                        select(Workspace.id).where(
-                            Workspace.organization_id.in_(self.organization_ids)
-                        )
-                    )
-                ).all()
-            )
-            for workspace_id in workspace_ids:
-                schema_name = f"custom_fields_{WorkspaceUUID.new(workspace_id).short()}"
+            workspaces = (
                 await session.execute(
-                    DropSchema(schema_name, cascade=True, if_exists=True)
+                    select(Workspace.id, Workspace.organization_id).where(
+                        Workspace.organization_id.in_(self.organization_ids)
+                    )
                 )
+            ).tuples()
+            # The service locks "case" before dropping, matching case writers.
+            for workspace_id, organization_id in workspaces.all():
+                await CaseFieldsService(
+                    session,
+                    role=_service_role(organization_id).model_copy(
+                        update={"workspace_id": workspace_id}
+                    ),
+                ).drop_workspace_schema()
 
             await session.execute(
                 delete(Ownership).where(Ownership.owner_id.in_(self.organization_ids))
