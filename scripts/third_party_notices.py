@@ -291,21 +291,6 @@ def frontend_components() -> list[Component]:
     for license_id, packages in data.items():
         for pkg in packages:
             for version, path_str in zip(pkg["versions"], pkg["paths"], strict=True):
-                path = Path(path_str)
-                texts: list[tuple[str, str]] = []
-                if path.is_dir():
-                    for child in sorted(path.iterdir()):
-                        if (
-                            child.is_file()
-                            and LICENSE_FILE_RE.search(child.name)
-                            and not SKIP_FILE_RE.search(child.name)
-                        ):
-                            texts.append(
-                                (
-                                    child.name,
-                                    _clean_text(child.read_text(errors="replace")),
-                                )
-                            )
                 components.append(
                     Component(
                         ecosystem="frontend",
@@ -314,13 +299,96 @@ def frontend_components() -> list[Component]:
                         license=license_id,
                         homepage=pkg.get("homepage") or "",
                         author=(pkg.get("author") or "").strip(),
-                        texts=tuple(texts),
+                        texts=_license_texts(Path(path_str)),
                     )
                 )
+    platforms = _lockfile_platforms()
+    components.extend(_unlisted_frontend_components(components, platforms))
     return sorted(
-        _for_ui_targets(components, _lockfile_platforms()),
+        _for_ui_targets(components, platforms),
         key=lambda c: (c.name.lower(), c.version),
     )
+
+
+def _license_texts(path: Path) -> tuple[tuple[str, str], ...]:
+    """Return the license files an installed package ships, cleaned."""
+    texts: list[tuple[str, str]] = []
+    if path.is_dir():
+        for child in sorted(path.iterdir()):
+            if (
+                child.is_file()
+                and LICENSE_FILE_RE.search(child.name)
+                and not SKIP_FILE_RE.search(child.name)
+            ):
+                texts.append(
+                    (child.name, _clean_text(child.read_text(errors="replace")))
+                )
+    return tuple(texts)
+
+
+def _installed_frontend_package(name: str, version: str) -> Path:
+    """Locate a package in pnpm's virtual store, e.g. `.pnpm/a+b@1.0.0_x/...`."""
+    store = FRONTEND / "node_modules" / ".pnpm"
+    prefix = f"{name.replace('/', '+')}@{version}"
+    for entry in sorted(store.iterdir()):
+        if entry.name == prefix or entry.name.startswith(f"{prefix}_"):
+            path = entry / "node_modules" / name
+            if (path / "package.json").is_file():
+                return path
+    raise SystemExit(f"{name} {version} is locked but not installed; run pnpm install")
+
+
+def _unlisted_frontend_components(
+    components: list[Component],
+    platforms: dict[tuple[str, str], dict[str, list[str]]],
+) -> list[Component]:
+    """Read shipped packages that `pnpm licenses list` leaves out.
+
+    pnpm reports one entry per package reached under its own name, so a
+    version reached only through an npm alias (for example posthog-js's
+    `web-vitals-soft-navs: web-vitals@6.2.1` next to its `web-vitals` 6.2.3)
+    hides the other version. Fill those from the installed package.json.
+    """
+    listed = {(_norm(c.name), c.version) for c in components}
+    extra: list[Component] = []
+    for name, version in frontend_requirements():
+        if (_norm(name), version) in listed or platforms.get((name, version)):
+            continue
+        path = _installed_frontend_package(name, version)
+        manifest = json.loads((path / "package.json").read_text())
+        license_id = manifest.get("license")
+        if not isinstance(license_id, str):
+            licenses = manifest.get("licenses") or []
+            license_id = " OR ".join(
+                str(item.get("type", item)) if isinstance(item, dict) else str(item)
+                for item in licenses
+            )
+        author = manifest.get("author") or ""
+        if isinstance(author, dict):
+            author = author.get("name") or ""
+        extra.append(
+            Component(
+                ecosystem="frontend",
+                name=name,
+                version=version,
+                license=license_id or "UNKNOWN",
+                homepage=manifest.get("homepage") or "",
+                author=str(author).strip(),
+                texts=_license_texts(path),
+            )
+        )
+    return extra
+
+
+def _dependency_key(name: str, version: str) -> str:
+    """Return the lock key a dependency resolves to, following npm aliases.
+
+    An aliased dependency such as `web-vitals-soft-navs: web-vitals@6.2.1`
+    records the real `name@version` as its version.
+    """
+    if "@" in version.split("(", 1)[0]:
+        return version
+    return f"{name}@{version}"
 
 
 def _split_package_key(key: str) -> tuple[str, str]:
@@ -376,7 +444,7 @@ def frontend_requirements() -> list[tuple[str, str]]:
     snapshots: dict[str, dict] = lock.get("snapshots") or {}
     platforms = _lockfile_platforms()
     pending = [
-        f"{name}@{entry['version']}"
+        _dependency_key(name, str(entry["version"]))
         for section in ("dependencies", "optionalDependencies")
         for name, entry in (importer.get(section) or {}).items()
         if not str(entry["version"]).startswith("link:")
@@ -398,7 +466,7 @@ def frontend_requirements() -> list[tuple[str, str]]:
         for section in ("dependencies", "optionalDependencies"):
             for dep, dep_version in (snapshot.get(section) or {}).items():
                 if not str(dep_version).startswith("link:"):
-                    pending.append(f"{dep}@{dep_version}")
+                    pending.append(_dependency_key(dep, str(dep_version)))
     return sorted(shipped.values(), key=lambda r: (_norm(r[0]), r[1]))
 
 
