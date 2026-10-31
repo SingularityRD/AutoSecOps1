@@ -1887,8 +1887,25 @@ def test_fargate_ha_example_is_valid_and_redundant() -> None:
         "background_worker",
         "mcp",
         "litellm",
+        "ui",
+        "caddy",
     ):
         assert int(example[f"{service}_desired_count"]) >= 2, service
+    # Every ECS service the stack always runs takes its count from a variable,
+    # so no single task sits outside the profile. The bundled Temporal server
+    # and UI are the documented exception.
+    ecs_dir = FARGATE_DIR / "modules/ecs"
+    for tf in sorted(ecs_dir.glob("ecs-*.tf")):
+        for count in re.findall(r"(?m)^\s+desired_count\s*=\s*(\S+)$", tf.read_text()):
+            if tf.name in {"ecs-temporal.tf", "ecs-temporal-ui.tf"}:
+                continue
+            assert count.startswith("var."), f"{tf.name}: desired_count = {count}"
+    assert "Temporal" in (FARGATE_DIR / "examples/ha.tfvars.example").read_text()
+    # New counts default to one task, so existing bills do not change.
+    for name in ("ui_desired_count", "caddy_desired_count"):
+        assert re.search(
+            rf'variable "{name}" \{{[^}}]*default\s*=\s*1\n', root_variables
+        ), name
     assert example["rds_multi_az"] == "true"
     assert int(example["redis_num_cache_clusters"]) >= 2
     # The HA profile is opt-in: defaults do not add standby databases.

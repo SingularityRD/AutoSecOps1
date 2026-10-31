@@ -209,6 +209,7 @@ module "ecs" {
 
   ui_cpu                                   = var.ui_cpu
   ui_memory                                = var.ui_memory
+  ui_desired_count                         = var.ui_desired_count
   temporal_cpu                             = var.temporal_cpu
   temporal_memory                          = var.temporal_memory
   temporal_num_history_shards              = var.temporal_num_history_shards
@@ -218,6 +219,7 @@ module "ecs" {
   temporal_db_force_ssl                    = var.temporal_db_force_ssl
   caddy_cpu                                = var.caddy_cpu
   caddy_memory                             = var.caddy_memory
+  caddy_desired_count                      = var.caddy_desired_count
   autosecops_db_instance_class             = local.autosecops_db_instance_class
   temporal_db_instance_class               = local.temporal_db_instance_class
   autosecops_db_allocated_storage          = local.autosecops_db_allocated_storage

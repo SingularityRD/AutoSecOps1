@@ -641,6 +641,17 @@ variable "ui_memory" {
   default = "2048"
 }
 
+variable "ui_desired_count" {
+  type        = number
+  description = "Desired number of UI (Next.js) tasks to run. Set 2 or more for high availability."
+  default     = 1
+
+  validation {
+    condition     = var.ui_desired_count >= 1 && floor(var.ui_desired_count) == var.ui_desired_count
+    error_message = "ui_desired_count must be a positive integer."
+  }
+}
+
 variable "api_cpu" {
   type    = string
   default = "1024"
@@ -963,6 +974,17 @@ variable "caddy_cpu" {
 variable "caddy_memory" {
   type    = string
   default = "512"
+}
+
+variable "caddy_desired_count" {
+  type        = number
+  description = "Desired number of Caddy reverse proxy tasks to run. Set 2 or more for high availability."
+  default     = 1
+
+  validation {
+    condition     = var.caddy_desired_count >= 1 && floor(var.caddy_desired_count) == var.caddy_desired_count
+    error_message = "caddy_desired_count must be a positive integer."
+  }
 }
 
 ### MCP Service

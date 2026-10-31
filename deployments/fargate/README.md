@@ -62,8 +62,14 @@ application user; the default user is disabled.
 The defaults already run two tasks of the API, worker, executor, and agent
 worker. For a deployment that survives the loss of an Availability Zone, apply
 the opt-in profile in `examples/ha.tfvars.example`: two tasks of every
-stateless service, a Multi-AZ RDS standby, and a Redis replica with automatic
-failover. It roughly doubles the RDS and ElastiCache cost.
+stateless AutoSecOps service, including the UI and Caddy (`ui_desired_count`,
+`caddy_desired_count`, default 1), a Multi-AZ RDS standby, and a Redis replica
+with automatic failover. It roughly doubles the RDS and ElastiCache cost.
+
+The bundled Temporal server and Temporal UI stay single tasks. While ECS
+replaces a lost Temporal task, which takes minutes, no workflow runs. For
+zone-loss tolerance, use Temporal Cloud or your own highly available Temporal
+cluster: set `temporal_cluster_url` and `disable_temporal_autosetup=true`.
 
 ```bash
 cp examples/ha.tfvars.example ha.tfvars
