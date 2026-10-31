@@ -231,7 +231,9 @@ Run these checks right after every upgrade:
 ### Worker health checks
 
 From this release, the Temporal workers report health. Docker Compose shows `worker`, `background-worker`, `executor`, `agent-worker`, and `agent-executor` as `healthy` once they poll Temporal, and the Helm chart adds exec startup, liveness, and readiness probes to their pods, so `helm upgrade` waits for new worker pods to become ready.
-A worker that stays `unhealthy` or not ready cannot reach Temporal; check its logs. If you set worker probes in your own values, yours replace the chart defaults. See [Monitoring](/self-hosting/monitoring).
+A worker that stays `unhealthy` or not ready cannot reach Temporal; check its logs.
+The chart's default worker probes live in the new `workerProbes` value. A probe you already set on a worker component (for example `worker.readinessProbe`) replaces the matching default; it is never merged with it. If you mounted a volume at `/var/run/autosecops` through `extraVolumeMounts`, remove it: the chart now mounts an in-memory `emptyDir` there for the health files, and a duplicate mount path fails the upgrade.
+On AWS Fargate, worker tasks get an ECS container health check, and the new `metrics_enabled` and `metrics_scraper_security_group_ids` module variables turn on metrics. See [Monitoring](/self-hosting/monitoring).
 
 ## Roll back
 

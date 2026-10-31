@@ -12,12 +12,17 @@ Metrics are off by default and are served on internal ports that Caddy and the H
 | Service | Check | Healthy when |
 | :------ | :---- | :----------- |
 | `api` | `GET /health` on port 8000 | The API process answers |
-| `worker`, `background-worker`, `executor`, `agent-worker`, `agent-executor` | `python -m autosecops.temporal.healthcheck live` | The worker's event loop refreshed `/var/run/autosecops/worker-alive` in the last 60 seconds |
-| Same workers | `python -m autosecops.temporal.healthcheck ready` | The worker is polling its task queue and the Temporal frontend answered a health check in the last 30 seconds |
+| `worker`, `background-worker`, `executor`, `agent-worker`, `agent-executor` | `python -m autosecops.temporal.healthcheck live` | The worker's event loop refreshed `/var/run/autosecops/worker-alive` in the last 120 seconds |
+| Same workers | `python -m autosecops.temporal.healthcheck ready` | The worker is running its pollers and Temporal answered a `DescribeNamespace` call for the worker's namespace in the last 30 seconds |
 
 The Temporal workers serve no HTTP. Each worker refreshes its marker files every 10 seconds from its own event loop, so a blocked event loop fails `live` and a lost Temporal connection fails `ready`.
 A worker that is shutting down drops `ready` before it drains running activities, and stays `live` until it exits.
 Pass `--max-age <seconds>` to change the staleness limit.
+
+A failed liveness check restarts the container and aborts every activity running in it.
+The 120-second limit tolerates a long blocking call inside an async activity; on Kubernetes the probe's `failureThreshold` × `periodSeconds` (90 seconds by default) comes on top.
+Raise `--max-age` if your custom integrations block the event loop for longer.
+`ready` confirms that Temporal is reachable and the worker's credentials still work; it does not prove that a task poll succeeded since the last check. Alert on the Temporal schedule-to-start latency below to catch a worker that is ready but not taking tasks.
 
 Each deployment target wires these checks for you:
 
@@ -29,6 +34,23 @@ Each deployment target wires these checks for you:
 
 On Fargate the health check uses `live` so that a Temporal outage does not restart every worker.
 
+On Kubernetes the chart mounts an in-memory `emptyDir` at `/var/run/autosecops` in every worker pod, so the checks also work with `containerSecurityContext.readOnlyRootFilesystem: true`.
+The default probes live in the `workerProbes` value. A probe you set on a component, such as `worker.readinessProbe`, replaces the matching default instead of merging into it; set a `workerProbes` entry to `null` to drop that probe for every worker:
+
+```yaml values.yaml
+workerProbes:
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live", "--max-age", "300"]
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+worker:
+  readinessProbe:
+    tcpSocket:
+      port: 9090
+```
+
 ## Enable metrics
 
 | Source | Setting | Endpoint |
@@ -36,7 +58,8 @@ On Fargate the health check uses `live` so that a Temporal outage does not resta
 | API | `AUTOSECOPS__API_METRICS_ENABLED=true` | `http://api:9100/metrics` (`AUTOSECOPS__API_METRICS_PORT`) |
 | Temporal workers | `TEMPORAL__METRICS_PORT=9090` | `http://<worker>:9090/metrics` on each worker container |
 
-See [Environment variables](/self-hosting/environment-variables) for the bind address settings. Scrape these ports only from inside the container network or cluster, and never publish them.
+Both listeners bind `0.0.0.0` inside the container by default. Set `AUTOSECOPS__API_METRICS_HOST` or `TEMPORAL__METRICS_HOST` to `127.0.0.1` when a sidecar in the same pod or task does the scraping. See [Environment variables](/self-hosting/environment-variables) for every metrics setting. Scrape these ports only from inside the container network or cluster, and never publish them.
+The API listener serves at most 16 connections at once and closes extra connections without a reply.
 
 ### Docker Compose
 
@@ -51,7 +74,8 @@ TEMPORAL__METRICS_PORT=9090
 docker compose up -d
 ```
 
-The Compose files pass both settings through and publish neither port.
+The Compose files pass these settings and the two `*_METRICS_HOST` bind addresses through, and publish neither port.
+Every container on the `core` network can reach the listeners, including executor containers that run user code; set the bind addresses to `127.0.0.1` when your scraper shares the container's network namespace (for example `network_mode: service:api`), or keep metrics off.
 Run Prometheus on the stack's `core` network (`autosecops_core` for a project named `autosecops`) and scrape every replica through Docker DNS:
 
 ```yaml prometheus.yml
@@ -95,7 +119,20 @@ The `metrics` container port is never part of the API Service or the ingress. Re
 
 ### AWS Fargate
 
-The Fargate module does not deploy a Prometheus scraper. To collect metrics, set the environment variables above on the task definitions and add an AWS Distro for OpenTelemetry or Prometheus sidecar that scrapes `localhost`.
+The Fargate module does not deploy a Prometheus scraper. Turn metrics on with the module variables:
+
+| Variable | Default | Effect |
+| :------- | :------ | :----- |
+| `metrics_enabled` | `false` | Serves API metrics on port 9100 of the API task and Temporal SDK metrics on port 9090 of every worker task |
+| `metrics_scraper_security_group_ids` | `[]` | Security groups of your Prometheus or AWS Distro for OpenTelemetry collector. The core security group admits only these groups on ports 9090 and 9100 |
+
+```hcl terraform.tfvars
+metrics_enabled                    = true
+metrics_scraper_security_group_ids = ["sg-0123456789abcdef0"]
+```
+
+With `metrics_scraper_security_group_ids` empty, the listeners bind `127.0.0.1` and only a sidecar in the same task can reach them; the module has no hook for adding one.
+The ALB and Caddy never route to the metrics ports. Discover the tasks for scraping with ECS service discovery or the ECS API, for example with the ADOT collector's `ecs_observer`.
 Container health checks and CloudWatch Container Insights cover health without metrics.
 
 ## Key metrics
