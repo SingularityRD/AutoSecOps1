@@ -80,7 +80,6 @@ nothing under `helm template` and GitOps renders, which then skip the check.
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- end -}}
 {{- with $s.temporalPayloadEncryptionKeyring -}}
 {{- if not $s.existingSecret -}}
 {{- $keyring := . | toString | fromJson -}}
