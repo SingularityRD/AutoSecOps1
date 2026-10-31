@@ -471,7 +471,7 @@ variable "context_compression_threshold_kb" {
 
 variable "temporal_payload_encryption_enabled" {
   type        = bool
-  description = "Encrypt Temporal payloads (workflow inputs, results, failures) before they reach the Temporal database. Uses temporal_payload_encryption_keyring_arn, or a keyring Terraform generates in Secrets Manager when that is null."
+  description = "Encrypt Temporal payloads (workflow inputs, results, failures) before they reach the Temporal database. A new stack encrypts from its first apply. On an existing stack the first apply only gives every service the keyring, and encryption turns on at the next apply, so tasks still running the old configuration never receive payloads they cannot decode."
   default     = true
 }
 
@@ -512,8 +512,20 @@ variable "autosecops_signing_secret_arn" {
 
 variable "temporal_payload_encryption_keyring_arn" {
   type        = string
-  description = "The ARN of a secret holding your own Temporal payload encryption keyring. When null, Terraform generates one in Secrets Manager. Before switching an existing stack from the generated keyring to your own, copy its keys into yours so existing workflow history stays readable."
+  description = "The ARN of a secret holding your own Temporal payload encryption keyring. When null, services use the keyring Terraform generates (see temporal_payload_encryption_generate_keyring). Before switching an existing stack from the generated keyring to your own, copy its keys into yours so existing workflow history stays readable; the switch starts a new two-apply rollout."
   default     = null
+}
+
+variable "temporal_payload_encryption_generate_keyring" {
+  type        = bool
+  description = "Generate and keep a Temporal payload encryption keyring in Secrets Manager. Used when temporal_payload_encryption_keyring_arn is null. Setting this to false deletes the generated secret (30-day recovery window); copy its keys into your own keyring first, or history encrypted under it becomes unreadable."
+  default     = true
+}
+
+variable "temporal_payload_encryption_assume_keyring_rolled_out" {
+  type        = bool
+  description = "Skip the extra apply that rolls the keyring out before encryption turns on. Set true only when every running service already has this keyring, for example a stack that already encrypted payloads with temporal_payload_encryption_keyring_arn before upgrading."
+  default     = false
 }
 
 variable "oauth_client_id_arn" {

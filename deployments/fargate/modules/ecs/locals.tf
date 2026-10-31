@@ -92,7 +92,7 @@ locals {
   }
 
   autosecops_temporal_payload_encryption_env = {
-    TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED           = var.temporal_payload_encryption_enabled
+    TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED           = local.temporal_payload_encryption_active
     TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN       = local.temporal_payload_encryption_keyring_arn
     TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS = var.temporal_payload_encryption_cache_ttl_seconds
     TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS   = var.temporal_payload_encryption_cache_max_items

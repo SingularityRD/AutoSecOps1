@@ -1211,22 +1211,20 @@ def test_env_example_enables_temporal_payload_encryption() -> None:
     assert "TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS" not in values
 
 
-def test_temporal_payload_encryption_upgrade_defaults_stay_plaintext(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_temporal_payload_encryption_upgrade_defaults_stay_plaintext() -> None:
     """An existing env without the setting keeps working without a keyring.
 
     The code default and every Compose default stay `false`, so upgrading an
     install whose .env predates the keyring does not start failing. New
     installs get `true` from env.sh, Helm, and Terraform instead.
     """
-    monkeypatch.delenv("TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", raising=False)
-    assert env_bool("TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", default=False) is False
-    assert re.search(
-        r"TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED = env_bool\(\s*"
-        r'"TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", default=False',
-        CONFIG_PATH.read_text(),
-    )
+    try:
+        with pytest.MonkeyPatch.context() as env:
+            env.delenv("TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", raising=False)
+            reloaded = importlib.reload(autosecops_config)
+            assert reloaded.TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED is False
+    finally:
+        importlib.reload(autosecops_config)
     for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
         lines = [
             line.strip()
@@ -1245,10 +1243,15 @@ def test_temporal_payload_encryption_is_on_by_default_in_helm_and_fargate() -> N
     assert re.search(r"payloadEncryption:\n(?:\s*#.*\n)*\s*enabled: true\n", values)
     fargate = REPO_ROOT / "deployments" / "fargate"
     for tf in ("variables.tf", "modules/ecs/variables.tf"):
-        assert re.search(
-            r'variable "temporal_payload_encryption_enabled" \{[^}]*default\s*=\s*true',
-            (fargate / tf).read_text(),
-        ), tf
+        source = (fargate / tf).read_text()
+        for name, default in (
+            ("temporal_payload_encryption_enabled", "true"),
+            ("temporal_payload_encryption_generate_keyring", "true"),
+            ("temporal_payload_encryption_assume_keyring_rolled_out", "false"),
+        ):
+            assert re.search(
+                rf'variable "{name}" \{{[^}}]*default\s*=\s*{default}\n', source
+            ), (tf, name)
     secrets_tf = (fargate / "modules/ecs/secrets.tf").read_text()
     assert 'resource "random_password" "temporal_payload_encryption_root_secret"' in (
         secrets_tf
@@ -1261,6 +1264,72 @@ def test_temporal_payload_encryption_is_on_by_default_in_helm_and_fargate() -> N
         secrets_tf,
         re.DOTALL,
     )
+    # Generation follows its own switch, not whether an ARN is set: pointing
+    # the stack at another keyring must not delete the generated one.
+    for block in re.findall(
+        r'resource "\w+" "temporal_payload_encryption_(?:root_secret|key_id|keyring)" '
+        r"\{\n  count\s*=\s*([^\n]+)",
+        secrets_tf,
+    ):
+        assert block == "var.temporal_payload_encryption_generate_keyring ? 1 : 0"
+    assert "recovery_window_in_days = 30" in secrets_tf
+
+
+def test_fargate_turns_payload_encryption_on_after_the_keyring_rolls_out() -> None:
+    """Existing stacks get the keyring one apply before encryption turns on.
+
+    ECS replaces services one at a time. A task without the keyring cannot
+    decode a payload an upgraded task encrypted, and an activity with one
+    attempt then fails its workflow. So the services run with the effective
+    flag, which waits for the rollout marker on an existing stack.
+    """
+    ecs = REPO_ROOT / "deployments/fargate/modules/ecs"
+    locals_tf = (ecs / "locals.tf").read_text()
+    assert re.search(
+        r"TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED\s*=\s*"
+        r"local\.temporal_payload_encryption_active\n",
+        locals_tf,
+    )
+    assert "var.temporal_payload_encryption_enabled" not in locals_tf
+    secrets_tf = (ecs / "secrets.tf").read_text()
+    active = re.search(
+        r"temporal_payload_encryption_active = \((.*?)\n  \)", secrets_tf, re.DOTALL
+    )
+    assert active is not None
+    assert "local.temporal_payload_encryption_keyring_rolled_out" in active.group(1)
+    rolled_out = re.search(
+        r"temporal_payload_encryption_keyring_rolled_out = \((.*?)\n  \)",
+        secrets_tf,
+        re.DOTALL,
+    )
+    assert rolled_out is not None
+    assert "!local.autosecops_stack_exists" in rolled_out.group(1)
+    assert "data.aws_ssm_parameters_by_path" in rolled_out.group(1)
+    # The marker is written only after every keyring consumer was updated.
+    marker = re.search(
+        r'resource "aws_ssm_parameter" "temporal_payload_encryption_rollout" \{'
+        r"(.*?)\n\}",
+        secrets_tf,
+        re.DOTALL,
+    )
+    assert marker is not None
+    services = {
+        name
+        for tf in ecs.glob("ecs-*.tf")
+        for name in re.findall(r'resource "aws_ecs_service" "(\w+)"', tf.read_text())
+    }
+    payload_consumers = {
+        "autosecops_api",
+        "autosecops_worker",
+        "autosecops_background_worker",
+        "autosecops_executor",
+        "autosecops_agent_worker",
+        "autosecops_agent_executor",
+        "autosecops_mcp",
+    }
+    assert payload_consumers <= services
+    for name in payload_consumers:
+        assert f"aws_ecs_service.{name}," in marker.group(1), name
 
 
 def test_env_example_defaults_to_production_mode() -> None:

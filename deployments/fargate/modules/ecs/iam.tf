@@ -200,9 +200,8 @@ resource "aws_iam_policy" "smtp_password_access" {
   })
 }
 
-# Always present: the keyring is either supplied or generated (secrets.tf).
 resource "aws_iam_policy" "temporal_payload_encryption_keyring_access" {
-  count       = 1
+  count       = local.temporal_payload_encryption_keyring_configured ? 1 : 0
   name        = "${var.iam_name_prefix}TemporalPayloadEncryptionKeyringAccessPolicy"
   description = "Policy for accessing the Temporal payload encryption keyring"
 
@@ -342,7 +341,7 @@ resource "aws_iam_role_policy_attachment" "api_worker_task_redis" {
 }
 
 resource "aws_iam_role_policy_attachment" "api_worker_task_temporal_payload_encryption_keyring" {
-  count      = 1
+  count      = local.temporal_payload_encryption_keyring_configured ? 1 : 0
   policy_arn = aws_iam_policy.temporal_payload_encryption_keyring_access[0].arn
   role       = aws_iam_role.api_worker_task.name
 }
@@ -405,7 +404,7 @@ resource "aws_iam_role_policy_attachment" "executor_task_redis" {
 }
 
 resource "aws_iam_role_policy_attachment" "executor_task_temporal_payload_encryption_keyring" {
-  count      = 1
+  count      = local.temporal_payload_encryption_keyring_configured ? 1 : 0
   policy_arn = aws_iam_policy.temporal_payload_encryption_keyring_access[0].arn
   role       = aws_iam_role.executor_task.name
 }
@@ -573,7 +572,7 @@ resource "aws_iam_role_policy" "mcp_task_blob_access" {
 }
 
 resource "aws_iam_role_policy_attachment" "mcp_task_temporal_payload_encryption_keyring" {
-  count      = var.enable_mcp ? 1 : 0
+  count      = var.enable_mcp && local.temporal_payload_encryption_keyring_configured ? 1 : 0
   policy_arn = aws_iam_policy.temporal_payload_encryption_keyring_access[0].arn
   role       = aws_iam_role.mcp_task[0].name
 }

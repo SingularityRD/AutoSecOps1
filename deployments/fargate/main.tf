@@ -118,11 +118,13 @@ module "ecs" {
   temporal_db_snapshot_name        = var.temporal_db_snapshot_name
 
   # Secrets from AWS Secrets Manager
-  autosecops_db_encryption_key_arn           = var.autosecops_db_encryption_key_arn
-  autosecops_db_encryption_previous_keys_arn = var.autosecops_db_encryption_previous_keys_arn
-  autosecops_service_key_arn                 = var.autosecops_service_key_arn
-  autosecops_signing_secret_arn              = var.autosecops_signing_secret_arn
-  temporal_payload_encryption_keyring_arn    = var.temporal_payload_encryption_keyring_arn
+  autosecops_db_encryption_key_arn                      = var.autosecops_db_encryption_key_arn
+  autosecops_db_encryption_previous_keys_arn            = var.autosecops_db_encryption_previous_keys_arn
+  autosecops_service_key_arn                            = var.autosecops_service_key_arn
+  autosecops_signing_secret_arn                         = var.autosecops_signing_secret_arn
+  temporal_payload_encryption_keyring_arn               = var.temporal_payload_encryption_keyring_arn
+  temporal_payload_encryption_generate_keyring          = var.temporal_payload_encryption_generate_keyring
+  temporal_payload_encryption_assume_keyring_rolled_out = var.temporal_payload_encryption_assume_keyring_rolled_out
 
   # Authentication
   auth_types               = var.auth_types
