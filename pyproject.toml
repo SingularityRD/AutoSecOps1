@@ -258,7 +258,16 @@ exclude = [
 ]
 # `scripts/` stays out of the checked set, but tests/unit/test_commit_conventions.py
 # and tests/unit/test_check_pr_title.py import from it, so it has to resolve.
-extraPaths = ["scripts"]
+extraPaths = [
+    "scripts",
+    # Resolve the workspace packages from source rather than through their
+    # editable installs, so basedpyright treats them as local code (see
+    # reportPrivateLocalImportUsage) instead of as py.typed libraries.
+    "packages/autosecops-admin",
+    "packages/autosecops-benchmark",
+    "packages/autosecops-ee",
+    "packages/autosecops-registry",
+]
 # Core type checking - keep enabled for catching real bugs
 reportMissingTypeStubs = false    # Don't require stubs for all dependencies
 reportUnusedImport = "warning"

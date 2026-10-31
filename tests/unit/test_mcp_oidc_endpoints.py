@@ -13,7 +13,6 @@ from typing import cast
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlsplit
 
-import httpx
 import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
@@ -2044,7 +2043,7 @@ async def test_token_auth_code_grant_rejects_user_who_left_every_org(
     store_jti.assert_not_awaited()
 
 
-def _refresh(client: TestClient) -> httpx.Response:
+def _refresh(client: TestClient):
     return client.post(
         "/token",
         data={
