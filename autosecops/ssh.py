@@ -13,15 +13,11 @@ from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import aiofiles
 import paramiko
-from pydantic import SecretStr
-from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.auth.types import Role
-from autosecops.contexts import ctx_role
 from autosecops.exceptions import AutoSecOpsCredentialsError, RegistryError
 from autosecops.logger import logger
 from autosecops.process_env import tool_subprocess_env, which_trusted
@@ -37,10 +33,7 @@ __all__ = [
     "temporary_ssh_agent",
     "add_host_to_known_hosts",
     "add_ssh_key_to_agent",
-    "get_ssh_command",
-    "prepare_ssh_key_file",
     "ssh_context",
-    "get_git_ssh_command",
 ]
 
 
@@ -357,6 +350,13 @@ def ensure_host_key_scan_allowed(host_token: str) -> None:
         UnknownGitHostError: If ``AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS`` is on.
     """
     if config.AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS:
+        if not config.AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE:
+            raise UnknownGitHostError(
+                "AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS is on but "
+                "AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE is not set, so every git "
+                f"host is refused, including {host_token}. Set the pinned file "
+                "or turn strict mode off"
+            )
         raise UnknownGitHostError(
             f"Git host {host_token} has no key in AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE "
             "and AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS refuses to scan it"
@@ -473,41 +473,6 @@ async def add_ssh_key_to_agent(
     )
 
 
-async def get_ssh_command(git_url: GitUrl, role: Role, session: AsyncSession) -> str:
-    """Get an SSH command for the given Git URL and SSH key."""
-    role = role or ctx_role.get()
-    service = SecretsService(session=session, role=role)
-    ssh_key = await service.get_ssh_key()
-    ssh_cmd = await prepare_ssh_key_file(git_url=git_url, ssh_key=ssh_key)
-    return ssh_cmd
-
-
-async def prepare_ssh_key_file(git_url: GitUrl, ssh_key: SecretStr) -> str:
-    """Prepare an SSH key file for use in an SSH command."""
-    key_dir = Path.home().joinpath(".autosecops")
-    key_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    key_path = key_dir / slugify(f"{git_url.host}_{git_url.org}_{git_url.repo}")
-
-    # Write the key content to the file with proper permissions
-    async with aiofiles.open(key_path, mode="w", encoding="utf-8") as f:
-        await f.write(ssh_key.get_secret_value())
-        await f.flush()
-
-    # Set strict permissions after writing (important!)
-    os.chmod(key_path, 0o600)
-
-    logger.debug("Created SSH key file", key_path=key_path)
-
-    # Use the key file in SSH command with more permissive host key checking.
-    # -F /dev/null: ~/.ssh/config is writable by direct-mode action code.
-    ssh_cmd = (
-        f"ssh -F /dev/null -i {key_path!s} -o IdentitiesOnly=yes "
-        "-o StrictHostKeyChecking=accept-new "
-        f"-o UserKnownHostsFile={Path.home().joinpath('.ssh/known_hosts')!s}"
-    )
-    return ssh_cmd
-
-
 @asynccontextmanager
 async def ssh_context(
     *,
@@ -559,26 +524,3 @@ async def ssh_context(
 
 
 # New SSH helper functions for Git operations
-
-
-async def get_git_ssh_command(
-    git_url: GitUrl, *, session: AsyncSession, role: Role | None
-) -> str:
-    """Get a Git SSH command for the given Git URL.
-
-    Args:
-        git_url: Git URL object containing repository information.
-        session: Database session.
-        role: User role for permissions.
-
-    Returns:
-        SSH command string for use with GIT_SSH_COMMAND.
-
-    Raises:
-        Exception: If SSH key retrieval or file preparation fails.
-    """
-    role = role or ctx_role.get()
-    service = SecretsService(session=session, role=role)
-    ssh_key = await service.get_ssh_key(target="registry")
-    ssh_cmd = await prepare_ssh_key_file(git_url=git_url, ssh_key=ssh_key)
-    return ssh_cmd

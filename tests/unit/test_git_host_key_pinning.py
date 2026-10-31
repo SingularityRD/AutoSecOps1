@@ -100,6 +100,20 @@ def test_strict_mode_refuses_an_unlisted_host(
     assert known_hosts.read_text() == ""
 
 
+@pytest.mark.usefixtures("no_keyscan")
+def test_strict_mode_without_pinned_file_names_the_misconfiguration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS", True)
+    monkeypatch.setattr(config, "AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE", None)
+    known_hosts = tmp_path / "known_hosts"
+    known_hosts.write_text("")
+    env = SshEnv(ssh_auth_sock="", ssh_agent_pid="", known_hosts_path=str(known_hosts))
+
+    with pytest.raises(UnknownGitHostError, match="KNOWN_HOSTS_FILE is not set"):
+        add_host_to_known_hosts_sync("git.example.test:2222", env)
+
+
 @pytest.mark.anyio
 @pytest.mark.usefixtures("no_keyscan")
 async def test_artifact_clone_verifies_the_pinned_host_key(
