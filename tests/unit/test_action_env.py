@@ -46,6 +46,7 @@ PLATFORM_SECRETS = {
     "TEMPORAL__API_KEY": "synthetic-temporal-key",
     "MINIO_ROOT_PASSWORD": "synthetic-minio-password",
     "REDIS_URL": "redis://:synthetic@redis.test:6379",
+    "REDIS_PASSWORD": "synthetic-redis-password",
     "SENTRY_DSN": "https://synthetic@sentry.test/1",
 }
 

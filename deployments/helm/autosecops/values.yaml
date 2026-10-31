@@ -284,6 +284,11 @@ externalRedis:
     url: ""
     existingSecret: ""
     urlKey: url
+    # -- Accept an inline `url` without a password. Leave false: an
+    # unauthenticated Redis lets anything on its network read and forge
+    # workflow, agent, and MCP state. The chart cannot inspect a URL in
+    # `existingSecret`, so keep credentials in that URL too.
+    allowUnauthenticated: false
 
 # S3 or an S3-compatible store (MinIO, Ceph, R2, ...).
 externalS3:

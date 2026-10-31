@@ -1569,7 +1569,9 @@ def _get_workflow_artifact_redis() -> AsyncRedis:
     """Get the Redis client used for MCP file artifact metadata."""
     global _workflow_artifact_redis
     if _workflow_artifact_redis is None:
-        _workflow_artifact_redis = AsyncRedis.from_url(config.REDIS_URL)
+        _workflow_artifact_redis = AsyncRedis.from_url(
+            config.REDIS_URL, password=config.REDIS_PASSWORD
+        )
     return _workflow_artifact_redis
 
 

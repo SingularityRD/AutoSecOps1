@@ -302,6 +302,70 @@ def test_chart_managed_postgres_secret_holds_the_runtime_password() -> None:
     assert secret["stringData"]["runtime-password"] == "placeholder-runtime-password"
 
 
+# Long-running workloads the chart renders as Deployments.
+WORKLOAD_VALUES = (
+    "api",
+    "worker",
+    "backgroundWorker",
+    "executor",
+    "agentWorker",
+    "agentExecutor",
+    "litellm",
+    "mcp",
+    "ui",
+)
+
+
+@pytest.mark.parametrize("component", WORKLOAD_VALUES)
+def test_workloads_default_to_requests_limits_and_ha_options(component: str) -> None:
+    """Every workload is scheduled with requests and bounded by a memory limit."""
+    values = _load_yaml(CHART_DIR / "values.yaml")[component]
+    resources = values["resources"]
+    assert resources["requests"]["cpu"], component
+    assert resources["requests"]["memory"], component
+    # A memory limit at or above the request bounds a leak to its own pod. CPU
+    # stays unthrottled.
+    assert resources["limits"]["memory"], component
+    # HA knobs: PodDisruptionBudget, anti-affinity, and zone spreading.
+    assert set(values["podDisruptionBudget"]) >= {"enabled", "minAvailable"}
+    assert "affinity" in values
+    assert "topologySpreadConstraints" in values
+    assert "autoscaling" in values
+
+
+def test_migrations_job_has_resources() -> None:
+    resources = _load_yaml(CHART_DIR / "values.yaml")["migrations"]["resources"]
+    assert resources["requests"]["memory"]
+    assert resources["limits"]["memory"]
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_external_redis_url_requires_a_password() -> None:
+    def render(*overrides: str) -> subprocess.CompletedProcess[str]:
+        args = ["helm", "template", "autosecops", str(CHART_DIR)]
+        args += ["-f", str(CHART_DIR / "ci/minimal-values.yaml")]
+        for override in overrides:
+            args += ["--set", override]
+        return subprocess.run(args, capture_output=True, text=True)
+
+    refused = render("externalRedis.auth.url=redis://redis.example.internal:6379")
+    assert refused.returncode != 0
+    assert "externalRedis.auth.url has no password" in refused.stderr
+    assert (
+        render(
+            "externalRedis.auth.url=redis://redis.example.internal:6379",
+            "externalRedis.auth.allowUnauthenticated=true",
+        ).returncode
+        == 0
+    )
+    assert (
+        render(
+            "externalRedis.auth.url=rediss://app:placeholder@redis.example.internal:6379"
+        ).returncode
+        == 0
+    )
+
+
 WORKER_COMPONENTS = (
     "worker",
     "background-worker",

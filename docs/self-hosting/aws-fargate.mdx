@@ -161,6 +161,23 @@ This setting applies only to the bundled Temporal RDS instance. It requires a DB
 
 If you are using Temporal Cloud or another external Temporal cluster, set `disable_temporal_autosetup=true` and point `temporal_cluster_url` at your external cluster. In that setup, `temporal_db_force_ssl` is typically unused because the bundled Temporal RDS instance is not created. If you run your own external Temporal PostgreSQL and want SSL-only enforcement there, set `TF_VAR_temporal_db_force_ssl=true`.
 
+## High availability
+
+The defaults run two tasks each of the API, worker, executor, and agent worker, one RDS instance per database, and one ElastiCache node. For a deployment that survives the loss of an Availability Zone, apply the opt-in profile in `examples/ha.tfvars.example`. It runs two tasks of every stateless AutoSecOps service, including the UI and Caddy (`ui_desired_count` and `caddy_desired_count`, default `1`), adds a Multi-AZ RDS standby (`rds_multi_az`) and a Redis replica with automatic failover (`redis_num_cache_clusters = 2`), and roughly doubles the RDS and ElastiCache cost.
+
+The bundled Temporal server and Temporal UI stay single tasks. While ECS replaces a lost Temporal task, which takes minutes, no workflow runs. For zone-loss tolerance, use Temporal Cloud or your own highly available Temporal cluster, as described above: set `temporal_cluster_url` and `disable_temporal_autosetup=true`.
+
+```bash
+cp examples/ha.tfvars.example ha.tfvars
+terraform apply -var-file=ha.tfvars
+```
+
+ElastiCache always runs with TLS, encryption at rest, and a password for the application user; the stack disables the default user.
+
+## Log retention
+
+The ECS tasks log to the CloudWatch Logs group `/ecs/<name_prefix>`, which rotates and stores the logs. Set `log_retention_in_days` (default `30`) to the retention your policy requires, e.g. `365`; `0` keeps the logs forever.
+
 ## Resource name prefixes
 
 The stack names AWS resources with two prefixes:

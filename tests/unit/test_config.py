@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -1175,6 +1176,7 @@ ENV_EXAMPLE_GENERATED_SECRETS = (
     "TEMPORAL__POSTGRES_PASSWORD",
     "MINIO_ROOT_PASSWORD",
     "AUTOSECOPS__DB_RUNTIME_PASSWORD",
+    "REDIS_PASSWORD",
 )
 WEAK_DEFAULT_CREDENTIALS = {
     "AUTOSECOPS__POSTGRES_PASSWORD": {"postgres"},
@@ -1382,6 +1384,541 @@ def test_background_worker_shared_settings_match_other_services(
         assert value is not None, service
         values.append(value[1])
     assert len(set(values)) == 1, values
+
+
+# === Compose operations: log rotation, resource limits, Redis auth === #
+
+# One-shot containers exit after their task, so they need no memory limit or
+# restart policy.
+COMPOSE_ONE_SHOT_SERVICES = {"migrations", "minio-init"}
+COMPOSE_LOGGING_ANCHOR = """x-logging: &default-logging
+  driver: ${AUTOSECOPS__DOCKER_LOG_DRIVER:-json-file}
+  options:
+    max-size: ${AUTOSECOPS__DOCKER_LOG_MAX_SIZE:-50m}
+    max-file: "${AUTOSECOPS__DOCKER_LOG_MAX_FILE:-5}"
+"""
+
+
+def _compose_services(path: Path) -> dict[str, dict[str, Any]]:
+    services = yaml.safe_load(path.read_text())["services"]
+    assert isinstance(services, dict)
+    return services
+
+
+def _compose_limit_env(service: str, kind: str) -> str:
+    return f"AUTOSECOPS__{service.upper().replace('-', '_')}_{kind}_LIMIT"
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_services_rotate_logs(path: Path) -> None:
+    """Unbounded json-file logs fill the Docker host's disk."""
+    source = path.read_text()
+    assert COMPOSE_LOGGING_ANCHOR in source
+    for name in _compose_services(path):
+        body = _compose_service_body(source, name) or ""
+        assert re.search(r"(?m)^ +logging: \*default-logging$", body), (
+            f"{path.name}: {name} must use the bounded x-logging anchor"
+        )
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_long_running_services_have_limits(path: Path) -> None:
+    """A runaway container must not take the host's memory from the database."""
+    services = _compose_services(path)
+    assert COMPOSE_ONE_SHOT_SERVICES <= set(services)
+    for name, service in services.items():
+        if name in COMPOSE_ONE_SHOT_SERVICES:
+            assert service.get("restart") == "no", f"{path.name}: {name}"
+            continue
+        assert service.get("restart") in {"unless-stopped", "on-failure:3"}, (
+            f"{path.name}: {name} needs a restart policy"
+        )
+        # deploy.resources.limits, not mem_limit/cpus/pids_limit: Compose
+        # merges an operator's deploy.resources override over it, but refuses
+        # a service that sets both forms with different values.
+        for key in ("mem_limit", "memswap_limit", "cpus", "pids_limit"):
+            assert key not in service, f"{path.name}: {name} sets {key}"
+        limits = service.get("deploy", {}).get("resources", {}).get("limits", {})
+        memory = _compose_limit_env(name, "MEMORY")
+        assert re.fullmatch(rf"\$\{{{memory}:-\d+[mg]\}}", limits.get("memory", "")), (
+            f"{path.name}: {name} needs a deploy memory limit from {memory}"
+        )
+        # A CPU limit above the host's core count stops `docker compose up`, so
+        # CPU limits stay opt-in.
+        cpus = _compose_limit_env(name, "CPU")
+        assert limits.get("cpus") == f"${{{cpus}:-0}}", (
+            f"{path.name}: {name} needs an overridable cpus limit from {cpus}"
+        )
+
+
+def test_compose_limit_defaults_match_across_files() -> None:
+    defaults: dict[str, dict[str, str]] = {}
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        defaults[path.name] = dict(
+            re.findall(
+                r"memory: \$\{(AUTOSECOPS__[A-Z_]+_MEMORY_LIMIT):-(\w+)\}",
+                path.read_text(),
+            )
+        )
+    assert len({tuple(sorted(d.items())) for d in defaults.values()}) == 1, defaults
+
+
+def _redis_service_body(path: Path) -> str:
+    body = _compose_service_body(path.read_text(), "redis")
+    assert body, f"{path.name} has no redis service"
+    return body
+
+
+@pytest.mark.parametrize(
+    "path",
+    (REPO_ROOT / "docker-compose.yml", REPO_ROOT / "docker-compose.local.yml"),
+    ids=lambda path: path.name,
+)
+def test_compose_redis_requires_password(path: Path) -> None:
+    body = _redis_service_body(path)
+    # Compose refuses to start without REDIS_PASSWORD, with the upgrade step.
+    assert re.search(
+        r"(?m)^      REDIS_PASSWORD: \$\{REDIS_PASSWORD:\?[^}]*env\.sh --upgrade[^}]*\}",
+        body,
+    )
+    # The container refuses an empty value or the .env.example placeholder.
+    assert '"" | change-me-*)' in body
+    assert (
+        'exec docker-entrypoint.sh --appendonly yes --maxmemory "$$maxmemory" --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"'
+        in body
+    )
+    assert "command:" not in body
+    # The health check authenticates; an unauthenticated PING answers NOAUTH.
+    assert 'REDISCLI_AUTH=\\"$$REDIS_PASSWORD\\"' in body
+    assert "| grep -q PONG" in body
+
+
+def test_dev_compose_redis_uses_password_when_set() -> None:
+    body = _redis_service_body(REPO_ROOT / "docker-compose.dev.yml")
+    assert "REDIS_PASSWORD: ${REDIS_PASSWORD:-}" in body
+    assert "change-me-*)" in body
+    assert (
+        'exec docker-entrypoint.sh --appendonly yes --maxmemory "$$maxmemory" --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"'
+        in body
+    )
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_redis_clients_get_password(path: Path) -> None:
+    source = path.read_text()
+    clients = [
+        name
+        for name in _compose_services(path)
+        if "REDIS_URL:" in (_compose_service_body(source, name) or "")
+    ]
+    assert clients
+    for name in clients:
+        body = _compose_service_body(source, name) or ""
+        assert (
+            "REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive"
+            in body
+        ), f"{path.name}: {name}"
+
+
+def test_compose_redis_is_not_published() -> None:
+    """Production Compose keeps Redis on the internal network only."""
+    prod = _compose_services(REPO_ROOT / "docker-compose.yml")["redis"]
+    assert "ports" not in prod
+    assert not re.search(
+        r"(?m)^ +#? *ports:", _redis_service_body(REPO_ROOT / "docker-compose.yml")
+    )
+    # Development stacks publish it for host tests, on loopback only.
+    for name in ("docker-compose.dev.yml", "docker-compose.local.yml"):
+        ports = _compose_services(REPO_ROOT / name)["redis"].get("ports", [])
+        assert ports, name
+        for port in ports:
+            assert str(port).startswith("127.0.0.1:"), f"{name}: {port}"
+
+
+def test_redis_password_is_generated_by_env_sh() -> None:
+    assert 'dotenv_replace "REDIS_PASSWORD"' in (REPO_ROOT / "env.sh").read_text()
+
+
+def _run_env_sh_upgrade(tmp_path: Path, env: str) -> tuple[str, str]:
+    env_file = tmp_path / ".env"
+    env_file.write_text(env)
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--upgrade", str(env_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return env_file.read_text(), result.stdout
+
+
+def test_env_sh_upgrade_adds_redis_password(tmp_path: Path) -> None:
+    upgraded, out = _run_env_sh_upgrade(
+        tmp_path, "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n"
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", upgraded)
+    assert "generated" in out
+    assert list(tmp_path.glob(".env.backup_*"))
+    # Idempotent: a second run keeps the password.
+    again, out = _run_env_sh_upgrade(tmp_path, upgraded)
+    assert again == upgraded
+    assert "up to date" in out
+
+
+def test_env_sh_upgrade_reuses_redis_url_password(tmp_path: Path) -> None:
+    # Installs that followed the earlier hardening steps keep their password.
+    upgraded, _ = _run_env_sh_upgrade(
+        tmp_path,
+        "REDIS_URL=redis://:synthetic%24pass@redis:6379\n"
+        "REDIS_PASSWORD=change-me-redis-password\n",
+    )
+    assert "REDIS_PASSWORD='synthetic$pass'\n" in upgraded
+    assert "change-me-" not in upgraded
+
+
+def test_env_sh_check_requires_redis_password(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("AUTOSECOPS__APP_ENV=development\n")
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--check", str(env_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "REDIS_PASSWORD" in result.stdout
+    assert "--upgrade" in result.stdout
+
+
+def test_env_migration_sets_redis_password(tmp_path: Path) -> None:
+    generated = _run_env_migration(
+        tmp_path, "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n"
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", generated)
+
+    reused = _run_env_migration(tmp_path, "REDIS_URL=redis://:synthetic@redis:6379\n")
+    assert re.search(r"(?m)^REDIS_PASSWORD=synthetic$", reused)
+
+    kept = _run_env_migration(
+        tmp_path, "REDIS_PASSWORD=existing\nREDIS_URL=redis://redis:6379\n"
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=existing$", kept)
+
+
+def test_redis_password_treats_blank_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    try:
+        with monkeypatch.context() as env:
+            env.setenv("REDIS_PASSWORD", "")
+            assert importlib.reload(autosecops_config).REDIS_PASSWORD is None
+            env.setenv("REDIS_PASSWORD", "synthetic")
+            assert importlib.reload(autosecops_config).REDIS_PASSWORD == "synthetic"
+    finally:
+        importlib.reload(autosecops_config)
+
+
+def test_redis_clients_send_redis_password() -> None:
+    """Every Redis client passes REDIS_PASSWORD; URL credentials still win."""
+    clients = (
+        "autosecops/redis/client.py",
+        "autosecops/mcp/auth.py",
+        "autosecops/mcp/oidc/storage.py",
+        "autosecops/mcp/server.py",
+    )
+    for relative in clients:
+        source = (REPO_ROOT / relative).read_text()
+        calls = re.findall(r"from_url\((.*?)\)\n", source, re.S)
+        assert calls, relative
+        for call in calls:
+            assert "REDIS_PASSWORD" in call, f"{relative}: {call}"
+    for path in (REPO_ROOT / "autosecops").rglob("*.py"):
+        source = path.read_text()
+        if re.search(r"Redis\w*\.from_url\(|redis\.from_url\(", source):
+            assert "REDIS_PASSWORD" in source, path.relative_to(REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_redis_caps_memory_below_its_limit(path: Path) -> None:
+    """Valkey must refuse writes before the cgroup OOM-kills it.
+
+    An OOM-killed Valkey replays the same AOF into the same limit on restart and
+    crash-loops, taking every Redis client down with it.
+    """
+    body = _redis_service_body(path)
+    assert "REDIS_MAXMEMORY: ${AUTOSECOPS__REDIS_MAXMEMORY:-}" in body
+    assert "/sys/fs/cgroup/memory.max" in body
+    assert "maxmemory=$$((limit / 4 * 3))" in body
+    execs = re.findall(r"exec docker-entrypoint\.sh [^\n]*", body)
+    assert execs
+    for line in execs:
+        assert '--maxmemory "$$maxmemory" --maxmemory-policy noeviction' in line
+
+
+def _docs_yaml_blocks() -> list[tuple[Path, str]]:
+    blocks: list[tuple[Path, str]] = []
+    for path in sorted((REPO_ROOT / "docs").rglob("*.mdx")):
+        for block in re.findall(r"```ya?ml[^\n]*\n(.*?)```", path.read_text(), re.S):
+            blocks.append((path, block))
+    return blocks
+
+
+def test_docs_do_not_mix_compose_limit_forms() -> None:
+    """The Compose files set deploy.resources.limits. Compose refuses a service
+    that also sets mem_limit, cpus or pids_limit to a different value, so the
+    docs must only show deploy.resources overrides."""
+    for path, block in _docs_yaml_blocks():
+        for key in ("mem_limit", "memswap_limit", "pids_limit"):
+            assert not re.search(rf"(?m)^\s+{key}:", block), (
+                f"{path.relative_to(REPO_ROOT)} shows {key}"
+            )
+        assert not re.search(r"(?m)^ {4}cpus:", block), path.relative_to(REPO_ROOT)
+
+
+def test_docs_daemon_log_driver_override_covers_every_service() -> None:
+    """The override that hands logging back to the Docker daemon's driver must
+    list every service, or that service keeps writing local json-file logs."""
+    page = (REPO_ROOT / "docs/self-hosting/docker-compose.mdx").read_text()
+    reset = set(re.findall(r"(?m)^  ([\w-]+):\n    logging: !reset null$", page))
+    expected = set(_compose_services(REPO_ROOT / "docker-compose.yml"))
+    expected |= set(_compose_services(REPO_ROOT / "docker-compose.sandbox.yml"))
+    assert reset == expected
+
+
+def _env_from_env_sh(tmp_path: Path) -> str:
+    """A complete production .env as env.sh writes it."""
+    work = tmp_path / "env-sh"
+    work.mkdir()
+    for name in ("env.sh", ".env.example"):
+        (work / name).write_text((REPO_ROOT / name).read_text())
+    subprocess.run(
+        ["bash", "env.sh"],
+        cwd=work,
+        input="y\nautosecops.example.test\nn\nadmin@example.com\n",
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    return (work / ".env").read_text()
+
+
+def _run_env_migration_output(tmp_path: Path, old_env: str) -> tuple[str, str]:
+    for name in ("env-migration.sh", ".env.example"):
+        (tmp_path / name).write_text((REPO_ROOT / name).read_text())
+    (tmp_path / ".env").write_text(old_env)
+    result = subprocess.run(
+        ["bash", "env-migration.sh"],
+        cwd=tmp_path,
+        input="n\ny\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return (tmp_path / ".env").read_text(), result.stdout
+
+
+def _drop_keys(env: str, *keys: str) -> str:
+    return "".join(
+        line
+        for line in env.splitlines(keepends=True)
+        if not any(line.startswith(f"{key}=") for key in keys)
+    )
+
+
+def test_env_migration_output_passes_env_sh_check(tmp_path: Path) -> None:
+    """The documented upgrade runs env-migration.sh, then env.sh --check."""
+    old_env = _drop_keys(
+        _env_from_env_sh(tmp_path), "AUTOSECOPS__DB_RUNTIME_PASSWORD", "REDIS_PASSWORD"
+    )
+    migrated, out = _run_env_migration_output(tmp_path, old_env)
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=[0-9a-f]{48}$", migrated)
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", migrated)
+    assert "REDIS_CLIENT_PASSWORD" not in migrated
+    assert "WARNING" not in out
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--check", str(tmp_path / ".env")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+
+
+def test_env_migration_keeps_an_explicitly_empty_runtime_password(
+    tmp_path: Path,
+) -> None:
+    migrated, _ = _run_env_migration_output(
+        tmp_path, "AUTOSECOPS__DB_RUNTIME_PASSWORD=\n"
+    )
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=$", migrated)
+    kept, _ = _run_env_migration_output(
+        tmp_path, "AUTOSECOPS__DB_RUNTIME_PASSWORD=synthetic-runtime\n"
+    )
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=synthetic-runtime$", kept)
+
+
+@pytest.mark.parametrize(
+    "redis_env",
+    [
+        "REDIS_URL=redis://cache.internal.example.test:6379\n",
+        "REDIS_HOST=cache.internal.example.test\n"
+        "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+        "REDIS_URL=rediss://cache.internal.example.test:6380/0\n",
+    ],
+)
+def test_env_migration_keeps_external_unauthenticated_redis_working(
+    tmp_path: Path, redis_env: str
+) -> None:
+    migrated, out = _run_env_migration_output(tmp_path, redis_env)
+    # The bundled Redis still gets a password; the clients send none.
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", migrated)
+    assert re.search(r"(?m)^REDIS_CLIENT_PASSWORD=$", migrated)
+    assert "WARNING: REDIS_URL points to an external Redis" in out
+    assert "cache.internal.example.test" in out
+    # A later migration keeps the opt-out although .env.example omits it.
+    again, out = _run_env_migration_output(tmp_path, migrated)
+    assert re.search(r"(?m)^REDIS_CLIENT_PASSWORD=$", again)
+    assert "WARNING" not in out
+
+
+def test_env_migration_sends_bundled_or_url_passwords(tmp_path: Path) -> None:
+    for redis_env in (
+        "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+        "REDIS_HOST=redis\nREDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+        "REDIS_URL=rediss://:synthetic@cache.internal.example.test:6380\n",
+    ):
+        migrated, out = _run_env_migration_output(tmp_path, redis_env)
+        assert "REDIS_CLIENT_PASSWORD" not in migrated, redis_env
+        assert "WARNING" not in out, redis_env
+
+
+def test_env_sh_upgrade_generates_runtime_password(tmp_path: Path) -> None:
+    upgraded, _ = _run_env_sh_upgrade(
+        tmp_path,
+        "AUTOSECOPS__DB_RUNTIME_PASSWORD=change-me-runtime-password\n"
+        "REDIS_PASSWORD=synthetic\n",
+    )
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=[0-9a-f]{48}$", upgraded)
+    assert "REDIS_PASSWORD=synthetic\n" in upgraded
+    # An explicitly empty value is the operator's choice.
+    kept, out = _run_env_sh_upgrade(
+        tmp_path, "AUTOSECOPS__DB_RUNTIME_PASSWORD=\nREDIS_PASSWORD=synthetic\n"
+    )
+    assert "up to date" in out
+    assert "AUTOSECOPS__DB_RUNTIME_PASSWORD=\n" in kept
+
+
+def test_env_sh_upgrade_keeps_external_unauthenticated_redis_working(
+    tmp_path: Path,
+) -> None:
+    upgraded, out = _run_env_sh_upgrade(
+        tmp_path,
+        "AUTOSECOPS__DB_RUNTIME_PASSWORD=synthetic\n"
+        "REDIS_HOST=cache.internal.example.test\n"
+        "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", upgraded)
+    assert re.search(r"(?m)^REDIS_CLIENT_PASSWORD=$", upgraded)
+    assert "external Redis (cache.internal.example.test)" in out
+    again, out = _run_env_sh_upgrade(tmp_path, upgraded)
+    assert again == upgraded
+    assert "up to date" in out
+
+
+# === Fargate operations: log retention, Redis auth, HA profile === #
+
+FARGATE_DIR = REPO_ROOT / "deployments" / "fargate"
+
+
+def test_fargate_log_group_has_retention() -> None:
+    """CloudWatch Logs rotates ECS task logs; the group must still expire them."""
+    log_group = (FARGATE_DIR / "modules/ecs/cloudwatch.tf").read_text()
+    assert "retention_in_days = var.log_retention_in_days" in log_group
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        assert re.search(
+            r'variable "log_retention_in_days" \{[^}]*default\s*=\s*30\n',
+            (FARGATE_DIR / tf).read_text(),
+        ), tf
+    assert re.search(
+        r"log_retention_in_days\s*=\s*var\.log_retention_in_days\n",
+        (FARGATE_DIR / "main.tf").read_text(),
+    )
+
+
+def test_fargate_redis_requires_tls_and_auth() -> None:
+    redis_tf = (FARGATE_DIR / "modules/ecs/redis.tf").read_text()
+    assert re.search(r"transit_encryption_enabled\s*=\s*true", redis_tf)
+    assert re.search(r"at_rest_encryption_enabled\s*=\s*true", redis_tf)
+    # The default user is disabled; the app user needs a password.
+    assert 'access_string = "off ~* -@all"' in redis_tf
+    assert re.search(r'type\s*=\s*"password"', redis_tf)
+    assert re.search(
+        r"user_group_ids\s*=\s*\[aws_elasticache_user_group\.redis\.id\]", redis_tf
+    )
+    assert '"rediss://%s:%s@%s:%d"' in redis_tf
+    # Multi-node groups fail over automatically.
+    assert re.search(
+        r"automatic_failover_enabled\s*=\s*var\.redis_num_cache_clusters > 1",
+        redis_tf,
+    )
+
+
+def _tfvars(path: Path) -> dict[str, str]:
+    return dict(re.findall(r"(?m)^([a-z_]+)\s*=\s*(\S+)\s*$", path.read_text()))
+
+
+def test_fargate_ha_example_is_valid_and_redundant() -> None:
+    example = _tfvars(FARGATE_DIR / "examples/ha.tfvars.example")
+    root_variables = (FARGATE_DIR / "variables.tf").read_text()
+    main_tf = (FARGATE_DIR / "main.tf").read_text()
+    for name in example:
+        assert f'variable "{name}" {{' in root_variables, name
+        assert re.search(rf"\b{name}\s*=\s*var\.{name}\n", main_tf), name
+    for service in (
+        "api",
+        "worker",
+        "executor",
+        "agent_worker",
+        "agent_executor",
+        "background_worker",
+        "mcp",
+        "litellm",
+        "ui",
+        "caddy",
+    ):
+        assert int(example[f"{service}_desired_count"]) >= 2, service
+    # Every ECS service the stack always runs takes its count from a variable,
+    # so no single task sits outside the profile. The bundled Temporal server
+    # and UI are the documented exception.
+    ecs_dir = FARGATE_DIR / "modules/ecs"
+    for tf in sorted(ecs_dir.glob("ecs-*.tf")):
+        for count in re.findall(r"(?m)^\s+desired_count\s*=\s*(\S+)$", tf.read_text()):
+            if tf.name in {"ecs-temporal.tf", "ecs-temporal-ui.tf"}:
+                continue
+            assert count.startswith("var."), f"{tf.name}: desired_count = {count}"
+    assert "Temporal" in (FARGATE_DIR / "examples/ha.tfvars.example").read_text()
+    # New counts default to one task, so existing bills do not change.
+    for name in ("ui_desired_count", "caddy_desired_count"):
+        assert re.search(
+            rf'variable "{name}" \{{[^}}]*default\s*=\s*1\n', root_variables
+        ), name
+    assert example["rds_multi_az"] == "true"
+    assert int(example["redis_num_cache_clusters"]) >= 2
+    # The HA profile is opt-in: defaults do not add standby databases.
+    assert re.search(
+        r'variable "rds_multi_az" \{[^}]*default\s*=\s*false', root_variables
+    )
+    assert re.search(
+        r'variable "redis_num_cache_clusters" \{[^}]*default\s*=\s*1\n',
+        root_variables,
+    )
 
 
 @pytest.mark.parametrize("value", [None, "", "  "])

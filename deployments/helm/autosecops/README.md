@@ -105,6 +105,10 @@ Every credential supports either a chart-created Secret (values) or an
 | `externalTemporal.auth` | `<fullname>-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `<fullname>-pangolin-credentials` | `apiKey` |
 
+The Redis `url` must carry a password, e.g. `rediss://:password@redis:6379`:
+the chart refuses an inline URL without one unless
+`externalRedis.auth.allowUnauthenticated` is `true`.
+
 With the release name `autosecops`, `<fullname>` is `autosecops`. Each service
 receives only the secrets its Fargate task definition receives:
 `USER_AUTH_SECRET` reaches `api` and `mcp`, SSO and SMTP secrets reach `api`,

@@ -17,7 +17,10 @@ services:
     # Defaults allow 32 activities x 4 for_each iterations x 64 in-jail
     # processes = 8192, exceeding this intentional aggregate safety limit.
     # Process-heavy workloads can hit the cap and fail to fork.
-    pids_limit: 4096
+    deploy:
+      resources:
+        limits:
+          pids: 4096
     # Required for nsjail sandbox execution.
     cap_add:
       - SYS_ADMIN
@@ -37,7 +40,10 @@ services:
     environment:
       AUTOSECOPS__EXECUTOR_BACKEND: ${AUTOSECOPS__EXECUTOR_BACKEND:-nsjail}
     # Same fork-bomb bound as executor (nested userns bypasses in-jail caps).
-    pids_limit: 4096
+    deploy:
+      resources:
+        limits:
+          pids: 4096
     # Required for nsjail sandbox execution.
     cap_add:
       - SYS_ADMIN
