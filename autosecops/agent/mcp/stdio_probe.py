@@ -465,28 +465,20 @@ def _direct_probe_env(job_dir: Path) -> dict[str, str]:
 def _direct_probe_rlimits(timeout_seconds: int) -> dict[str, int]:
     """Resource caps the probe applies to itself and the MCP server.
 
-    Mirrors the nsjail probe without cgroups: CPU time, file size, open files,
-    no core dumps, and an address-space cap of twice the probe memory budget.
-    There is no per-user process cap: ``RLIMIT_NPROC`` counts every process of
-    the worker's user, so it cannot bound the probe alone.
+    Mirrors the nsjail probe without cgroups: CPU time, file size, open files
+    and no core dumps. There is deliberately no address-space cap
+    (``RLIMIT_AS``): runtimes such as Node (WebAssembly, ``fetch``), the JVM
+    and .NET reserve large virtual ranges up front and fail under one, and
+    direct-mode agent runs start the same servers uncapped. There is no
+    per-user process cap either: ``RLIMIT_NPROC`` counts every process of the
+    worker's user, so it cannot bound the probe alone.
     """
-    limits = AgentResourceLimits(
-        memory_mb=min(1024, config.AUTOSECOPS__AGENT_SANDBOX_MEMORY_MB)
-    )
-    resources = ResourceLimits(
-        memory_mb=limits.memory_mb,
-        address_space_mb=limits.address_space_mb,
-    )
-    rlimits = {
+    return {
         "RLIMIT_CORE": 0,
         "RLIMIT_CPU": timeout_seconds + MCP_STDIO_PROBE_HARD_TIMEOUT_BUFFER,
         "RLIMIT_FSIZE": DIRECT_PROBE_MAX_FILE_SIZE_MB * 1024 * 1024,
         "RLIMIT_NOFILE": DIRECT_PROBE_MAX_OPEN_FILES,
     }
-    address_space_mb = resources.address_space_limit_mb(cgroup_memory_limit=False)
-    if address_space_mb is not None:
-        rlimits["RLIMIT_AS"] = address_space_mb * 1024 * 1024
-    return rlimits
 
 
 async def _read_bounded(stream: asyncio.StreamReader | None, limit: int) -> bytes:

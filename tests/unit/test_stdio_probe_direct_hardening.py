@@ -220,17 +220,18 @@ async def test_direct_probe_applies_resource_limits_to_server(
     assert limits["RLIMIT_CPU"] == 30 + MCP_STDIO_PROBE_HARD_TIMEOUT_BUFFER
     assert limits["RLIMIT_FSIZE"] == DIRECT_PROBE_MAX_FILE_SIZE_MB * 1024 * 1024
     assert limits["RLIMIT_NOFILE"] == DIRECT_PROBE_MAX_OPEN_FILES
-    assert limits["RLIMIT_AS"] != resource.RLIM_INFINITY
-    assert limits["RLIMIT_AS"] == stdio_probe._direct_probe_rlimits(30)["RLIMIT_AS"]
+    # No address-space cap: Node (WebAssembly, fetch), JVM and .NET servers
+    # reserve large virtual ranges up front. The server keeps the worker's.
+    assert limits["RLIMIT_AS"] == resource.getrlimit(resource.RLIMIT_AS)[0]
 
 
-def test_direct_probe_address_space_honours_configured_cap() -> None:
+def test_direct_probe_does_not_cap_address_space() -> None:
     with patch(
         "autosecops.agent.sandbox.config.AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB",
         3072,
     ):
         limits = stdio_probe._direct_probe_rlimits(10)
-    assert limits["RLIMIT_AS"] == 3072 * 1024 * 1024
+    assert "RLIMIT_AS" not in limits
 
 
 @pytest.mark.anyio
