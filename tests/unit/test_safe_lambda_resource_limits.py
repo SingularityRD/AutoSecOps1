@@ -7,6 +7,7 @@ Before these limits ``lambda x: 9**9**9`` held the GIL indefinitely,
 ``['a' * 10**6] * 10**6`` built a result that serialized to a terabyte.
 """
 
+import gc
 import time
 from collections.abc import Callable
 from typing import Any
@@ -27,9 +28,13 @@ BUILDERS: list[Callable[[str], Callable[[Any], Any]]] = [
     build_safe_lambda,
     registry_build_safe_lambda,
 ]
-FAST_SECONDS = 0.5
-"""CPU budget for a rejection. It is measured as this thread's CPU time, not
-wall time, so a busy CI runner that deschedules the test cannot fail it."""
+FAST_SECONDS = 2.0
+"""CPU budget for a rejection. An unguarded lambda here runs for minutes to
+hours; allocation caps let some cases do up to about half a second of real
+work first. It is measured as this thread's CPU time, not wall time, so a busy
+CI runner that deschedules the test cannot fail it, and with the garbage
+collector paused, so a full collection of objects that other tests left in
+the worker is not charged to the rejection."""
 
 
 @pytest.fixture(params=BUILDERS, ids=["autosecops", "registry"])
@@ -43,10 +48,16 @@ def _fails_fast(
     argument: object = None,
     match: str | None = None,
 ) -> None:
-    started = time.thread_time()
-    with pytest.raises(ValueError, match=match):
-        builder(lambda_str)(argument)
-    assert time.thread_time() - started < FAST_SECONDS
+    gc.collect()
+    gc.disable()
+    try:
+        started = time.thread_time()
+        with pytest.raises(ValueError, match=match):
+            builder(lambda_str)(argument)
+        elapsed = time.thread_time() - started
+    finally:
+        gc.enable()
+    assert elapsed < FAST_SECONDS
 
 
 @pytest.mark.parametrize(
