@@ -425,10 +425,59 @@ def test_bundle_workflow_never_uploads_images_as_an_artifact() -> None:
         assert "set -x" not in step.get("run", "")
 
 
+def _fake_bin(tmp_path: Path, name: str, script: str) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    tool = bin_dir / name
+    tool.write_text("#!/bin/bash\n" + script)
+    tool.chmod(0o755)
+    return bin_dir
+
+
+@pytest.mark.parametrize("kms_key_arn", ["", "arn:aws:kms:eu-central-1:1:key/k"])
+def test_bundle_upload_never_falls_back_to_the_aws_managed_key(
+    tmp_path: Path, kms_key_arn: str
+) -> None:
+    # `--sse aws:kms` without a key ID encrypts under aws/s3, not the bucket's
+    # customer-managed key, so the step names the key or sends no header.
+    step = _bundle_step("Upload bundle to the private bucket")
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "autosecops-offline-1.2.3.tar.zst").write_text("x")
+    public_key = tmp_path / "cosign.pub"
+    public_key.write_text("pub")
+    calls = tmp_path / "calls"
+    bin_dir = _fake_bin(tmp_path, "aws", f'echo "$*" >> {calls}\n')
+    result = subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", step["run"]],
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "RUNNER_TEMP": str(tmp_path),
+            "S3_URI": "s3://example-bundles/autosecops",
+            "S3_KMS_KEY_ARN": kms_key_arn,
+            "VERSION": "1.2.3",
+            "OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY": str(public_key),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    copies = [c for c in calls.read_text().splitlines() if c.startswith("s3 cp ")]
+    assert len(copies) == 2
+    for call in copies:
+        if kms_key_arn:
+            assert f"--sse aws:kms --sse-kms-key-id {kms_key_arn} " in call
+        else:
+            assert "--sse" not in call
+
+
 VALID_BUNDLE_CONFIG = {
     "S3_URI": "s3://example-bundles/autosecops",
     "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/offline-bundle",
     "AWS_REGION": "eu-central-1",
+    "S3_KMS_KEY_ARN": "",
     "KMS_KEY": "",
     "HAS_PRIVATE_KEY": "true",
     "HAS_PASSWORD": "true",
@@ -449,6 +498,19 @@ VALID_BUNDLE_CONFIG = {
         ({"HAS_PRIVATE_KEY": "false"}, None),
         ({"HAS_PASSWORD": "false"}, None),
         ({"KMS_KEY": "gcpkms://projects/x"}, None),
+        (
+            {
+                "S3_KMS_KEY_ARN": "arn:aws:kms:eu-central-1:123456789012:key/"
+                "1234abcd-12ab-34cd-56ef-1234567890ab"
+            },
+            "key",
+        ),
+        (
+            {"S3_KMS_KEY_ARN": "arn:aws:kms:eu-central-1:123456789012:alias/bundles"},
+            "key",
+        ),
+        ({"S3_KMS_KEY_ARN": "alias/bundles"}, None),
+        ({"S3_KMS_KEY_ARN": "arn:aws:kms:eu-central-1:123456789012:key/$(id)"}, None),
     ],
 )
 def test_bundle_workflow_requires_signing_and_a_private_destination(

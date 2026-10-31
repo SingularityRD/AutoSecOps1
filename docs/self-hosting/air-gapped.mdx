@@ -117,14 +117,15 @@ The workflow refuses to start until the protected `offline-bundle` GitHub enviro
 | `OFFLINE_BUNDLE_S3_URI` | Variable | `s3://<bucket>/<prefix>`. Each release lands under `<prefix>/<version>/`; a version that already exists is never overwritten |
 | `OFFLINE_BUNDLE_AWS_ROLE_ARN` | Variable | IAM role the workflow assumes through GitHub OIDC |
 | `OFFLINE_BUNDLE_AWS_REGION` | Variable | Region of the bucket and KMS key |
+| `OFFLINE_BUNDLE_S3_KMS_KEY_ARN` | Variable | Optional. ARN of the customer-managed KMS key that encrypts the uploaded objects, such as `arn:aws:kms:eu-central-1:123456789012:key/<key-id>`. When unset, the workflow sends no encryption header and the bucket's default encryption applies |
 | `OFFLINE_BUNDLE_COSIGN_KMS_KEY` | Variable | `awskms://` URI of an asymmetric signing key (recommended: the private key never leaves KMS) |
 | `OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY` and `OFFLINE_BUNDLE_COSIGN_PASSWORD` | Secrets | cosign-encrypted private key and its password, used only when no KMS key is set |
 
 Set up AWS once:
 
-1. Create a private bucket with Block Public Access on, default SSE-KMS encryption, versioning, and a lifecycle or Object Lock policy that matches your retention rules.
+1. Create a private bucket with Block Public Access on, default SSE-KMS encryption with a customer-managed key, versioning, and a lifecycle or Object Lock policy that matches your retention rules.
 2. Create an IAM role whose trust policy accepts `token.actions.githubusercontent.com` with audience `sts.amazonaws.com` and subject `repo:<owner>/<repository>:environment:offline-bundle`, so only this environment can assume it. Set its maximum session duration to at least 2 hours.
-3. Grant the role `s3:ListBucket` on the bucket (limited to the prefix), `s3:PutObject` on `<prefix>/*`, `kms:GenerateDataKey` on the bucket key, and, for KMS signing, `kms:Sign` and `kms:GetPublicKey` on the signing key. Do not grant `s3:DeleteObject`.
+3. Grant the role `s3:ListBucket` on the bucket (limited to the prefix), `s3:PutObject` on `<prefix>/*`, `kms:GenerateDataKey` and `kms:Decrypt` on the bucket's encryption key (multipart uploads of the multi-GB archive need both), and, for KMS signing, `kms:Sign` and `kms:GetPublicKey` on the signing key. Do not grant `s3:DeleteObject`.
 4. Give the `offline-bundle` environment required reviewers and restrict it to release tags.
 
 Deliver bundles to customers from the bucket with short-lived presigned URLs or your secure file transfer service, and send the public key (`autosecops-offline-<version>.cosign.pub`) through a separate channel so customers can authenticate what they receive.

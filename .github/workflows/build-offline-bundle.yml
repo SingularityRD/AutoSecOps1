@@ -22,6 +22,9 @@ name: Build offline bundle
 #                                    repository's OIDC token for the
 #                                    `offline-bundle` environment only
 #     OFFLINE_BUNDLE_AWS_REGION      region of the bucket (and KMS key)
+#     OFFLINE_BUNDLE_S3_KMS_KEY_ARN  optional customer-managed KMS key for
+#                                    object encryption; without it the
+#                                    bucket's default encryption applies
 #     OFFLINE_BUNDLE_COSIGN_KMS_KEY  optional awskms:// signing key URI
 #   Secrets, used when OFFLINE_BUNDLE_COSIGN_KMS_KEY is not set
 #     OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY  cosign-encrypted private key (PEM)
@@ -90,6 +93,7 @@ jobs:
           S3_URI: ${{ vars.OFFLINE_BUNDLE_S3_URI }}
           AWS_ROLE_ARN: ${{ vars.OFFLINE_BUNDLE_AWS_ROLE_ARN }}
           AWS_REGION: ${{ vars.OFFLINE_BUNDLE_AWS_REGION }}
+          S3_KMS_KEY_ARN: ${{ vars.OFFLINE_BUNDLE_S3_KMS_KEY_ARN }}
           KMS_KEY: ${{ vars.OFFLINE_BUNDLE_COSIGN_KMS_KEY }}
           # Only presence is tested; secret values never reach this step.
           HAS_PRIVATE_KEY: ${{ secrets.OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY != '' }}
@@ -108,6 +112,11 @@ jobs:
           fi
           if ! [[ "$AWS_REGION" =~ ^[a-z]{2}(-[a-z]+)+-[0-9]+$ ]]; then
             echo '::error::Set OFFLINE_BUNDLE_AWS_REGION (for example eu-central-1).'
+            fail=1
+          fi
+          if [[ -n "$S3_KMS_KEY_ARN" ]] &&
+            ! [[ "$S3_KMS_KEY_ARN" =~ ^arn:aws(-[a-z]+)*:kms:[a-z]{2}(-[a-z]+)+-[0-9]+:[0-9]{12}:(key/[0-9a-f-]{36}|key/mrk-[0-9a-f]{32}|alias/[A-Za-z0-9/_-]+)$ ]]; then
+            echo '::error::OFFLINE_BUNDLE_S3_KMS_KEY_ARN must be a KMS key or alias ARN.'
             fail=1
           fi
           if [[ -n "$KMS_KEY" ]]; then
@@ -241,16 +250,24 @@ jobs:
       - name: Upload bundle to the private bucket
         env:
           S3_URI: ${{ vars.OFFLINE_BUNDLE_S3_URI }}
+          S3_KMS_KEY_ARN: ${{ vars.OFFLINE_BUNDLE_S3_KMS_KEY_ARN }}
           VERSION: ${{ steps.version.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           destination="${S3_URI%/}/${VERSION}/"
+          # `--sse aws:kms` without a key ID would pick the AWS-managed aws/s3
+          # key over the bucket's customer-managed default, so name the key or
+          # send no encryption header and let the bucket default apply.
+          encryption=()
+          if [[ -n "$S3_KMS_KEY_ARN" ]]; then
+            encryption=(--sse aws:kms --sse-kms-key-id "$S3_KMS_KEY_ARN")
+          fi
           cd "$RUNNER_TEMP/bundle"
           cp "$OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY" "autosecops-offline-$VERSION.cosign.pub"
           for file in autosecops-offline-"$VERSION"*; do
             [[ -f "$file" ]] || continue
-            aws s3 cp --only-show-errors --sse aws:kms "$file" "$destination$file"
+            aws s3 cp --only-show-errors "${encryption[@]}" "$file" "$destination$file"
           done
           aws s3 ls "$destination"
 
