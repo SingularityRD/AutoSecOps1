@@ -259,10 +259,17 @@ async def test_api_side_git_sync_is_refused_before_fetching_keys(
         mocker.AsyncMock(return_value=repository),
     )
 
-    # The API never imports repository code, so it never sets up an agent.
+    repository.current_version_id = uuid.uuid4()
+    versions_service = mocker.patch(
+        "autosecops.registry.repositories.service.RegistryVersionsService"
+    )
+
+    # The API never imports repository code, so it never sets up an agent,
+    # and a force sync does not delete the current version first.
     with pytest.raises(RegistryError, match="sync only on the executor"):
-        await service.sync_repository(repository)
+        await service.sync_repository(repository, RegistryRepositorySync(force=True))
 
     ssh_context.assert_not_called()
+    versions_service.assert_not_called()
     actions_service.sync_actions_from_repository.assert_not_awaited()
     assert ssh_env.ssh_agent_pid == "123"

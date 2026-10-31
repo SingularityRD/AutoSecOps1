@@ -93,6 +93,7 @@ async def fetch_actions_from_subprocess(
     git_repo_package_name: str | None = None,
     timeout: float = 300.0,
     organization_id: UUID4 | None = None,
+    known_hosts_seed: Path | None = None,
 ) -> SyncResultSuccess:
     """Install a repository here, then discover its actions in a subprocess.
 
@@ -111,6 +112,7 @@ async def fetch_actions_from_subprocess(
             minutes). Discovery always gets at least
             ``MIN_DISCOVERY_TIMEOUT_SECONDS``.
         organization_id: Optional organization ID for accessing org-scoped secrets (e.g., SSH keys).
+        known_hosts_seed: Host keys an earlier step of this sync verified.
 
     Returns:
         SyncResultSuccess containing parsed actions, commit SHA, and any errors.
@@ -156,7 +158,9 @@ async def fetch_actions_from_subprocess(
                         role=role,
                         package_name_override=git_repo_package_name,
                     ).install_from_origin(
-                        commit_sha=commit_sha, target_dir=Path(target)
+                        commit_sha=commit_sha,
+                        target_dir=Path(target),
+                        known_hosts_seed=known_hosts_seed,
                     )
             except TimeoutError as e:
                 if scope.expired():

@@ -42,6 +42,19 @@ from autosecops.registry.sync.schemas import (
 from autosecops.registry.versions.schemas import RegistryVersionManifest
 
 
+@pytest.fixture(autouse=True)
+def skip_host_key_scan(mocker, tmp_path: Path) -> Path:
+    """Unit tests here do not reach a git host; host key pinning has its own tests."""
+    known_hosts = tmp_path / "known_hosts"
+    known_hosts.write_text("")
+    mocker.patch.object(
+        RegistrySyncRunner,
+        "_prepare_known_hosts",
+        mocker.AsyncMock(return_value=known_hosts),
+    )
+    return known_hosts
+
+
 def _make_artifact_result(tmp_path: Path) -> RegistryArtifactBuildResult:
     squashfs_path = tmp_path / "site-packages.squashfs"
     squashfs_path.write_bytes(b"squashfs")
@@ -146,6 +159,7 @@ def test_resolve_package_name_ignores_git_ref_suffix(tmp_path: Path) -> None:
 async def test_runner_passes_resolved_commit_sha_to_discovery(
     tmp_path,
     mocker,
+    skip_host_key_scan: Path,
 ) -> None:
     runner = RegistrySyncRunner()
     organization_id = uuid4()
@@ -195,8 +209,11 @@ async def test_runner_passes_resolved_commit_sha_to_discovery(
         commit_sha="requested-sha",
         ssh_key="fake-ssh-key",
         work_dir=mocker.ANY,
+        known_hosts=skip_host_key_scan,
     )
-    discover_actions.assert_awaited_once_with(request, "resolved-sha")
+    discover_actions.assert_awaited_once_with(
+        request, "resolved-sha", skip_host_key_scan
+    )
     upload_tarball.assert_awaited_once()
     assert result.commit_sha == "resolved-sha"
 
@@ -753,4 +770,4 @@ async def test_runner_uses_prebuilt_manifest_or_falls_back_to_discovery(
         discover_actions.assert_not_awaited()
     else:
         assert result.actions == fallback_actions
-        discover_actions.assert_awaited_once_with(request, None)
+        discover_actions.assert_awaited_once_with(request, None, None)

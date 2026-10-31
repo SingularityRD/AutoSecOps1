@@ -14,7 +14,6 @@ import _posixsubprocess
 import contextlib
 import multiprocessing.context as mp_context
 import os
-import re
 import sys
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping
@@ -25,7 +24,6 @@ from autosecops.logger import logger
 from autosecops.process_env import BASE_ENV_NAMES, BASE_ENV_PREFIXES, select_env
 
 _LAUNCH_LOCK = threading.Lock()
-_SHELL_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # Typeshed's fork_exec stub does not admit the None values CPython 3.12's own
 # multiprocessing passes for cwd and preexec_fn, so the call goes untyped.
@@ -88,29 +86,13 @@ def _self_test() -> bool:
     if not (sys.platform.startswith("linux") and sys.version_info[:2] == (3, 12)):
         return False
     marker = "AUTOSECOPS_SCRUBBED_SPAWN_SELF_TEST"
-    script = f'test "${marker}" = 1'
-    # Any inherited parent variable proves a leak. The shell sets PATH and a
-    # few others itself, so probe for a variable it never defines.
-    shell_defined = {
-        "PATH",
-        "PWD",
-        "HOME",
-        "IFS",
-        "PS1",
-        "PS2",
-        "PS4",
-        "OPTIND",
-        "PPID",
-    }
-    if canary := next(
-        (
-            name
-            for name in os.environ
-            if name not in shell_defined and _SHELL_NAME.fullmatch(name)
-        ),
-        None,
-    ):
-        script += f' && test -z "${{{canary}+set}}"'
+    # A variable set in this process only for the test: if the child sees it,
+    # the parent's environment leaked. A dedicated name cannot collide with
+    # variables the shell defines itself (PATH, PWD, SHLVL, _, ...).
+    canary = "AUTOSECOPS_SCRUBBED_SPAWN_CANARY"
+    script = f'test "${marker}" = 1 && test -z "${{{canary}+set}}"'
+    previous = os.environ.get(canary)
+    os.environ[canary] = "1"
     try:
         pid = _spawnv_passfds_with_env({marker: "1"})(
             "/bin/sh", ["/bin/sh", "-c", script], ()
@@ -122,6 +104,11 @@ def _self_test() -> bool:
             error=type(exc).__name__,
         )
         return False
+    finally:
+        if previous is None:
+            os.environ.pop(canary, None)
+        else:
+            os.environ[canary] = previous
     if os.waitstatus_to_exitcode(status) != 0:
         logger.warning(
             "Scrubbed spawn self-test leaked the parent environment; worker "

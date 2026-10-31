@@ -61,8 +61,13 @@ class TestAddHostToKnownHosts:
 
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
-        def fake_run(*args, **kwargs):  # noqa: ANN001, ANN002
-            raise AssertionError("ssh-keyscan should not run for existing hosts")
+        real_run = subprocess.run
+
+        def fake_run(cmd, *args, **kwargs):  # noqa: ANN001, ANN002
+            assert Path(cmd[0]).name != "ssh-keyscan", (
+                "ssh-keyscan should not run for existing hosts"
+            )
+            return real_run(cmd, *args, **kwargs)
 
         monkeypatch.setattr("subprocess.run", fake_run)
 

@@ -143,6 +143,14 @@ class RegistryReposService(BaseOrgService):
                 "git_repo_package_name", role=self.role
             )
 
+        if (
+            repository.origin != DEFAULT_REGISTRY_ORIGIN
+            and not config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED
+        ):
+            # Refuse before touching versions or keys: the API never runs
+            # repository code, so a force sync must not delete anything first.
+            raise RegistryError(API_SIDE_CUSTOM_SYNC_REFUSED)
+
         if force and repository.current_version_id is not None:
             versions_service = RegistryVersionsService(self.session, self.role)
             current_version = await versions_service.get_version(
@@ -165,9 +173,6 @@ class RegistryReposService(BaseOrgService):
             allowed_domains = allowed_domains_setting or {"github.com"}
             git_url = parse_git_url(repository.origin, allowed_domains=allowed_domains)
 
-            if not config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED:
-                # Refuse before fetching keys: the API never runs repository code.
-                raise RegistryError(API_SIDE_CUSTOM_SYNC_REFUSED)
             if config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED:
                 # The ExecutorWorker fetches the organization key and acquires
                 # host keys inside the registry-sync activity. Avoid creating a

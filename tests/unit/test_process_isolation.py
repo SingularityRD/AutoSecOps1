@@ -286,7 +286,7 @@ Path(OUT).write_text(json.dumps({
 '''.replace("SECRET", repr(sys.argv[2])).replace("OUT", repr(str(out)))
 
 
-async def install(*, commit_sha=None, target_dir):
+async def install(*, commit_sha=None, target_dir, **_kwargs):
     package = target_dir / "sync_probe"
     package.mkdir()
     (package / "__init__.py").write_text(PACKAGE)

@@ -21,6 +21,8 @@ Security model:
 from __future__ import annotations
 
 import asyncio
+import os
+import shlex
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -54,6 +56,12 @@ from autosecops.registry.sync.schemas import (
 )
 from autosecops.registry.sync.subprocess import fetch_actions_from_subprocess
 from autosecops.secrets.service import SecretsService
+from autosecops.ssh import (
+    SshEnv,
+    UnknownGitHostError,
+    add_host_to_known_hosts,
+    seed_known_hosts,
+)
 from autosecops.storage import blob
 
 if TYPE_CHECKING:
@@ -121,6 +129,8 @@ class _ResolvedPackage:
 
     path: Path
     commit_sha: str | None
+    known_hosts: Path | None = None
+    """This sync's verified known_hosts for its git host, if it cloned one."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,7 +286,7 @@ class RegistrySyncRunner:
         discovery = self._load_prebuilt_actions(request)
         if discovery is None:
             discovery = await self._discover_unsandboxed_actions(
-                request, resolved.commit_sha
+                request, resolved.commit_sha, resolved.known_hosts
             )
         self._raise_for_validation_errors(discovery)
         return await self._finalize_sync(
@@ -340,16 +350,44 @@ class RegistrySyncRunner:
             disable_nsjail=True,
         )
         ssh_key = await self._fetch_registry_ssh_key(request.organization_id)
+        known_hosts = await self._prepare_known_hosts(request.git_url, work_dir)
         try:
             package_path, commit_sha = await self._clone_repository(
                 git_url=request.git_url,
                 commit_sha=request.commit_sha,
                 ssh_key=ssh_key,
                 work_dir=work_dir,
+                known_hosts=known_hosts,
             )
         finally:
             ssh_key = ""
-        return _ResolvedPackage(package_path, commit_sha)
+        return _ResolvedPackage(package_path, commit_sha, known_hosts)
+
+    async def _prepare_known_hosts(self, git_url: str, work_dir: Path) -> Path:
+        """Build the private known_hosts every fetch of this sync verifies against.
+
+        Starts from the operator's pinned keys; a host they do not list is
+        scanned once here (or refused in strict mode), and later fetches in
+        the same sync reuse that key instead of scanning again.
+        """
+        ssh_dir = work_dir / "registry-ssh-hosts"
+        ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        ssh_dir.chmod(0o700)
+        known_hosts = ssh_dir / "known_hosts"
+        seed_known_hosts(known_hosts)
+        host = parse_git_url(git_url).host
+        try:
+            await add_host_to_known_hosts(
+                host,
+                env=SshEnv(
+                    ssh_auth_sock="",
+                    ssh_agent_pid="",
+                    known_hosts_path=str(known_hosts),
+                ),
+            )
+        except UnknownGitHostError as exc:
+            raise GitCloneError(str(exc)) from exc
+        return known_hosts
 
     def _load_prebuilt_actions(
         self,
@@ -478,6 +516,7 @@ class RegistrySyncRunner:
         commit_sha: str | None,
         ssh_key: str | None,
         work_dir: Path,
+        known_hosts: Path | None = None,
     ) -> tuple[Path, str]:
         """Clone a git repository to a local directory.
 
@@ -486,6 +525,8 @@ class RegistrySyncRunner:
             commit_sha: Commit SHA to checkout (if None, uses HEAD).
             ssh_key: SSH private key for authentication.
             work_dir: Working directory for the clone.
+            known_hosts: This sync's verified known_hosts. Required with
+                ``ssh_key``: host keys are always checked.
 
         Returns:
             Tuple of (path to cloned repository, resolved commit SHA).
@@ -513,11 +554,29 @@ class RegistrySyncRunner:
             _ = ssh_key_path.write_text(ssh_key)
             ssh_key_path.chmod(0o600)
 
-            # Configure SSH to use the key
-            # BatchMode=yes prevents SSH from prompting for input (passphrase, etc.)
-            # which would cause the subprocess to hang indefinitely
-            git_env["GIT_SSH_COMMAND"] = (
-                f"ssh -F /dev/null -i {ssh_key_path} -o StrictHostKeyChecking=no -o BatchMode=yes"
+            if known_hosts is None:
+                raise GitCloneError("A verified known_hosts file is required")
+            # Configure SSH to use the key and verify the host against this
+            # sync's known_hosts. BatchMode=yes prevents SSH from prompting
+            # for input, which would hang the subprocess indefinitely.
+            git_env["GIT_SSH_COMMAND"] = shlex.join(
+                [
+                    "ssh",
+                    "-F",
+                    os.devnull,
+                    "-i",
+                    str(ssh_key_path),
+                    "-o",
+                    "IdentitiesOnly=yes",
+                    "-o",
+                    f"UserKnownHostsFile={known_hosts}",
+                    "-o",
+                    f"GlobalKnownHostsFile={os.devnull}",
+                    "-o",
+                    "StrictHostKeyChecking=yes",
+                    "-o",
+                    "BatchMode=yes",
+                ]
             )
 
         # Timeout for git operations (clone, fetch, checkout)
@@ -709,12 +768,14 @@ class RegistrySyncRunner:
         self,
         request: RegistrySyncRequest,
         commit_sha: str | None,
+        known_hosts: Path | None = None,
     ) -> SyncResultSuccess:
         """Discover actions with the explicit subprocess compatibility path.
 
         Args:
             request: Registry sync request.
             commit_sha: Resolved repository revision, if any.
+            known_hosts: Host keys the clone verified, reused by the install.
 
         Returns:
             Typed discovery result.
@@ -736,6 +797,7 @@ class RegistrySyncRunner:
                 git_repo_package_name=request.git_repo_package_name,
                 timeout=float(self.discover_timeout),
                 organization_id=request.organization_id,
+                known_hosts_seed=known_hosts,
             )
         except Exception as exc:
             raise ActionDiscoveryError(

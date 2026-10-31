@@ -22,9 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
-from autosecops.exceptions import AutoSecOpsCredentialsError
+from autosecops.exceptions import AutoSecOpsCredentialsError, RegistryError
 from autosecops.logger import logger
-from autosecops.process_env import tool_subprocess_env
+from autosecops.process_env import tool_subprocess_env, which_trusted
 from autosecops.secrets.schemas import SSHKeyTarget
 from autosecops.secrets.service import SecretsService
 
@@ -257,38 +257,16 @@ def add_host_to_known_hosts_sync(url: str, env: SshEnv) -> None:
             known_hosts_file = ssh_dir / "known_hosts"
 
         host, port = _split_host_port(url)
-        if port:
-            formatted_host = f"[{host}]:{port}"
-            known_host_tokens = {url, formatted_host, host}
-        else:
-            formatted_host = host
-            known_host_tokens = {url, formatted_host}
+        formatted_host = known_hosts_token(host, port)
 
-        # Check if host already exists in known_hosts
-        if known_hosts_file.exists():
-            with known_hosts_file.open("r") as f:
-                # Look for the hostname in existing entries
-                for line in f:
-                    stripped = line.strip()
-                    if not stripped or stripped.startswith("#"):
-                        continue
-                    entry_host = stripped.split()[0]
-                    # known_hosts entries can list multiple hosts separated by commas
-                    matching_host = next(
-                        (
-                            host
-                            for host in entry_host.split(",")
-                            if host in known_host_tokens
-                        ),
-                        None,
-                    )
-                    if matching_host:
-                        logger.debug(
-                            "Host already in known_hosts file",
-                            url=url,
-                            entry_host=matching_host,
-                        )
-                        return
+        # ssh-keygen understands hashed entries, markers such as
+        # @cert-authority, wildcards and [host]:port, unlike a field match.
+        if known_hosts_file.exists() and known_hosts_lists(
+            known_hosts_file, host, port
+        ):
+            logger.debug("Host already in known_hosts file", url=url)
+            return
+        ensure_host_key_scan_allowed(formatted_host)
         # Use ssh-keyscan to get the host key
         cmd = ["ssh-keyscan"]
         if port:
@@ -332,6 +310,72 @@ def add_host_to_known_hosts_sync(url: str, env: SshEnv) -> None:
 async def add_host_to_known_hosts(url: str, *, env: SshEnv) -> None:
     """Asynchronously add the host to the known hosts file."""
     return await asyncio.to_thread(add_host_to_known_hosts_sync, url, env)
+
+
+class UnknownGitHostError(RegistryError):
+    """A git host has no pinned key and strict known_hosts mode is on."""
+
+
+def known_hosts_token(host: str, port: str | int | None) -> str:
+    """Return how known_hosts names ``host`` on ``port``."""
+    if port is None or str(port) == "22":
+        return host
+    return f"[{host}]:{port}"
+
+
+def known_hosts_lists(path: Path, host: str, port: str | int | None = None) -> bool:
+    """Return whether a known_hosts file has any entry for this host.
+
+    Args:
+        path: The known_hosts file.
+        host: Host name or address.
+        port: SSH port, if not 22.
+
+    Returns:
+        True when ``ssh-keygen -F`` finds a plain, hashed, wildcard or
+        marker (``@cert-authority``) entry that applies.
+    """
+    keygen = which_trusted("ssh-keygen") or "ssh-keygen"
+    result = subprocess.run(
+        [keygen, "-F", known_hosts_token(host, port), "-f", str(path)],
+        capture_output=True,
+        text=True,
+        env=tool_subprocess_env(),
+        check=False,
+        timeout=10.0,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def ensure_host_key_scan_allowed(host_token: str) -> None:
+    """Refuse a trust-on-first-use scan when strict known_hosts mode is on.
+
+    Args:
+        host_token: The known_hosts name of the host, such as ``[git.test]:2222``.
+
+    Raises:
+        UnknownGitHostError: If ``AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS`` is on.
+    """
+    if config.AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS:
+        raise UnknownGitHostError(
+            f"Git host {host_token} has no key in AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE "
+            "and AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS refuses to scan it"
+        )
+
+
+def seed_known_hosts(path: Path, *, extra: str = "") -> None:
+    """Create a private known_hosts file from the pinned keys plus ``extra``.
+
+    Args:
+        path: The file to create, inside a private directory.
+        extra: Entries already verified earlier in the same sync.
+    """
+    path.touch(mode=0o600)
+    path.chmod(0o600)
+    pinned = _pinned_known_hosts()
+    if pinned and not pinned.endswith("\n"):
+        pinned += "\n"
+    path.write_text(pinned + extra)
 
 
 def _pinned_known_hosts() -> str:
@@ -472,8 +516,19 @@ async def ssh_context(
     role: Role | None = None,
     key_name: str | None = None,
     target: SSHKeyTarget = "registry",
+    known_hosts_seed: Path | None = None,
 ) -> AsyncIterator[SshEnv | None]:
-    """Context manager for SSH environment variables."""
+    """Context manager for SSH environment variables.
+
+    Args:
+        git_url: The repository to reach; no agent is started without one.
+        session: Database session for the deploy key.
+        role: Role that owns the deploy key.
+        key_name: Optional named key.
+        target: Which key family to use.
+        known_hosts_seed: known_hosts entries an earlier step of the same
+            sync already verified for this host.
+    """
     if git_url is None:
         yield None
     else:
@@ -485,8 +540,12 @@ async def ssh_context(
             context_dir = Path(raw_dir)
             async with temporary_ssh_agent(socket_dir=context_dir / "agent") as agent:
                 known_hosts = context_dir / "known_hosts"
-                known_hosts.touch(mode=0o600)
-                known_hosts.write_text(_pinned_known_hosts())
+                # Start from the pinned keys and any key this sync already
+                # verified, so every fetch in one sync trusts the same key.
+                seed_known_hosts(
+                    known_hosts,
+                    extra=known_hosts_seed.read_text() if known_hosts_seed else "",
+                )
                 identity = context_dir / "identity.pub"
                 identity.write_text(_public_key_line(secret.get_secret_value()))
                 env = replace(

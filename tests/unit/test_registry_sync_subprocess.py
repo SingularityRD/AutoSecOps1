@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -170,7 +171,9 @@ def _installed(
 ):
     """Stand in for the trusted install, writing the package into the target."""
 
-    async def install(*, commit_sha: str | None = None, target_dir: Path):
+    async def install(
+        *, commit_sha: str | None = None, target_dir: Path, **_kwargs: Any
+    ):
         del commit_sha
         if module_source is not None:
             package = target_dir / package_name

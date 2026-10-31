@@ -420,6 +420,7 @@ class Repository:
         commit_sha: str | None = None,
         *,
         target_dir: Path | None = None,
+        known_hosts_seed: Path | None = None,
     ) -> RepositoryInstallation:
         """Install a custom registry package from its origin without importing it.
 
@@ -434,7 +435,9 @@ class Repository:
             target_dir: Empty directory, owned and removed by the caller, to
                 install a remote origin into. Required for remote origins,
                 which never install into a directory on the import path of
-                platform processes. Local repositories always install into
+                platform processes.
+            known_hosts_seed: Host keys an earlier step of the same sync
+                verified, so this fetch trusts the same key. Local repositories always install into
                 ``PYTHONUSERBASE``, which direct-mode actions import from.
 
         Returns:
@@ -451,7 +454,9 @@ class Repository:
             if target_dir is None:
                 raise ValueError("Remote origins need a target_dir the caller removes")
             return await self._install_git_repository(
-                commit_sha=commit_sha, target_dir=target_dir
+                commit_sha=commit_sha,
+                target_dir=target_dir,
+                known_hosts_seed=known_hosts_seed,
             )
         raise RegistryError(f"Unsupported origin: {self._origin}.")
 
@@ -566,7 +571,10 @@ class Repository:
         )
 
     async def _install_git_repository(
-        self, commit_sha: str | None, target_dir: Path
+        self,
+        commit_sha: str | None,
+        target_dir: Path,
+        known_hosts_seed: Path | None = None,
     ) -> RepositoryInstallation:
         """Install a git+ssh repository to the custom target."""
         logger.info("Loading UDFs from origin", origin=self._origin)
@@ -606,7 +614,10 @@ class Repository:
 
         logger.debug("Git URL", git_url=git_url)
         commit_sha = await self._install_remote_repository(
-            git_url=git_url, commit_sha=commit_sha, target_dir=target_dir
+            git_url=git_url,
+            commit_sha=commit_sha,
+            target_dir=target_dir,
+            known_hosts_seed=known_hosts_seed,
         )
         return RepositoryInstallation(
             package_name=package_name, commit_sha=commit_sha, site_dir=target_dir
@@ -618,6 +629,7 @@ class Repository:
         commit_sha: str | None = None,
         *,
         target_dir: Path | None = None,
+        known_hosts_seed: Path | None = None,
     ) -> str:
         """Install the remote repository into the filesystem and return the commit sha."""
 
@@ -625,7 +637,12 @@ class Repository:
         url = git_url.remote_url()
         async with (
             get_async_session_context_manager() as session,
-            ssh_context(role=self.role, git_url=git_url, session=session) as env,
+            ssh_context(
+                role=self.role,
+                git_url=git_url,
+                session=session,
+                known_hosts_seed=known_hosts_seed,
+            ) as env,
         ):
             if env is None:
                 raise RegistryError("No SSH key found")

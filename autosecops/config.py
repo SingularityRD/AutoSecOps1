@@ -2016,6 +2016,15 @@ here are verified against these keys; any other host's key is scanned on first
 use (trust on first use) for that sync only. Mount the file read-only.
 """
 
+AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS = env_bool(
+    "AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS", default=False
+)
+"""Refuse registry git hosts that AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE does not list.
+
+When False (default), an unlisted host's key is scanned on first use for that
+sync. When True, such a sync fails instead of trusting a scanned key.
+"""
+
 AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT = int(
     os.environ.get("AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT") or 120
 )
