@@ -202,6 +202,8 @@ from autosecops.middleware import (
     RequestLoggingMiddleware,
 )
 from autosecops.middleware.security import SecurityHeadersMiddleware
+from autosecops.observability.api_metrics import PrometheusMiddleware, get_api_metrics
+from autosecops.observability.metrics_server import MetricsServer
 from autosecops.observability.otel import (
     TRACE_ID_HEADER,
     TRACE_SAMPLED_HEADER,
@@ -380,10 +382,20 @@ async def lifespan(app: FastAPI):
         name="startup_heap_freeze",
         kind="finite",
     )
+    metrics_server: MetricsServer | None = None
+    if config.AUTOSECOPS__API_METRICS_ENABLED:
+        metrics_server = MetricsServer(
+            get_api_metrics().registry.render,
+            host=config.AUTOSECOPS__API_METRICS_HOST,
+            port=config.AUTOSECOPS__API_METRICS_PORT,
+        )
+        await metrics_server.start()
     logger.info("API startup complete")
 
     yield
 
+    if metrics_server is not None:
+        await metrics_server.stop()
     await supervisor.drain()
     unfreeze_startup_heap()
     await close_storage_client_cache()
@@ -1035,6 +1047,9 @@ def create_app(**kwargs) -> FastAPI:
         expose_headers=[TRACE_ID_HEADER, TRACE_SAMPLED_HEADER],
     )
     instrument_fastapi_app(app, service_name="autosecops-api")
+    if config.AUTOSECOPS__API_METRICS_ENABLED:
+        # Outermost, so the duration covers every other middleware.
+        app.add_middleware(PrometheusMiddleware, metrics=get_api_metrics().http)
 
     logger.info(
         "App started",

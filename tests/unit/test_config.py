@@ -12,11 +12,14 @@ import pytest
 import autosecops.config as autosecops_config
 from autosecops.config import (
     bound_env,
+    env_bind_host,
     env_bool,
     env_networks,
     env_no_proxy,
+    env_port,
     env_ports,
     env_proxy_url,
+    format_bind_address,
 )
 from autosecops.feature_flags.enums import FeatureFlag
 
@@ -1378,3 +1381,86 @@ def test_background_worker_shared_settings_match_other_services(
         assert value is not None, service
         values.append(value[1])
     assert len(set(values)) == 1, values
+
+
+@pytest.mark.parametrize("value", [None, "", "  "])
+def test_env_port_uses_default_when_unset_or_blank(
+    monkeypatch: pytest.MonkeyPatch, value: str | None
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TEST_PORT", raising=False)
+    else:
+        monkeypatch.setenv("TEST_PORT", value)
+    assert env_port("TEST_PORT", default=9100) == 9100
+
+
+@pytest.mark.parametrize("value", ["0", "65536", "-1", "http", "80,81"])
+def test_env_port_rejects_invalid_ports(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("TEST_PORT", value)
+    with pytest.raises(ValueError, match="TEST_PORT must be a port number"):
+        env_port("TEST_PORT", default=9100)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, "0.0.0.0"),
+        ("", "0.0.0.0"),
+        (" 127.0.0.1 ", "127.0.0.1"),
+        ("::", "::"),
+        ("[::1]", "::1"),
+    ],
+)
+def test_env_bind_host_parses_ip_literals(
+    monkeypatch: pytest.MonkeyPatch, value: str | None, expected: str
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TEST_HOST", raising=False)
+    else:
+        monkeypatch.setenv("TEST_HOST", value)
+    assert env_bind_host("TEST_HOST", default="0.0.0.0") == expected
+
+
+@pytest.mark.parametrize("value", ["localhost", "metrics.example.com", "0.0.0.0:9100"])
+def test_env_bind_host_rejects_hostnames(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("TEST_HOST", value)
+    with pytest.raises(ValueError, match="TEST_HOST must be an IP address"):
+        env_bind_host("TEST_HOST", default="0.0.0.0")
+
+
+def test_format_bind_address_brackets_ipv6() -> None:
+    assert format_bind_address("0.0.0.0", 9090) == "0.0.0.0:9090"
+    assert format_bind_address("::", 9090) == "[::]:9090"
+
+
+def test_metrics_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    try:
+        with monkeypatch.context() as env:
+            for name in (
+                "AUTOSECOPS__API_METRICS_ENABLED",
+                "AUTOSECOPS__API_METRICS_HOST",
+                "AUTOSECOPS__API_METRICS_PORT",
+                "TEMPORAL__METRICS_HOST",
+                "TEMPORAL__METRICS_PORT",
+            ):
+                env.delenv(name, raising=False)
+            reloaded = importlib.reload(autosecops_config)
+            assert reloaded.AUTOSECOPS__API_METRICS_ENABLED is False
+            assert reloaded.AUTOSECOPS__API_METRICS_PORT == 9100
+            assert reloaded.TEMPORAL__METRICS_PORT is None
+    finally:
+        importlib.reload(autosecops_config)
+
+
+def test_metrics_ports_are_never_published_by_compose() -> None:
+    """Metrics listeners stay on the container network, never on the host."""
+    for path in COMPOSE_ENV_FILES:
+        source = path.read_text()
+        for match in re.finditer(
+            r"^\s+- [\"']?[^\n]*:(9100|9090)[\"']?$", source, re.M
+        ):
+            pytest.fail(f"{path.name} publishes a metrics port: {match.group(0)}")
