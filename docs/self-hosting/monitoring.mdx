@@ -1,0 +1,185 @@
+---
+title: Monitoring
+description: "Monitor a self-hosted AutoSecOps deployment: worker health checks, Prometheus metrics for the API and Temporal workers, what to scrape on Docker Compose, Kubernetes, and AWS Fargate, and suggested alerts."
+keywords: ["monitoring", "prometheus", "metrics", "health check", "liveness", "readiness", "alerts", "servicemonitor", "podmonitor"]
+---
+
+AutoSecOps reports health from every service and, when you turn it on, serves Prometheus metrics from the API and the Temporal workers.
+Metrics are off by default and are served on internal ports that Caddy and the Helm ingress never route to.
+
+## Health checks
+
+| Service | Check | Healthy when |
+| :------ | :---- | :----------- |
+| `api` | `GET /health` on port 8000 | The API process answers |
+| `worker`, `background-worker`, `executor`, `agent-worker`, `agent-executor` | `python -m autosecops.temporal.healthcheck live` | The worker's event loop refreshed `/var/run/autosecops/worker-alive` in the last 60 seconds |
+| Same workers | `python -m autosecops.temporal.healthcheck ready` | The worker is polling its task queue and the Temporal frontend answered a health check in the last 30 seconds |
+
+The Temporal workers serve no HTTP. Each worker refreshes its marker files every 10 seconds from its own event loop, so a blocked event loop fails `live` and a lost Temporal connection fails `ready`.
+A worker that is shutting down drops `ready` before it drains running activities, and stays `live` until it exits.
+Pass `--max-age <seconds>` to change the staleness limit.
+
+Each deployment target wires these checks for you:
+
+| Target | Liveness | Readiness |
+| :----- | :------- | :-------- |
+| Docker Compose | – | Compose `healthcheck` runs `ready`; `docker compose ps` shows `healthy` or `unhealthy` |
+| Kubernetes (Helm) | `livenessProbe` and `startupProbe` run `live` | `readinessProbe` runs `ready` and gates rolling updates |
+| AWS Fargate | Container `healthCheck` runs `live`; ECS replaces unhealthy tasks | – |
+
+On Fargate the health check uses `live` so that a Temporal outage does not restart every worker.
+
+## Enable metrics
+
+| Source | Setting | Endpoint |
+| :----- | :------ | :------- |
+| API | `AUTOSECOPS__API_METRICS_ENABLED=true` | `http://api:9100/metrics` (`AUTOSECOPS__API_METRICS_PORT`) |
+| Temporal workers | `TEMPORAL__METRICS_PORT=9090` | `http://<worker>:9090/metrics` on each worker container |
+
+See [Environment variables](/self-hosting/environment-variables) for the bind address settings. Scrape these ports only from inside the container network or cluster, and never publish them.
+
+### Docker Compose
+
+Add the settings to `.env` and recreate the services:
+
+```bash
+AUTOSECOPS__API_METRICS_ENABLED=true
+TEMPORAL__METRICS_PORT=9090
+```
+
+```bash
+docker compose up -d
+```
+
+The Compose files pass both settings through and publish neither port.
+Run Prometheus on the stack's `core` network (`autosecops_core` for a project named `autosecops`) and scrape every replica through Docker DNS:
+
+```yaml prometheus.yml
+scrape_configs:
+  - job_name: autosecops-api
+    static_configs:
+      - targets: ["api:9100"]
+  - job_name: autosecops-workers
+    dns_sd_configs:
+      - names: [worker, background-worker, executor, agent-worker, agent-executor]
+        type: A
+        port: 9090
+```
+
+### Kubernetes
+
+Set the Helm values:
+
+```yaml values.yaml
+autosecops:
+  temporal:
+    metrics:
+      enabled: true
+metrics:
+  api:
+    enabled: true
+  # Pick one if you run the Prometheus Operator:
+  podMonitor:
+    enabled: true
+    labels:
+      release: prometheus
+```
+
+| Value | Effect |
+| :---- | :----- |
+| `metrics.scrapeAnnotations` | Adds `prometheus.io/scrape`, `port`, and `path` annotations to pods that serve metrics. Default `true`. |
+| `metrics.podMonitor.enabled` | Creates a `PodMonitor` that scrapes the `metrics` container port. Needs the `monitoring.coreos.com` CRDs. |
+| `metrics.serviceMonitor.enabled` | Creates headless `<release>-<component>-metrics` Services and a `ServiceMonitor`. Needs the same CRDs. |
+
+The `metrics` container port is never part of the API Service or the ingress. Restrict it further with a NetworkPolicy that admits only your Prometheus pods.
+
+### AWS Fargate
+
+The Fargate module does not deploy a Prometheus scraper. To collect metrics, set the environment variables above on the task definitions and add an AWS Distro for OpenTelemetry or Prometheus sidecar that scrapes `localhost`.
+Container health checks and CloudWatch Container Insights cover health without metrics.
+
+## Key metrics
+
+API metrics:
+
+| Metric | Type | Labels | Meaning |
+| :----- | :--- | :----- | :------ |
+| `autosecops_http_requests_total` | Counter | `method`, `route`, `status` | Requests handled |
+| `autosecops_http_request_duration_seconds` | Histogram | `method`, `route` | Request duration, including streamed responses |
+| `autosecops_http_requests_in_progress` | Gauge | `method` | Requests being handled now |
+| `autosecops_db_pool_connections_in_use` | Gauge | `pool` | Connections checked out of the process's `main` or `auth` pool |
+| `autosecops_db_pool_connections_max` | Gauge | `pool` | Pool size plus overflow; checkouts beyond it wait, then time out |
+| `autosecops_license_status` | Gauge | `status` | `1` for the current license status: `valid`, `grace`, `expired`, `invalid`, or `missing` |
+| `autosecops_license_expiry_timestamp_seconds` | Gauge | | License expiry as a Unix timestamp |
+| `autosecops_build_info` | Gauge | `version`, `python_version` | Always `1` |
+| `process_cpu_seconds_total`, `process_resident_memory_bytes`, `process_open_fds` | Counter, Gauge | | Standard process metrics |
+
+`route` is the route template, such as `/workflows/{workflow_id}`, never the request path. Requests that match no route use `<unmatched>`, and nonstandard methods use `OTHER`, so request values never reach a label.
+
+Temporal SDK metrics from the workers include `temporal_workflow_task_schedule_to_start_latency`, `temporal_activity_schedule_to_start_latency`, `temporal_worker_task_slots_available`, `temporal_activity_execution_failed`, `temporal_workflow_task_execution_failed`, and `temporal_request_failure`. Latencies are histograms in milliseconds. Filter by `task_queue` and `worker_type` labels.
+Task queue backlog is a Temporal server metric (`approximate_backlog_count`); scrape your Temporal server to alert on it.
+
+## Suggested alerts
+
+Tune thresholds to your traffic. These rules assume the metric names above.
+
+```yaml autosecops-alerts.yml
+groups:
+  - name: autosecops
+    rules:
+      - alert: AutoSecOpsApiHigh5xxRate
+        expr: |
+          sum(rate(autosecops_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(autosecops_http_requests_total[5m])) > 0.05
+        for: 10m
+      - alert: AutoSecOpsApiSlowRequests
+        # Streaming routes stay open for a whole agent turn; exclude them.
+        expr: |
+          histogram_quantile(0.95, sum by (le, route) (
+            rate(autosecops_http_request_duration_seconds_bucket{route!~".*/stream"}[5m])
+          )) > 2
+        for: 15m
+      - alert: AutoSecOpsActivityScheduleToStartHigh
+        # Activities wait for a free executor slot; add executor replicas.
+        expr: |
+          histogram_quantile(0.95, sum by (le, task_queue) (
+            rate(temporal_activity_schedule_to_start_latency_bucket[5m])
+          )) > 30000
+        for: 10m
+      - alert: AutoSecOpsWorkflowTaskScheduleToStartHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le, task_queue) (
+            rate(temporal_workflow_task_schedule_to_start_latency_bucket[5m])
+          )) > 5000
+        for: 10m
+      - alert: AutoSecOpsTaskQueueBacklog
+        # Needs Temporal server metrics.
+        expr: sum by (task_queue) (approximate_backlog_count) > 1000
+        for: 15m
+      - alert: AutoSecOpsWorkerNotReady
+        # Needs kube-state-metrics; the readiness probe reads the worker heartbeat.
+        expr: |
+          kube_pod_container_status_ready{container=~"worker|background-worker|executor|agent-worker|agent-executor"} == 0
+        for: 5m
+      - alert: AutoSecOpsWorkerRestarting
+        expr: |
+          increase(kube_pod_container_status_restarts_total{container=~"worker|background-worker|executor|agent-worker|agent-executor"}[30m]) > 2
+      - alert: AutoSecOpsDbPoolSaturated
+        expr: |
+          autosecops_db_pool_connections_in_use / autosecops_db_pool_connections_max > 0.9
+        for: 5m
+      - alert: AutoSecOpsLicenseExpiringSoon
+        expr: autosecops_license_expiry_timestamp_seconds - time() < 30 * 86400
+      - alert: AutoSecOpsLicenseNotValid
+        expr: autosecops_license_status{status=~"grace|expired|invalid"} == 1
+```
+
+On Docker Compose, alert on worker health with `docker compose ps --format json` or your container monitor's health status instead of `kube_pod_container_status_ready`.
+On Fargate, alert on the ECS service's running task count and on task stops with reason `Task failed container health checks`.
+
+## Related pages
+
+- See [Scaling action throughput](/self-hosting/scaling) for how to act on executor schedule-to-start latency and database connection pressure.
+- See [Kubernetes](/self-hosting/kubernetes) for the Helm values that configure probes and metrics.
+- See [Environment variables](/self-hosting/environment-variables) for every metrics setting.
+- See [License key](/self-hosting/license) for what happens when a license expires.

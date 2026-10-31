@@ -228,6 +228,11 @@ Run these checks right after every upgrade:
 5. A case with an attachment opens and the attachment downloads.
 6. Scheduled workflows fire on their next interval.
 
+### Worker health checks
+
+From this release, the Temporal workers report health. Docker Compose shows `worker`, `background-worker`, `executor`, `agent-worker`, and `agent-executor` as `healthy` once they poll Temporal, and the Helm chart adds exec startup, liveness, and readiness probes to their pods, so `helm upgrade` waits for new worker pods to become ready.
+A worker that stays `unhealthy` or not ready cannot reach Temporal; check its logs. If you set worker probes in your own values, yours replace the chart defaults. See [Monitoring](/self-hosting/monitoring).
+
 ## Roll back
 
 AutoSecOps migrations are forward-only. A release that ran migrations cannot run on an older image: the older migrations step fails with `Can't locate revision identified by '<revision>'`, and the API never starts.
