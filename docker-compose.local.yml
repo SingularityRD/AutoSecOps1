@@ -1,9 +1,21 @@
 # This is the local development environment for AutoSecOps.
+# Every service rotates its json-file logs so a busy or crash-looping container
+# cannot fill the Docker host's disk. Override the bounds in .env.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: ${AUTOSECOPS__DOCKER_LOG_MAX_SIZE:-50m}
+    max-file: "${AUTOSECOPS__DOCKER_LOG_MAX_FILE:-5}"
+
 services:
   caddy:
     image: caddy:2.10.2-alpine
     container_name: caddy
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__CADDY_MEMORY_LIMIT:-256m}
+    memswap_limit: ${AUTOSECOPS__CADDY_MEMORY_LIMIT:-256m}
+    cpus: "${AUTOSECOPS__CADDY_CPU_LIMIT:-0}"
     networks:
       - core
     ports:
@@ -24,6 +36,10 @@ services:
       target: production
     container_name: api
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__API_MEMORY_LIMIT:-4g}
+    memswap_limit: ${AUTOSECOPS__API_MEMORY_LIMIT:-4g}
+    cpus: "${AUTOSECOPS__API_CPU_LIMIT:-0}"
     networks:
       - core
       - core-db
@@ -144,6 +160,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__WORKER_MEMORY_LIMIT:-4g}
+    memswap_limit: ${AUTOSECOPS__WORKER_MEMORY_LIMIT:-4g}
+    cpus: "${AUTOSECOPS__WORKER_CPU_LIMIT:-0}"
     networks:
       - core
       - core-db
@@ -235,6 +255,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__BACKGROUND_WORKER_MEMORY_LIMIT:-2g}
+    memswap_limit: ${AUTOSECOPS__BACKGROUND_WORKER_MEMORY_LIMIT:-2g}
+    cpus: "${AUTOSECOPS__BACKGROUND_WORKER_CPU_LIMIT:-0}"
     networks:
       - core
       - core-db
@@ -322,6 +346,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__EXECUTOR_MEMORY_LIMIT:-8g}
+    memswap_limit: ${AUTOSECOPS__EXECUTOR_MEMORY_LIMIT:-8g}
+    cpus: "${AUTOSECOPS__EXECUTOR_CPU_LIMIT:-0}"
 
     # Container-level fork-bomb bound: in-jail RLIMIT_NPROC is bypassable
     # via nested user namespaces (fresh per-userns fork counter).
@@ -447,6 +475,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__AGENT_WORKER_MEMORY_LIMIT:-4g}
+    memswap_limit: ${AUTOSECOPS__AGENT_WORKER_MEMORY_LIMIT:-4g}
+    cpus: "${AUTOSECOPS__AGENT_WORKER_CPU_LIMIT:-0}"
     networks:
       - core
       - core-db
@@ -537,6 +569,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__LITELLM_MEMORY_LIMIT:-8g}
+    memswap_limit: ${AUTOSECOPS__LITELLM_MEMORY_LIMIT:-8g}
+    cpus: "${AUTOSECOPS__LITELLM_CPU_LIMIT:-0}"
     networks:
       - core
       - core-db
@@ -580,6 +616,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__AGENT_EXECUTOR_MEMORY_LIMIT:-16g}
+    memswap_limit: ${AUTOSECOPS__AGENT_EXECUTOR_MEMORY_LIMIT:-16g}
+    cpus: "${AUTOSECOPS__AGENT_EXECUTOR_CPU_LIMIT:-0}"
 
     # Container-level fork-bomb bound: in-jail RLIMIT_NPROC is bypassable
     # via nested user namespaces (fresh per-userns fork counter), so the
@@ -709,6 +749,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: on-failure:3
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__MCP_MEMORY_LIMIT:-2g}
+    memswap_limit: ${AUTOSECOPS__MCP_MEMORY_LIMIT:-2g}
+    cpus: "${AUTOSECOPS__MCP_CPU_LIMIT:-0}"
     networks:
       - core
       - core-db
@@ -781,6 +825,10 @@ services:
       dockerfile: Dockerfile.prod
     container_name: ui
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__UI_MEMORY_LIMIT:-2g}
+    memswap_limit: ${AUTOSECOPS__UI_MEMORY_LIMIT:-2g}
+    cpus: "${AUTOSECOPS__UI_CPU_LIMIT:-0}"
     networks:
       - core
     environment:
@@ -799,6 +847,10 @@ services:
     container_name: postgres_db
     command: ["postgres"]
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT:-8g}
+    memswap_limit: ${AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT:-8g}
+    cpus: "${AUTOSECOPS__POSTGRES_DB_CPU_LIMIT:-0}"
     networks:
       - core-db
     ports:
@@ -824,6 +876,7 @@ services:
       target: production
     container_name: migrations
     restart: "no"
+    logging: *default-logging
     networks:
       - core-db
     environment:
@@ -859,6 +912,10 @@ services:
         exec docker-entrypoint.sh postgres
     container_name: temporal_postgres_db
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__TEMPORAL_POSTGRES_DB_MEMORY_LIMIT:-4g}
+    memswap_limit: ${AUTOSECOPS__TEMPORAL_POSTGRES_DB_MEMORY_LIMIT:-4g}
+    cpus: "${AUTOSECOPS__TEMPORAL_POSTGRES_DB_CPU_LIMIT:-0}"
     networks:
       - temporal-db
     environment:
@@ -871,6 +928,10 @@ services:
     image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.29.1}
     container_name: temporal
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__TEMPORAL_MEMORY_LIMIT:-8g}
+    memswap_limit: ${AUTOSECOPS__TEMPORAL_MEMORY_LIMIT:-8g}
+    cpus: "${AUTOSECOPS__TEMPORAL_CPU_LIMIT:-0}"
     ports:
       - 7233:7233
     networks:
@@ -899,6 +960,10 @@ services:
     image: temporalio/ui:${TEMPORAL__UI_VERSION:-2.43.3}
     container_name: temporal_ui
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__TEMPORAL_UI_MEMORY_LIMIT:-512m}
+    memswap_limit: ${AUTOSECOPS__TEMPORAL_UI_MEMORY_LIMIT:-512m}
+    cpus: "${AUTOSECOPS__TEMPORAL_UI_CPU_LIMIT:-0}"
     networks:
       - temporal
       - core
@@ -918,11 +983,16 @@ services:
       - minio-data:/data
     network_mode: none
     restart: "no"
+    logging: *default-logging
 
   minio:
     image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
     container_name: minio
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__MINIO_MEMORY_LIMIT:-2g}
+    memswap_limit: ${AUTOSECOPS__MINIO_MEMORY_LIMIT:-2g}
+    cpus: "${AUTOSECOPS__MINIO_CPU_LIMIT:-0}"
     networks:
       - core
     ports:
@@ -947,6 +1017,10 @@ services:
     image: valkey/valkey:8.1.10-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
     container_name: redis
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
+    memswap_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
+    cpus: "${AUTOSECOPS__REDIS_CPU_LIMIT:-0}"
     networks:
       - core
     ports:

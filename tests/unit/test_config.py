@@ -1378,3 +1378,84 @@ def test_background_worker_shared_settings_match_other_services(
         assert value is not None, service
         values.append(value[1])
     assert len(set(values)) == 1, values
+
+
+# === Compose operations: log rotation and resource limits === #
+
+# One-shot containers exit after their task, so they need no memory limit or
+# restart policy.
+COMPOSE_ONE_SHOT_SERVICES = {"migrations", "minio-init"}
+COMPOSE_LOGGING_ANCHOR = """x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: ${AUTOSECOPS__DOCKER_LOG_MAX_SIZE:-50m}
+    max-file: "${AUTOSECOPS__DOCKER_LOG_MAX_FILE:-5}"
+"""
+
+
+def _compose_services(path: Path) -> dict[str, dict[str, object]]:
+    import yaml
+
+    services = yaml.safe_load(path.read_text())["services"]
+    assert isinstance(services, dict)
+    return services
+
+
+def _compose_limit_env(service: str, kind: str) -> str:
+    return f"AUTOSECOPS__{service.upper().replace('-', '_')}_{kind}_LIMIT"
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_services_rotate_logs(path: Path) -> None:
+    """Unbounded json-file logs fill the Docker host's disk."""
+    source = path.read_text()
+    assert COMPOSE_LOGGING_ANCHOR in source
+    for name in _compose_services(path):
+        body = _compose_service_body(source, name) or ""
+        assert re.search(r"(?m)^ +logging: \*default-logging$", body), (
+            f"{path.name}: {name} must use the bounded x-logging anchor"
+        )
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_long_running_services_have_limits(path: Path) -> None:
+    """A runaway container must not take the host's memory from the database."""
+    source = path.read_text()
+    services = _compose_services(path)
+    assert COMPOSE_ONE_SHOT_SERVICES <= set(services)
+    for name, service in services.items():
+        body = _compose_service_body(source, name) or ""
+        if name in COMPOSE_ONE_SHOT_SERVICES:
+            assert service.get("restart") == "no", f"{path.name}: {name}"
+            continue
+        assert service.get("restart") in {"unless-stopped", "on-failure:3"}, (
+            f"{path.name}: {name} needs a restart policy"
+        )
+        memory = _compose_limit_env(name, "MEMORY")
+        match = re.search(rf"(?m)^ +mem_limit: \$\{{{memory}:-(\d+[mg])\}}$", body)
+        assert match, f"{path.name}: {name} needs mem_limit from {memory}"
+        assert re.search(
+            rf"(?m)^ +memswap_limit: \$\{{{memory}:-{match.group(1)}\}}$", body
+        ), f"{path.name}: {name} memswap_limit must follow mem_limit"
+        # A CPU limit above the host's core count stops `docker compose up`, so
+        # CPU limits stay opt-in.
+        cpus = _compose_limit_env(name, "CPU")
+        assert re.search(rf'(?m)^ +cpus: "\$\{{{cpus}:-0\}}"$', body), (
+            f"{path.name}: {name} needs an overridable cpus limit from {cpus}"
+        )
+
+
+def test_compose_limit_defaults_match_across_files() -> None:
+    defaults: dict[str, dict[str, str]] = {}
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        defaults[path.name] = dict(
+            re.findall(
+                r"mem_limit: \$\{(AUTOSECOPS__[A-Z_]+_MEMORY_LIMIT):-(\w+)\}",
+                path.read_text(),
+            )
+        )
+    assert len({tuple(sorted(d.items())) for d in defaults.values()}) == 1, defaults
