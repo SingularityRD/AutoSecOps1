@@ -66,6 +66,17 @@ updates:
       # Majors move in a deliberate, tested migration PR (see the header).
       - dependency-name: "*"
         update-types: [version-update:semver-major]
+      # Held until their migration PRs land. openapi-ts 0.99 rewrites the
+      # generated client, biome 2.6 needs a config migration and the
+      # lint-frontend.yml pin moved with it, and react-virtual 3.14 changes
+      # viewport sizing and scrollToIndex (tool picker keyboard paging).
+      # Remove each entry in the PR that migrates it.
+      - dependency-name: "@hey-api/openapi-ts"
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: "@biomejs/*"
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: "@tanstack/react-virtual"
+        update-types: [version-update:semver-minor, version-update:semver-patch]
     groups:
       frontend-minor-and-patch:
         update-types: [minor, patch]
