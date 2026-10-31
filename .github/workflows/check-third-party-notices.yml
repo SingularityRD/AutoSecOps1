@@ -5,6 +5,9 @@ name: Check third-party notices
 # frontend/pnpm-lock.yaml. The check reads the lockfiles only: it installs no
 # project dependencies and runs no project code beyond the generator script.
 # Fix a failure with `just gen-notices` and commit the regenerated files.
+# Dependabot PRs fail here until a maintainer does that on the bot branch; no
+# workflow regenerates and pushes the notices with a write token. See the
+# Dependencies section of CONTRIBUTING.md.
 on:
   push:
     branches: ["main"]

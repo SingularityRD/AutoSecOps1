@@ -222,3 +222,16 @@ def test_lockfile_drift_reports_missing_and_stale_rows(
         "frontend/THIRD_PARTY_NOTICES.md lists left-pad 1.0.0, "
         "which the lockfile no longer ships",
     ]
+
+
+def test_dependabot_notices_remedy_is_documented() -> None:
+    """Dependabot never regenerates the notices; maintainers must know how."""
+    contributing = (ROOT / "CONTRIBUTING.md").read_text()
+    section = contributing.split("### Dependencies", 1)[1].split("\n### ", 1)[0]
+    assert "Dependabot" in section
+    assert "just gen-notices" in section
+    assert "gh pr checkout" in section
+    skill = (ROOT / ".agents/skills/make-pr/SKILL.md").read_text()
+    assert "just gen-notices" in skill.split("## Dependencies", 1)[1]
+    script = (ROOT / "scripts/third_party_notices.py").read_text()
+    assert "Dependabot pull request, see Dependencies in" in script

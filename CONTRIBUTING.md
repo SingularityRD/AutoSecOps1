@@ -183,6 +183,19 @@ Removing something takes three steps, usually across three releases:
 
 Routine bumps and Low, Moderate, or High severity advisories are `build(deps):`. Reserve `security(deps):` for Critical unauthenticated remote-code-execution advisories, so the Security section stays worth dropping everything for.
 
+Every change to `uv.lock` or `frontend/pnpm-lock.yaml` regenerates the third-party notices in the same pull request, or the `Notices match lockfiles` check and the unit tests fail. Dependabot does not run the generator, so its version and security update pull requests start red on purpose: the notices ship to customers, and no bot with write access regenerates them. Regenerate them on the Dependabot branch and push; your push re-runs CI:
+
+```bash
+gh pr checkout <number>
+uv sync --all-packages && pnpm install --dir frontend --frozen-lockfile
+just gen-notices
+git add THIRD_PARTY_NOTICES.md frontend/THIRD_PARTY_NOTICES.md
+git commit -m "build(deps): regenerate third-party notices"
+git push
+```
+
+For a Dependabot security update, do this the day the pull request opens, so the fix meets the patch timelines in `SECURITY.md`.
+
 ### Where the rules live
 
 `.github/commit-conventions.toml` holds the vocabulary, and `.github/release-drafter.yml` maps labels to sections. Pull requests that touch `.github/` are closed automatically, so open an issue if a scope you need is missing.

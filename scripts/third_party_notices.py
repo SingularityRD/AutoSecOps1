@@ -765,7 +765,9 @@ def main() -> int:
             print(problem, file=sys.stderr)
         if problems:
             print(
-                "run `just gen-notices` to regenerate the third-party notices",
+                "run `just gen-notices` and commit the regenerated notices; "
+                "for a Dependabot pull request, see Dependencies in "
+                "CONTRIBUTING.md",
                 file=sys.stderr,
             )
             return 1
