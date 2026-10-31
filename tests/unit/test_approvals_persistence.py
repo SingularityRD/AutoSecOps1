@@ -173,22 +173,27 @@ class TestRecordApprovalRequestsCommitted:
             )
         assert is_sql_null is True
 
-    async def test_rerequest_resets_decided_row_durably(
+    async def test_rerequest_keeps_decided_row_and_fails_closed(
         self,
         svc_role: Role,
         committed_session_id: uuid.UUID,
         committed_user: User,
     ) -> None:
-        """A re-requested tool call must return to a clean PENDING row.
+        """A reused tool call ID must never erase a recorded decision.
 
-        Regression: the previous implementation cleared ``approved_at`` after
-        committing, so the reset never reached the database.
+        The approval row is the record of who authorized a tool action. A
+        provider that reuses tool call IDs across turns fails the run closed,
+        and the earlier reviewer, time, reason, and decision stay intact.
         """
-        payload = ToolApprovalPayload(
-            tool_call_id="call_again", tool_name="old_tool", args={"v": 1}
-        )
         await ApprovalManager.record_approval_requests(
-            _record_input(svc_role, committed_session_id, payload)
+            _record_input(
+                svc_role,
+                committed_session_id,
+                ToolApprovalPayload(
+                    tool_call_id="call_again", tool_name="old_tool", args={"v": 1}
+                ),
+                ToolApprovalPayload(tool_call_id="call_other", tool_name="tool"),
+            )
         )
         await ApprovalManager.apply_approval_decisions(
             ApplyApprovalResultsActivityInputs(
@@ -205,32 +210,78 @@ class TestRecordApprovalRequestsCommitted:
                 ],
             )
         )
-        decided = (await _rows_by_tool_call(svc_role, committed_session_id))[
-            "call_again"
-        ]
+        before = await _rows_by_tool_call(svc_role, committed_session_id)
+        decided = before["call_again"]
         assert decided.status == ApprovalStatus.REJECTED
         assert decided.approved_at is not None
+
+        with pytest.raises(ApplicationError) as exc_info:
+            await ApprovalManager.record_approval_requests(
+                _record_input(
+                    svc_role,
+                    committed_session_id,
+                    ToolApprovalPayload(
+                        tool_call_id="call_again", tool_name="new_tool", args={"v": 2}
+                    ),
+                    # A batch is all-or-nothing: the undecided row and the new
+                    # row are not written either.
+                    ToolApprovalPayload(
+                        tool_call_id="call_other", tool_name="renamed_tool"
+                    ),
+                    ToolApprovalPayload(tool_call_id="call_new", tool_name="tool"),
+                ),
+            )
+
+        error = exc_info.value
+        assert error.non_retryable is True
+        assert error.type == RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED.value
+        assert "tool call ID" in error.message
+
+        after = await _rows_by_tool_call(svc_role, committed_session_id)
+        assert set(after) == {"call_again", "call_other"}
+        row = after["call_again"]
+        assert row.id == decided.id
+        assert row.status == ApprovalStatus.REJECTED
+        assert row.tool_name == "old_tool"
+        assert row.tool_call_args == {"v": 1}
+        assert row.reason == "no"
+        assert row.approved_by == committed_user.id
+        assert row.approved_at == decided.approved_at
+        assert row.decision == {"kind": "tool-denied", "message": "no"}
+        assert after["call_other"].tool_name == "tool"
+
+    async def test_rerequest_refreshes_undecided_row(
+        self, svc_role: Role, committed_session_id: uuid.UUID
+    ) -> None:
+        await ApprovalManager.record_approval_requests(
+            _record_input(
+                svc_role,
+                committed_session_id,
+                ToolApprovalPayload(
+                    tool_call_id="call_pending", tool_name="old_tool", args={"v": 1}
+                ),
+            )
+        )
+        first = (await _rows_by_tool_call(svc_role, committed_session_id))[
+            "call_pending"
+        ]
 
         await ApprovalManager.record_approval_requests(
             _record_input(
                 svc_role,
                 committed_session_id,
                 ToolApprovalPayload(
-                    tool_call_id="call_again", tool_name="new_tool", args={"v": 2}
+                    tool_call_id="call_pending", tool_name="new_tool", args={"v": 2}
                 ),
             )
         )
 
-        row = (await _rows_by_tool_call(svc_role, committed_session_id))["call_again"]
-        assert row.id == decided.id
+        row = (await _rows_by_tool_call(svc_role, committed_session_id))["call_pending"]
+        assert row.id == first.id
         assert row.status == ApprovalStatus.PENDING
         assert row.tool_name == "new_tool"
         assert row.tool_call_args == {"v": 2}
-        assert row.reason is None
-        assert row.approved_by is None
-        assert row.approved_at is None
-        assert row.decision is None
-        assert row.updated_at >= decided.updated_at
+        assert row.updated_at >= first.updated_at
 
     async def test_nul_byte_in_args_fails_fast_with_diagnostics(
         self, svc_role: Role, committed_session_id: uuid.UUID

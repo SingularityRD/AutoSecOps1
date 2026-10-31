@@ -68,6 +68,7 @@ A denied call does not run, and the agent stops instead of retrying the tool.
 AutoSecOps records every approval request before the run pauses, and records each decision with the reviewer, the time, and any edited arguments or denial reason.
 When the agent requests several tools at once, all of them appear in the inbox together.
 If AutoSecOps cannot record a request or decision, for example because the agent session was deleted while the run waited, the run fails with an error on the session instead of waiting indefinitely.
+AutoSecOps keeps every recorded decision unchanged. If a model requests a tool call ID that already has a decision, the run fails instead of overwriting that record. Use a model provider that issues a unique ID for each tool call.
 
 ## Availability
 

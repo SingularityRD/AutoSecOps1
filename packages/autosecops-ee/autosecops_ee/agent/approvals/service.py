@@ -17,7 +17,10 @@ from temporalio.client import WorkflowExecution, WorkflowExecutionStatus, Workfl
 from autosecops.agent.aliases import build_agent_alias
 from autosecops.agent.approvals.enums import ApprovalStatus
 from autosecops.agent.common.stream_types import ToolCallContent
-from autosecops.agent.error_policy import agent_approval_persistence_failed
+from autosecops.agent.error_policy import (
+    agent_approval_decision_conflict,
+    agent_approval_persistence_failed,
+)
 from autosecops.agent.mcp.metadata import strip_proxy_tool_metadata
 from autosecops.agent.schemas import AgentOutput
 from autosecops.agent.types import (
@@ -738,10 +741,13 @@ class ApprovalManager:
         atomically and the activity is idempotent under Temporal retries.
 
         The conflict path is required, not legacy: an activity retry after a
-        committed-but-unacknowledged attempt, or the executor re-requesting the
-        same tool call ID in a later turn, must reset the existing row to a
-        clean PENDING state (clearing any prior decision, reviewer, and
-        ``approved_at``) instead of failing on the unique constraint.
+        committed-but-unacknowledged attempt finds its own PENDING rows and
+        must refresh them instead of failing on the unique constraint.
+
+        A row that already has a decision is never reset. The approval row is
+        the only record of who authorized a tool action, so a model or provider
+        that reuses a decided tool call ID fails the run closed (non-retryable)
+        and the earlier decision, reviewer, and timestamp stay intact.
         """
 
         if not input.approvals:
@@ -786,13 +792,17 @@ class ApprovalManager:
                     # onupdate does not fire for ON CONFLICT DO UPDATE.
                     "updated_at": func.now(),
                 },
-            )
+                # Only undecided rows may be refreshed; a decided row is left
+                # untouched and is reported missing from RETURNING below.
+                where=Approval.status == ApprovalStatus.PENDING,
+            ).returning(Approval.tool_call_id)
             await _execute_approval_write(
                 service,
                 stmt,
                 session_id=input.session_id,
                 tool_call_ids=list(payloads),
                 operation="record_approval_requests",
+                require_every_row_written=True,
             )
 
 
@@ -891,6 +901,7 @@ async def _execute_approval_write(
     session_id: uuid.UUID,
     tool_call_ids: list[str],
     operation: str,
+    require_every_row_written: bool = False,
 ) -> None:
     """Execute and commit an approval write, failing fast on permanent errors.
 
@@ -913,15 +924,26 @@ async def _execute_approval_write(
 
     Args:
         service: The approval service whose session runs the write.
-        stmt: The write statement.
+        stmt: The write statement. With ``require_every_row_written`` it must
+            return ``Approval.tool_call_id`` for every row it wrote.
         session_id: The agent session, for logging.
         tool_call_ids: Tool call IDs the statement targets.
         operation: Activity name, for logging.
+        require_every_row_written: Roll back and fail closed when the
+            statement skipped any targeted row, for example a conditional
+            upsert that refused to overwrite a decided approval.
     """
     diagnostics: _DatabaseErrorDiagnostics | None = None
+    skipped_tool_call_ids: list[str] = []
     try:
-        await service.session.execute(stmt)
-        await service.session.commit()
+        result = await service.session.execute(stmt)
+        if require_every_row_written:
+            written = set(result.scalars().all())
+            skipped_tool_call_ids = sorted(set(tool_call_ids) - written)
+        if skipped_tool_call_ids:
+            await service.session.rollback()
+        else:
+            await service.session.commit()
     except DBAPIError as exc:
         exc_diagnostics = _database_error_diagnostics(exc)
         sqlstate_class = (exc_diagnostics.sqlstate or "")[:2]
@@ -933,6 +955,14 @@ async def _execute_approval_write(
             raise
         await service.session.rollback()
         diagnostics = exc_diagnostics
+    if skipped_tool_call_ids:
+        logger.error(
+            "Refusing to reset tool approvals that already have a decision",
+            operation=operation,
+            session_id=str(session_id),
+            tool_call_ids=skipped_tool_call_ids,
+        )
+        raise_application_error_from_classification(agent_approval_decision_conflict())
     if diagnostics is None:
         return
     logger.error(

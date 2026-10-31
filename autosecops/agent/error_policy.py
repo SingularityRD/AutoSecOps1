@@ -283,6 +283,22 @@ def agent_approval_persistence_failed(
     )
 
 
+def agent_approval_decision_conflict() -> RuntimeErrorClassification:
+    """Classify a re-request of a tool call ID that already has a decision.
+
+    Approval rows are the record of who authorized a tool action. Resetting a
+    decided row would erase that record, so the run fails closed instead.
+    """
+    return RuntimeErrorClassification.platform(
+        kind=RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED,
+        message=(
+            "AutoSecOps refused to overwrite a recorded tool approval decision "
+            "because the model reused a tool call ID"
+        ),
+        retry_disposition=RetryDisposition.NON_RETRYABLE,
+    )
+
+
 def user_agent_execution_failed(
     error: BaseException | None = None,
     *,

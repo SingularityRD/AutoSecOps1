@@ -321,26 +321,20 @@ class TestRecordApprovalRequestsActivity:
         svc_role: Role,
         mock_agent_session: AgentSession,
     ) -> None:
-        """Test recording approvals updates existing records."""
-        # Create initial approval
+        """Test recording approvals refreshes an existing undecided record.
+
+        Decided records are never reset; see
+        ``tests/unit/test_approvals_persistence.py``.
+        """
+        # Create initial approval that is still awaiting a decision
         async with ApprovalService.with_session(role=svc_role) as service:
-            initial = await service.create_approval(
+            await service.create_approval(
                 ApprovalCreate(
                     session_id=mock_agent_session.id,
                     tool_call_id="call_123",
                     tool_name="old_tool",
                     tool_call_args={"old": "args"},
                 )
-            )
-            # Simulate it being approved
-            from autosecops_ee.agent.approvals.schemas import ApprovalUpdate
-
-            await service.update_approval(
-                initial,
-                ApprovalUpdate(
-                    status=ApprovalStatus.APPROVED,
-                    reason="Previously approved",
-                ),
             )
 
         # Record new approval request with same session and tool_call_id

@@ -33,6 +33,7 @@ from autosecops.agent.common.exceptions import (
 from autosecops.agent.diagnostics import LLMErrorDiagnostics
 from autosecops.agent.error_policy import (
     MAX_UNCLASSIFIED_DETAIL_CHARS,
+    agent_approval_decision_conflict,
     agent_approval_persistence_failed,
     agent_executor_protocol_failed,
     agent_executor_timed_out,
@@ -225,6 +226,18 @@ def test_agent_classification_factories_are_static_and_sanitized(
     assert classification.retry_disposition is retry_disposition
     assert classification.cause_type == "ValueError"
     assert secret not in classification.message
+
+
+def test_approval_classifications_name_the_approval_not_the_session() -> None:
+    persistence = agent_approval_persistence_failed()
+    conflict = agent_approval_decision_conflict()
+
+    for classification in (persistence, conflict):
+        assert classification.kind is RuntimeErrorKind.AGENT_APPROVAL_PERSISTENCE_FAILED
+        assert classification.retry_disposition is RetryDisposition.NON_RETRYABLE
+        assert "approval" in classification.message
+        assert "session" not in classification.message
+    assert persistence.message != conflict.message
 
 
 @pytest.mark.parametrize("legacy_key", ["structured_output", "result_output"])
