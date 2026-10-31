@@ -12,7 +12,7 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users.db import SQLAlchemyUserDatabase
 from fastapi_users.exceptions import (
@@ -761,3 +761,89 @@ async def test_login_audit_failure_does_not_change_the_outcome(
         is None
     )
     await drain_auth_audit_tasks()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("org_count", [1, 2])
+async def test_login_refused_by_ip_allowlist_is_audited(
+    manager: UserManager,
+    user: User,
+    audit_events: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    org_count: int,
+) -> None:
+    """One denying organization owns the event; several leave it to the platform."""
+    org_ids = {uuid.uuid4() for _ in range(org_count)}
+    monkeypatch.setattr(manager, "_list_user_org_ids", AsyncMock(return_value=org_ids))
+    monkeypatch.setattr(
+        users_module, "is_ip_allowed_for_org", AsyncMock(return_value=False)
+    )
+    monkeypatch.setattr(users_module, "current_client_ip", lambda: None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await manager._enforce_login_ip_allowlist(user, auth_method="oidc")
+
+    assert exc_info.value.status_code == 403
+    [event] = audit_events
+    assert event["user_id"] == user.id
+    assert event["resource_type"] == "auth"
+    assert event["action"] == "sign_in"
+    assert event["status"] == AuditEventStatus.FAILURE
+    assert event["data"] == {"auth_method": "oidc", "failure_reason": "ip_not_allowed"}
+    expected_org = next(iter(org_ids)) if org_count == 1 else None
+    assert event["organization_id"] == expected_org
+
+
+@pytest.mark.anyio
+async def test_sign_out_ends_the_session_and_is_audited(
+    user: User,
+    audit_events: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    org_id = uuid.uuid4()
+    monkeypatch.setattr(
+        users_module, "single_organization_for_audit", AsyncMock(return_value=org_id)
+    )
+    access_token = MagicMock()
+    database = AsyncMock()
+    database.get_by_token.return_value = access_token
+    strategy = users_module.SessionMetadataDatabaseStrategy(
+        cast(Any, database), lifetime_seconds=3600
+    )
+
+    await strategy.destroy_token("session-token", user)
+
+    database.delete.assert_awaited_once_with(access_token)
+    [event] = audit_events
+    assert event["user_id"] == user.id
+    assert event["resource_type"] == "auth"
+    assert event["action"] == "sign_out"
+    assert event["data"] == {"auth_method": "session"}
+    assert event["organization_id"] == org_id
+    assert "session-token" not in repr(audit_events)
+
+
+@pytest.mark.anyio
+async def test_password_login_refused_by_auth_policy_is_audited(
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    audit_events: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Correct credentials that policy refuses read as a refusal, not a success."""
+    monkeypatch.setattr(
+        UserManager, "_is_local_password_login_allowed", AsyncMock(return_value=False)
+    )
+    ip_check = AsyncMock()
+    monkeypatch.setattr(UserManager, "_enforce_login_ip_allowlist", ip_check)
+    user_db.get_by_email.return_value = user
+
+    assert await manager.authenticate(_login_form(user.email, OLD_PASSWORD)) is None
+
+    ip_check.assert_not_awaited()
+    [event] = audit_events
+    assert event["user_id"] == user.id
+    assert event["status"] == AuditEventStatus.FAILURE
+    assert event["data"] == {"auth_method": "basic", "failure_reason": "auth_policy"}
+    assert OLD_PASSWORD not in repr(audit_events)
