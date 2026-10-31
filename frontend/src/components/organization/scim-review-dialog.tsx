@@ -127,7 +127,7 @@ function CollapsedRow({
           {hint ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help underline decoration-dotted underline-offset-2">
+                <span className="inline cursor-help text-left underline decoration-dotted underline-offset-2">
                   {label}
                 </span>
               </TooltipTrigger>
@@ -179,8 +179,8 @@ function TakeoverNote({ group }: { group: ScimGroupTransitionRead }) {
           {" "}
           <Tooltip>
             <TooltipTrigger asChild>
-              <span
-                tabIndex={0}
+              <button
+                type="button"
                 className="cursor-help underline decoration-dotted underline-offset-2 outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Removes{" "}
@@ -190,7 +190,7 @@ function TakeoverNote({ group }: { group: ScimGroupTransitionRead }) {
                   "previously added members"
                 )}
                 .
-              </span>
+              </button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
               Membership now comes from {sources}. People added to this group

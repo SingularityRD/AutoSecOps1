@@ -198,7 +198,16 @@ function ArtifactOpenButton({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span aria-label="No full view" className="inline-flex" tabIndex={0}>
+          {/* The disabled button is hidden from assistive technology, so this
+              focusable wrapper exposes it as a disabled button and keeps the
+              tooltip reachable from the keyboard. */}
+          <span
+            role="button"
+            aria-disabled="true"
+            aria-label="No full view"
+            className="inline-flex"
+            tabIndex={0}
+          >
             <Button
               aria-hidden="true"
               size="sm"

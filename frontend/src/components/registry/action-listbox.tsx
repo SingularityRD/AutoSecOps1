@@ -220,6 +220,7 @@ export function ActionListbox({
             aria-controls={listId}
             aria-activedescendant={activeDescendant}
             aria-autocomplete="list"
+            // biome-ignore lint/a11y/noAutofocus: callers opt in when the listbox opens in a popover or dialog the user just triggered.
             autoFocus={autoFocus}
             value={query ?? ""}
             onChange={(e) => onQueryChange(e.target.value)}
@@ -262,6 +263,7 @@ export function ActionListbox({
               const result = results[item.index]
               const active = item.index === activeIndex
               return (
+                // biome-ignore lint/a11y/useFocusableInteractive: options stay unfocusable; the search input owns focus and points at the active option with aria-activedescendant.
                 <div
                   key={item.key}
                   id={`${listId}-${item.index}`}

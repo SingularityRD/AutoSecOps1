@@ -233,6 +233,7 @@ export function ActionMultiselect<T extends FieldValues>({
                 No actions found for "{searchQuery}"
               </p>
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
                 className="text-blue-600 hover:text-blue-700 text-sm mt-2"
               >

@@ -9,7 +9,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import type { AgentPresetRead } from "@/client"
 import { CopyButton } from "@/components/copy-button"
 import { ProviderIcon } from "@/components/icons"
@@ -198,6 +198,7 @@ export function SlackChannelPanel({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogStage, setDialogStage] = useState<DialogStage>("choose")
   const [setupMethod, setSetupMethod] = useState<SetupMethod | null>(null)
+  const fieldId = useId()
   const [slackClientId, setSlackClientId] = useState("")
   const [slackClientSecret, setSlackClientSecret] = useState("")
   const [slackSigningSecret, setSlackSigningSecret] = useState("")
@@ -605,8 +606,14 @@ export function SlackChannelPanel({
               {dialogStage === "connect" ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">Endpoint URL</label>
+                    <label
+                      htmlFor={`${fieldId}-endpoint-url`}
+                      className="text-xs font-medium"
+                    >
+                      Endpoint URL
+                    </label>
                     <Input
+                      id={`${fieldId}-endpoint-url`}
                       readOnly
                       value={endpointUrl}
                       placeholder="Will appear after initial connect"
@@ -620,10 +627,14 @@ export function SlackChannelPanel({
                     ) : null}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">
+                    <label
+                      htmlFor={`${fieldId}-oauth-redirect-url`}
+                      className="text-xs font-medium"
+                    >
                       OAuth redirect URL
                     </label>
                     <Input
+                      id={`${fieldId}-oauth-redirect-url`}
                       readOnly
                       value={oauthRedirectUrl}
                       placeholder="Will appear after initial connect"
@@ -637,8 +648,14 @@ export function SlackChannelPanel({
                     ) : null}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">Client ID</label>
+                    <label
+                      htmlFor={`${fieldId}-client-id`}
+                      className="text-xs font-medium"
+                    >
+                      Client ID
+                    </label>
                     <Input
+                      id={`${fieldId}-client-id`}
                       value={slackClientId}
                       onChange={(event) => setSlackClientId(event.target.value)}
                       disabled={isBusy}
@@ -646,8 +663,14 @@ export function SlackChannelPanel({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">Client secret</label>
+                    <label
+                      htmlFor={`${fieldId}-client-secret`}
+                      className="text-xs font-medium"
+                    >
+                      Client secret
+                    </label>
                     <Input
+                      id={`${fieldId}-client-secret`}
                       type="password"
                       value={slackClientSecret}
                       onChange={(event) =>
@@ -658,10 +681,14 @@ export function SlackChannelPanel({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">
+                    <label
+                      htmlFor={`${fieldId}-signing-secret`}
+                      className="text-xs font-medium"
+                    >
                       Signing secret
                     </label>
                     <Input
+                      id={`${fieldId}-signing-secret`}
                       type="password"
                       value={slackSigningSecret}
                       onChange={(event) =>
