@@ -1999,6 +1999,85 @@ async def test_user_mcp_result_keeps_short_non_secret_header_values(
     assert result == "enabled: true, mode: Bearer"
 
 
+@pytest.mark.anyio
+async def test_user_mcp_error_result_masks_the_integrations_own_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """fastmcp raises an isError result as ToolError with the server's text."""
+    mock_client = AsyncMock()
+    mock_client.call_tool.side_effect = ToolError(
+        f"401 Unauthorized: rejected header Authorization: Bearer {_ECHOED_TOKEN}"
+    )
+    monkeypatch.setattr(trusted_server, "UserMCPClient", lambda _: mock_client)
+
+    with pytest.raises(ToolError) as exc_info:
+        await trusted_server._execute_user_mcp(
+            "Echo",
+            "whoami",
+            {},
+            _http_claims_with_headers({"Authorization": f"Bearer {_ECHOED_TOKEN}"}),
+        )
+
+    message = str(exc_info.value)
+    assert _ECHOED_TOKEN not in message
+    assert message == "401 Unauthorized: rejected header Authorization: ***"
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__
+
+
+@pytest.mark.anyio
+async def test_user_mcp_result_keeps_non_credential_header_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = (
+        "content-type: application/json; region us-east-1-staging; "
+        f"see https://github.example.test/org/repo/pull/12 ({_ECHOED_TOKEN})"
+    )
+    mock_client = AsyncMock()
+    mock_client.call_tool.return_value = output
+    monkeypatch.setattr(trusted_server, "UserMCPClient", lambda _: mock_client)
+
+    result = await trusted_server._execute_user_mcp(
+        "Echo",
+        "whoami",
+        {},
+        _http_claims_with_headers(
+            {
+                "Accept": "application/json, text/event-stream",
+                "X-Region": "us-east-1-staging",
+                "X-Base-Url": "https://github.example.test",
+                "Cookie": f"session={_ECHOED_TOKEN}; theme=dark",
+            }
+        ),
+    )
+
+    assert result == output.replace(_ECHOED_TOKEN, "***")
+
+
+@pytest.mark.parametrize(
+    ("name", "is_credential"),
+    [
+        ("Authorization", True),
+        ("Proxy-Authorization", True),
+        ("Cookie", True),
+        ("X-Api-Key", True),
+        ("X-Auth-Token", True),
+        ("GITHUB_PERSONAL_ACCESS_TOKEN", True),
+        ("OPENAI_APIKEY", True),
+        ("DB_PASSWORD", True),
+        ("CLIENT_SECRET", True),
+        ("Accept", False),
+        ("Content-Type", False),
+        ("GITHUB_HOST", False),
+        ("NODE_ENV", False),
+        ("AWS_REGION", False),
+        ("PATH", False),
+    ],
+)
+def test_is_credential_name(name: str, is_credential: bool) -> None:
+    assert trusted_server._is_credential_name(name) is is_credential
+
+
 class _LongEnvStdioPresetService(_StdioPresetService):
     async def resolve_stdio_mcp_integration(
         self, integration_id: uuid.UUID, *, resolve_env: bool
@@ -2009,7 +2088,13 @@ class _LongEnvStdioPresetService(_StdioPresetService):
         if snapshot is None or not resolve_env:
             return snapshot
         return dataclasses.replace(
-            snapshot, env={"API_TOKEN": _ECHOED_TOKEN, "LOG_LEVEL": "debug"}
+            snapshot,
+            env={
+                "API_TOKEN": _ECHOED_TOKEN,
+                "LOG_LEVEL": "debug",
+                "GITHUB_HOST": "https://github.example.test",
+                "DATABASE_URL": "postgres://svc:url-password-0123@db.example.test/x",
+            },
         )
 
 
@@ -2023,7 +2108,14 @@ async def test_stdio_mcp_output_masks_the_server_environment(
     monkeypatch.setattr(AgentPresetService, "with_session", _LongEnvStdioPresetService)
     stdio_runner.result = CallToolResult(
         content=[
-            TextContent(type="text", text=f"debug: token={_ECHOED_TOKEN}"),
+            TextContent(
+                type="text",
+                text=(
+                    f"debug: token={_ECHOED_TOKEN} "
+                    "pr=https://github.example.test/org/repo/pull/12 "
+                    "db=url-password-0123"
+                ),
+            ),
         ],
         isError=is_error,
     )
@@ -2040,8 +2132,10 @@ async def test_stdio_mcp_output_masks_the_server_environment(
         text = await trusted_server._execute_user_mcp("files", "read", {}, claims)
 
     # The runner still receives the real environment.
-    assert stdio_runner.calls[0][1] == {
-        "API_TOKEN": _ECHOED_TOKEN,
-        "LOG_LEVEL": "debug",
-    }
-    assert text == "debug: token=***"
+    runner_env = stdio_runner.calls[0][1]
+    assert runner_env is not None
+    assert runner_env["API_TOKEN"] == _ECHOED_TOKEN
+    # Credentials are masked; a non-secret base URL stays readable.
+    assert text == (
+        "debug: token=*** pr=https://github.example.test/org/repo/pull/12 db=***"
+    )

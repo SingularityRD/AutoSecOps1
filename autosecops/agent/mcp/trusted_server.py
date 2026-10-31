@@ -16,10 +16,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 import uuid
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
@@ -97,8 +98,32 @@ _TOKEN_TOOL_CACHE_MAX_SIZE = 256
 _USER_MCP_DISCOVERY_CACHE_TTL_SECONDS = 45.0
 _USER_MCP_DISCOVERY_CACHE_MAX_SIZE = 512
 _MIN_MASKED_CREDENTIAL_LENGTH = 8
-"""Shorter integration values (``true``, ``Bearer``) are not masked: they
+"""Shorter fragments of a credential value (``Bearer``) are not masked: they
 would garble ordinary tool output and are not credentials."""
+_CREDENTIAL_NAME_WORDS = frozenset(
+    {
+        "auth",
+        "authorization",
+        "bearer",
+        "cookie",
+        "credential",
+        "credentials",
+        "passphrase",
+        "passwd",
+        "password",
+        "pat",
+        "private",
+        "pwd",
+        "secret",
+        "session",
+        "signature",
+        "token",
+    }
+)
+_CREDENTIAL_NAME_SUFFIXES = ("key", "token", "secret", "password", "passwd")
+_CREDENTIAL_NAME_SPLIT = re.compile(r"[^a-z0-9]+")
+_CREDENTIAL_VALUE_SPLIT = re.compile(r"[\s;,]+")
+_URL_USERINFO_PASSWORD = re.compile(r"[a-z][a-z0-9+.-]*://[^/\s:@]*:([^/\s@]+)@", re.I)
 
 
 class _UserMCPDiscoveryCacheKey(NamedTuple):
@@ -519,27 +544,59 @@ async def _resolve_user_mcp_config(
     return config
 
 
+def _is_credential_name(name: str) -> bool:
+    """Return whether a header or env name looks like it carries a credential.
+
+    ``Authorization``, ``Proxy-Authorization``, ``Cookie``, ``X-Api-Key``,
+    ``GITHUB_TOKEN`` and ``DB_PASSWORD`` do; ``Accept``, ``Content-Type``,
+    ``GITHUB_HOST`` and ``NODE_ENV`` don't.
+    """
+    words = [w for w in _CREDENTIAL_NAME_SPLIT.split(name.lower()) if w]
+    return any(
+        word in _CREDENTIAL_NAME_WORDS or word.endswith(_CREDENTIAL_NAME_SUFFIXES)
+        for word in words
+    )
+
+
+def _credential_fragments(value: str) -> list[str]:
+    """Split a credential value into the parts a server might echo alone.
+
+    ``Bearer <token>`` yields the token, and a cookie such as
+    ``session=<id>; theme=dark`` yields each pair and its value.
+    """
+    fragments = [value]
+    for part in _CREDENTIAL_VALUE_SPLIT.split(value):
+        fragments.append(part)
+        if "=" in part:
+            fragments.append(part.split("=", 1)[1])
+    return fragments
+
+
 def _user_mcp_credential_values(
     resolved: MCPHttpServerConfig | _StdioMCPTarget,
 ) -> list[str]:
     """Return the credential values a user MCP integration was resolved with.
 
     HTTP integrations carry credentials as header values, stdio ones as their
-    environment. Each value is masked whole and, for ``Bearer <token>`` style
-    values, word by word.
+    environment. Only values whose name marks a credential are masked
+    (``Authorization``, ``X-Api-Key``, ``*_TOKEN``, ``*_PASSWORD``), whole and
+    fragment by fragment, plus the password of any URL with userinfo. Other
+    values, such as ``Accept: application/json`` or a ``GITHUB_HOST`` base
+    URL, stay readable in tool output.
     """
+    named: Mapping[str, object]
     if isinstance(resolved, _StdioMCPTarget):
-        raw_values = list((resolved.env or {}).values())
+        named = resolved.env or {}
     else:
-        raw_values = list((resolved.get("headers") or {}).values())
-    values: set[str] = set()
-    for value in raw_values:
+        named = resolved.get("headers") or {}
+    candidates: list[str] = []
+    for name, value in named.items():
         if not isinstance(value, str):
             continue
-        for candidate in (value, *value.split()):
-            if len(candidate) >= _MIN_MASKED_CREDENTIAL_LENGTH:
-                values.add(candidate)
-    return sorted(values)
+        if _is_credential_name(str(name)):
+            candidates.extend(_credential_fragments(value))
+        candidates.extend(_URL_USERINFO_PASSWORD.findall(value))
+    return sorted({c for c in candidates if len(c) >= _MIN_MASKED_CREDENTIAL_LENGTH})
 
 
 def _mask_user_mcp_credentials(text: str, credentials: list[str]) -> str:
@@ -960,8 +1017,10 @@ async def _execute_user_mcp(
         )
         raise ToolError(f"User MCP server '{server_name}' not authorized") from None
 
+    credentials: list[str] = []
     try:
         resolved = await _resolve_user_mcp_config(ref, role, resolve_stdio_env=True)
+        credentials = _user_mcp_credential_values(resolved)
         if isinstance(resolved, _StdioMCPTarget):
             result = await _call_stdio_mcp_tool(resolved, tool_name, args)
         else:
@@ -978,9 +1037,13 @@ async def _execute_user_mcp(
         # Flattened text is already a string; dumps would quote-wrap it and
         # double-escape it on the CLI stdout leg.
         text = result if isinstance(result, str) else json.dumps(result, default=str)
-        return _mask_user_mcp_credentials(text, _user_mcp_credential_values(resolved))
-    except ToolError:
-        raise
+        return _mask_user_mcp_credentials(text, credentials)
+    except ToolError as e:
+        # fastmcp raises a server's isError result as ToolError carrying the
+        # server's own text, which may echo the integration's credentials.
+        if not credentials:
+            raise
+        raise ToolError(_mask_user_mcp_credentials(str(e), credentials)) from None
     except Exception as e:
         logger.error(
             "User MCP tool execution failed",
