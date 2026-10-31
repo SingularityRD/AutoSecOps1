@@ -54,7 +54,8 @@ Options:
   -n, --namespace NS     Kubernetes namespace (default: $NAMESPACE)
       --release NAME     Helm release name (default: $RELEASE)
       --api-deployment NAME
-                         API Deployment name (default: <release>-api)
+                         API Deployment name (default: the Deployment labeled
+                         app.kubernetes.io/component=api in the release)
       --redact           Only redact stdin to stdout, e.g. logs you collected
                          yourself from AWS Fargate
   -h, --help             Show this help
@@ -112,7 +113,6 @@ done
 
 [[ "$SINCE" =~ ^[0-9]+[smh]$ ]] || die "--since must look like 30m or 24h"
 [[ "$TAIL" =~ ^[1-9][0-9]*$ ]] || die "--tail must be a positive number"
-[[ -n "$API_DEPLOYMENT" ]] || API_DEPLOYMENT="${RELEASE}-api"
 
 # Case-insensitive sed matching (the I flag) is a GNU extension.
 printf 'A\n' | sed -E 's/a/b/I' >/dev/null 2>&1 && [[ "$(printf 'A\n' | sed -E 's/a/b/I')" == b ]] ||
@@ -344,7 +344,21 @@ else
   collect events.txt kubectl get events -n "$NAMESPACE" --sort-by=.lastTimestamp
   collect images.txt kubectl get pods -n "$NAMESPACE" -l "$selector" -o \
     jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .status.containerStatuses[*]}{"  "}{.name}{" "}{.image}{" "}{.imageID}{"\n"}{end}{end}'
-  collect probe.json kubectl exec -i -n "$NAMESPACE" "deploy/$API_DEPLOYMENT" -c api -- python - <<<"$PROBE"
+  # The chart names Deployments <fullname>-<component>, and the fullname
+  # depends on the release name and overrides, so find the API by its labels.
+  api_selector="$selector,app.kubernetes.io/component=api"
+  if [[ -z "$API_DEPLOYMENT" ]]; then
+    API_DEPLOYMENT=$(kubectl get deployments -n "$NAMESPACE" -l "$api_selector" \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  fi
+  if [[ "$API_DEPLOYMENT" =~ ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$ ]]; then
+    log "Probing Deployment $API_DEPLOYMENT"
+    collect probe.json kubectl exec -i -n "$NAMESPACE" "deploy/$API_DEPLOYMENT" -c api -- python - <<<"$PROBE"
+  else
+    log "WARNING: no API Deployment labeled $api_selector in $NAMESPACE; pass --api-deployment"
+    printf '{"probe_error": "no API Deployment labeled %s in namespace %s; rerun with --api-deployment"}\n' \
+      "$api_selector" "$NAMESPACE" >"$dest/probe.json"
+  fi
 
   for pod in $(kubectl get pods -n "$NAMESPACE" -l "$selector" -o name); do
     pod=${pod#pod/}

@@ -290,3 +290,50 @@ def test_redactor_covers_known_secret_shapes(line: str, secret: str, kept: str) 
     assert secret not in redacted
     assert kept in redacted
 
+
+FAKE_KUBECTL = r"""#!/bin/bash
+args="$*"
+case "$args" in
+  "get deployments -n autosecops -l app.kubernetes.io/instance=prod,app.kubernetes.io/component=api -o "*)
+    printf '%s' "$FAKE_API_DEPLOYMENT" ;;
+  "exec -i -n autosecops deploy/prod-autosecops-api -c api -- python -")
+    cat >/dev/null
+    echo '{"autosecops_version": "1.0.0"}' ;;
+  "exec "*) echo "Error from server (NotFound): $args" >&2; exit 1 ;;
+  "get pods -n autosecops -l app.kubernetes.io/instance=prod -o name") echo "pod/prod-autosecops-api-1" ;;
+  *) echo "ok" ;;
+esac
+"""
+
+
+@pytest.mark.parametrize("deployment", ["prod-autosecops-api", ""])
+def test_kubernetes_finds_the_api_deployment_by_label(
+    tmp_path: Path, deployment: str
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    kubectl = bin_dir / "kubectl"
+    kubectl.write_text(FAKE_KUBECTL)
+    kubectl.chmod(0o755)
+    out = tmp_path / "out"
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--kubernetes", "--release", "prod", "-o", str(out)],
+        cwd=tmp_path,
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "HOME": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+            "FAKE_API_DEPLOYMENT": deployment,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    probe = json.loads(_members(out)["probe.json"])
+    if deployment:
+        # The chart's fullname is <release>-autosecops, not <release>.
+        assert probe == {"autosecops_version": "1.0.0"}
+    else:
+        assert "rerun with --api-deployment" in probe["probe_error"]

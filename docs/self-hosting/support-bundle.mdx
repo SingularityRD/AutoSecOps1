@@ -50,7 +50,7 @@ Run it from any machine with `kubectl` access to the namespace:
 ./support_bundle.sh --kubernetes --namespace autosecops --release autosecops -o /tmp
 ```
 
-`--release` selects the pods labeled `app.kubernetes.io/instance=<release>`. The probe runs in the `api` container of the `<release>-api` Deployment; pass `--api-deployment` if you set `fullnameOverride`.
+`--release` selects the pods labeled `app.kubernetes.io/instance=<release>`. The probe runs in the `api` container of the release's Deployment labeled `app.kubernetes.io/component=api`, whatever the chart named it. Pass `--api-deployment <name>` only if you relabeled it; when no such Deployment exists, `probe.json` says so.
 
 ## AWS Fargate
 
