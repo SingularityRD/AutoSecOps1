@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from autosecops.auth.dependencies import OrgActorRole, WorkspaceActorRouteRole
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_unique_violation
 from autosecops.exceptions import (
     AutoSecOpsNotFoundError,
 )
@@ -213,6 +214,8 @@ async def create_secret(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(e, "uq_secret_name_environment_workspace_id"):
+            raise
         # str(e) carries the INSERT parameters, including the encrypted keys.
         logger.error("Secret integrity error", e=str(e.orig))
         raise HTTPException(
@@ -246,6 +249,8 @@ async def update_secret_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail="Secret does not exist"
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(e, "uq_secret_name_environment_workspace_id"):
+            raise
         logger.info("Secret already exists", secret_id=secret_id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Secret already exists"
@@ -330,6 +335,11 @@ async def create_org_secret(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(
+            e,
+            "uq_organization_secret_organization_id_name_environment",
+        ):
+            raise
         # str(e) carries the INSERT parameters, including the encrypted keys.
         logger.error("Organization secret integrity error", e=str(e.orig))
         raise HTTPException(
@@ -367,6 +377,11 @@ async def update_org_secret_by_id(
             detail="Organization secret does not exist",
         ) from e
     except IntegrityError as e:
+        if not is_unique_violation(
+            e,
+            "uq_organization_secret_organization_id_name_environment",
+        ):
+            raise
         logger.info("Organization secret already exists", secret_id=secret_id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

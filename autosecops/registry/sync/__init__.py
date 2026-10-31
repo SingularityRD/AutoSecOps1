@@ -11,11 +11,9 @@ from autosecops.registry.sync.schemas import (
     SyncResultError,
     SyncResultSuccess,
 )
-from autosecops.registry.sync.subprocess import fetch_actions_from_subprocess
 
 __all__ = [
     "SyncResultAdapter",
     "SyncResultError",
     "SyncResultSuccess",
-    "fetch_actions_from_subprocess",
 ]

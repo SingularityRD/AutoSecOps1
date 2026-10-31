@@ -25,6 +25,7 @@ from autosecops.agent.catalog.schemas import AgentCatalogRead
 from autosecops.agent.catalog.types import ModelKey
 from autosecops.audit.logger import audit_log
 from autosecops.authz.controls import require_scope
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import AgentCatalog, AgentCustomProvider
 from autosecops.exceptions import (
     AgentCatalogModelAmbiguousError,
@@ -591,6 +592,10 @@ class AgentCatalogService(BaseService):
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
+            if not is_unique_violation(
+                err, "uq_agent_catalog_custom_provider_model_provider_model_name"
+            ):
+                raise
             raise AutoSecOpsValidationError(
                 f"Catalog entry for provider {model_provider!r} and model "
                 f"{model_name!r} already exists"

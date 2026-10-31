@@ -107,11 +107,24 @@
             "console"
           ]
         },
+        "dbEncryptionAlgorithm": {
+          "enum": [
+            "fernet",
+            "aes256gcm"
+          ]
+        },
         "featureFlags": {
           "type": "string"
         },
         "eeMultiTenant": {
           "type": "boolean"
+        },
+        "rlsMode": {
+          "enum": [
+            "off",
+            "shadow",
+            "enforce"
+          ]
         },
         "auth": {
           "type": "object",
@@ -188,6 +201,9 @@
           "type": "string"
         },
         "platformAdminIpAllowlistBypass": {
+          "type": "boolean"
+        },
+        "platformAdminMfaBypass": {
           "type": "boolean"
         },
         "contextCompression": {
@@ -426,6 +442,9 @@
         "licenseKey": {
           "type": "string"
         },
+        "dbEncryptionPreviousKeys": {
+          "type": "string"
+        },
         "oidcClientId": {
           "type": "string"
         },
@@ -500,6 +519,17 @@
             },
             "passwordKey": {
               "type": "string"
+            },
+            "runtimeUsername": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]{0,62}$"
+            },
+            "runtimePassword": {
+              "type": "string"
+            },
+            "runtimePasswordKey": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "additionalProperties": false
@@ -1049,6 +1079,162 @@
         "maxConcurrentWorkflowTasks": {
           "type": "integer",
           "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "backgroundWorker": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resources": {
+          "type": "object"
+        },
+        "autoscaling": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "minReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "targetCPUUtilizationPercentage": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 100
+            },
+            "targetMemoryUtilizationPercentage": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 100
+            },
+            "behavior": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        "podDisruptionBudget": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "type": [
+                "integer",
+                "string",
+                "null"
+              ]
+            },
+            "maxUnavailable": {
+              "type": [
+                "integer",
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "podAnnotations": {
+          "type": "object"
+        },
+        "podLabels": {
+          "type": "object"
+        },
+        "nodeSelector": {
+          "type": "object"
+        },
+        "tolerations": {
+          "type": "array"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "topologySpreadConstraints": {
+          "type": "array"
+        },
+        "priorityClassName": {
+          "type": "string"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "extraEnv": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "extraVolumes": {
+          "type": "array"
+        },
+        "extraVolumeMounts": {
+          "type": "array"
+        },
+        "startupProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "readinessProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "livenessProbe": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "serviceAccount": {
+          "type": "object",
+          "properties": {
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "annotations": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        "maxConcurrentActivities": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "queue": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false

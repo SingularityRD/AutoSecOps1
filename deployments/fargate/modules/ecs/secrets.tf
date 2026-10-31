@@ -77,6 +77,11 @@ data "aws_secretsmanager_secret" "temporal_auth_client_secret" {
   arn   = var.temporal_auth_client_secret_arn
 }
 
+data "aws_secretsmanager_secret" "autosecops_db_encryption_previous_keys" {
+  count = var.autosecops_db_encryption_previous_keys_arn != null ? 1 : 0
+  arn   = var.autosecops_db_encryption_previous_keys_arn
+}
+
 data "aws_secretsmanager_secret" "temporal_api_key" {
   count = var.temporal_api_key_arn != null ? 1 : 0
   arn   = var.temporal_api_key_arn
@@ -140,6 +145,11 @@ data "aws_secretsmanager_secret_version" "temporal_auth_client_secret" {
   secret_id = data.aws_secretsmanager_secret.temporal_auth_client_secret[0].id
 }
 
+data "aws_secretsmanager_secret_version" "autosecops_db_encryption_previous_keys" {
+  count     = var.autosecops_db_encryption_previous_keys_arn != null ? 1 : 0
+  secret_id = data.aws_secretsmanager_secret.autosecops_db_encryption_previous_keys[0].id
+}
+
 data "aws_secretsmanager_secret_version" "temporal_api_key" {
   count     = var.temporal_api_key_arn != null ? 1 : 0
   secret_id = data.aws_secretsmanager_secret.temporal_api_key[0].id
@@ -165,6 +175,24 @@ data "aws_secretsmanager_secret_version" "autosecops_db_password" {
 data "aws_secretsmanager_secret_version" "temporal_db_password" {
   count     = var.disable_temporal_autosetup ? 0 : 1
   secret_id = data.aws_secretsmanager_secret.temporal_db_password[0].id
+}
+
+# Password of the non-owner runtime role the services connect as, so tenant
+# row-level security applies to them. The migrations container (as the RDS
+# master user) creates the role with this password and re-applies its grants.
+resource "random_password" "db_runtime_password" {
+  length  = 40
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db_runtime_password" {
+  name_prefix = "${var.name_prefix}-db-runtime-password-"
+  description = "AutoSecOps database runtime role password"
+}
+
+resource "aws_secretsmanager_secret_version" "db_runtime_password" {
+  secret_id     = aws_secretsmanager_secret.db_runtime_password.id
+  secret_string = random_password.db_runtime_password.result
 }
 
 # Sentry DSN is stored in a Terraform-managed secret and injected via ECS
@@ -265,7 +293,25 @@ locals {
       name      = "REDIS_URL"
       valueFrom = aws_secretsmanager_secret_version.redis_url.arn
     },
+    local.db_runtime_password_secret,
   ]
+
+  # Every service that receives AUTOSECOPS__DB_ENCRYPTION_KEY also needs the
+  # retired keys during a rotation.
+  db_encryption_previous_keys_secret = var.autosecops_db_encryption_previous_keys_arn != null ? [
+    {
+      name      = "AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS"
+      valueFrom = data.aws_secretsmanager_secret_version.autosecops_db_encryption_previous_keys[0].arn
+    }
+  ] : []
+
+  db_runtime_password_secret = {
+    name      = "AUTOSECOPS__DB_RUNTIME_PASSWORD"
+    valueFrom = aws_secretsmanager_secret_version.db_runtime_password.arn
+  }
+
+  # The migrations container provisions the runtime role with this password.
+  migrations_secrets = [local.db_runtime_password_secret]
 
   temporal_api_key_secret = var.temporal_api_key_arn != null ? [
     {
@@ -285,6 +331,7 @@ locals {
 
   autosecops_base_secrets = concat(
     local.required_autosecops_base_secrets,
+    local.db_encryption_previous_keys_secret,
     local.autosecops_common_secrets,
   )
 

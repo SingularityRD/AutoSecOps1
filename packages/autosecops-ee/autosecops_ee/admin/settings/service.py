@@ -17,9 +17,14 @@ from autosecops.auth.ip_allowlist import (
     PLATFORM_ADMIN_IP_ALLOWLIST_ENABLED_KEY,
     PLATFORM_ADMIN_IP_ALLOWLISTS_KEY,
 )
+from autosecops.auth.mfa.constants import PLATFORM_ADMIN_MFA_REQUIRED_KEY
+from autosecops.auth.mfa.policy import ensure_can_enable_mfa_policy
+from autosecops.auth.mfa.schemas import MfaPolicyRead, MfaPolicyUpdate
+from autosecops.auth.mfa.webauthn import webauthn_unavailable_reason
 from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.auth.types import PlatformRole
 from autosecops.db.models import PlatformSetting
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.secrets.encryption import decrypt_value, encrypt_value
 from autosecops.service import BasePlatformService
 from autosecops.settings.schemas import AuditSettingsUpdate, parse_stored_ip_allowlists
@@ -212,3 +217,24 @@ class AdminSettingsService(BasePlatformService):
         )
         await self.session.commit()
         return await self.get_security_settings()
+
+    async def get_mfa_settings(self) -> MfaPolicyRead:
+        """Whether platform admins must sign in with a security key."""
+        settings = await self._get_settings({PLATFORM_ADMIN_MFA_REQUIRED_KEY})
+        reason = webauthn_unavailable_reason()
+        return MfaPolicyRead(
+            mfa_required=settings.get(PLATFORM_ADMIN_MFA_REQUIRED_KEY) is True,
+            webauthn_available=reason is None,
+            webauthn_unavailable_reason=reason,
+        )
+
+    @audit_log(resource_type="platform_setting", action="update")
+    async def update_mfa_settings(self, params: MfaPolicyUpdate) -> MfaPolicyRead:
+        """Callers must clear the MFA policy cache after this commits."""
+        if params.mfa_required:
+            if self.role.user_id is None:
+                raise AutoSecOpsValidationError("A user is required to enable this")
+            await ensure_can_enable_mfa_policy(self.session, self.role.user_id)
+        await self._upsert_setting(PLATFORM_ADMIN_MFA_REQUIRED_KEY, params.mfa_required)
+        await self.session.commit()
+        return await self.get_mfa_settings()

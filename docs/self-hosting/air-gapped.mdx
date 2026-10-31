@@ -255,6 +255,7 @@ Every outbound connection below is off by default or goes to an endpoint you con
 | Stdio MCP server packages | Public npm and PyPI | [Mirror PyPI and npm](#mirror-pypi-and-npm) |
 | Custom registry sync | The Git URL you configure | An internal Git server |
 | LLM providers and remote MCP servers | The endpoints you configure | Internal endpoints listed in `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` |
+| Audit webhooks, GitLab, and Bitbucket Data Center | The URLs you configure | Internal endpoints listed in `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` |
 | License verification | Local | No setting needed |
 
 Without network access, each service that loads LiteLLM waits for the price-list download to fail, up to three five-second attempts, before it uses the copy in the image. `LITELLM_LOCAL_MODEL_COST_MAP=true` skips the download. On Helm, pass it through `autosecops.extraEnv`:

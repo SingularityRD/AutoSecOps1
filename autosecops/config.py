@@ -1,3 +1,5 @@
+import base64
+import binascii
 import logging
 import os
 import re
@@ -138,6 +140,13 @@ class RLSMode(StrEnum):
     OFF = "off"
     SHADOW = "shadow"
     ENFORCE = "enforce"
+
+
+class DBEncryptionAlgorithm(StrEnum):
+    """Cipher used to encrypt new database values."""
+
+    FERNET = "fernet"
+    AES256GCM = "aes256gcm"
 
 
 # === Internal Services === #
@@ -386,6 +395,25 @@ AUTOSECOPS__DB_SSLMODE = os.environ.get("AUTOSECOPS__DB_SSLMODE", "require")
 AUTOSECOPS__DB_PASS__ARN = os.environ.get("AUTOSECOPS__DB_PASS__ARN")
 """(AWS only) ARN of the secret to connect to the database with."""
 
+DEFAULT_DB_RUNTIME_USER = "autosecops_app"
+AUTOSECOPS__DB_RUNTIME_USER = (
+    os.environ.get("AUTOSECOPS__DB_RUNTIME_USER") or DEFAULT_DB_RUNTIME_USER
+)
+"""Non-owner login role the services connect as so tenant RLS policies apply.
+
+The migrations step creates it as NOSUPERUSER NOBYPASSRLS and grants it DML on
+the application tables. The owner credentials above stay in use for migrations.
+"""
+AUTOSECOPS__DB_RUNTIME_PASSWORD = (
+    os.environ.get("AUTOSECOPS__DB_RUNTIME_PASSWORD") or None
+)
+"""Password of the runtime role. Unset keeps every service on the owner role.
+
+When unset, services connect with the owner credentials, which PostgreSQL
+exempts from row-level security, so tenant isolation relies on application
+filters alone.
+"""
+
 AUTOSECOPS__DB_MAX_OVERFLOW = int(os.environ.get("AUTOSECOPS__DB_MAX_OVERFLOW") or 60)
 """The maximum number of connections to allow in the pool."""
 AUTOSECOPS__DB_POOL_SIZE = int(os.environ.get("AUTOSECOPS__DB_POOL_SIZE") or 10)
@@ -535,6 +563,41 @@ OAUTH_CLIENT_ID = OIDC_CLIENT_ID
 OAUTH_CLIENT_SECRET = OIDC_CLIENT_SECRET
 USER_AUTH_SECRET = os.environ.get("USER_AUTH_SECRET")
 AUTOSECOPS__DB_ENCRYPTION_KEY = os.environ.get("AUTOSECOPS__DB_ENCRYPTION_KEY")
+_db_encryption_algorithm_raw = (
+    os.environ.get("AUTOSECOPS__DB_ENCRYPTION_ALGORITHM")
+    or DBEncryptionAlgorithm.FERNET
+)
+try:
+    AUTOSECOPS__DB_ENCRYPTION_ALGORITHM = DBEncryptionAlgorithm(
+        _db_encryption_algorithm_raw.strip().lower()
+    )
+except ValueError as e:
+    raise ValueError(
+        "AUTOSECOPS__DB_ENCRYPTION_ALGORITHM must be one of "
+        f"{', '.join(DBEncryptionAlgorithm)} (got {_db_encryption_algorithm_raw!r})"
+    ) from e
+"""Cipher for new database writes (fernet|aes256gcm). Reads accept both."""
+
+
+def _parse_db_encryption_previous_keys() -> tuple[str, ...]:
+    raw = os.environ.get("AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS") or ""
+    keys = tuple(key for part in raw.split(",") if (key := part.strip()))
+    for index, key in enumerate(keys):
+        try:
+            decoded = base64.urlsafe_b64decode(key)
+        except (binascii.Error, ValueError):
+            decoded = b""
+        if len(decoded) != 32:
+            # Never echo the key itself; name its position instead.
+            raise ValueError(
+                f"AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS entry {index} is not "
+                "32 url-safe base64-encoded bytes"
+            )
+    return keys
+
+
+AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS = _parse_db_encryption_previous_keys()
+"""Comma-separated retired DB encryption keys, used for reads only during rotation."""
 AUTOSECOPS__SIGNING_SECRET = os.environ.get("AUTOSECOPS__SIGNING_SECRET")
 AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID = os.environ.get(
     "AUTOSECOPS__AWS_ASSUME_ROLE_ACCOUNT_ID"
@@ -594,6 +657,16 @@ TEMPORAL__CLUSTER_NAMESPACE = os.environ.get(
 TEMPORAL__CLUSTER_QUEUE = os.environ.get(
     "TEMPORAL__CLUSTER_QUEUE", "autosecops-task-queue"
 )
+AUTOSECOPS__BACKGROUND_QUEUE = (
+    os.environ.get("AUTOSECOPS__BACKGROUND_QUEUE") or "shared-background-queue"
+)
+AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES = int(
+    os.environ.get("AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES") or 4
+)
+if AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES < 1:
+    raise ValueError(
+        "AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES must be at least 1"
+    )
 TEMPORAL__API_KEY__ARN = os.environ.get("TEMPORAL__API_KEY__ARN")
 TEMPORAL__API_KEY = os.environ.get("TEMPORAL__API_KEY")
 TEMPORAL__CLIENT_RPC_TIMEOUT = os.environ.get("TEMPORAL__CLIENT_RPC_TIMEOUT") or "900"
@@ -1011,9 +1084,11 @@ def env_no_proxy(name: str) -> tuple[str | IPv4Network | IPv6Network, ...]:
 AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS = env_networks(
     "AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS"
 )
-"""Operator-only exceptions for caller-controlled MCP and LLM HTTP destinations.
+"""Operator-only exceptions for caller-controlled HTTP destinations.
 
-Empty by default. Configure exact IPs or narrow CIDRs only for intentional private
+Covers MCP and LLM endpoints, audit webhook delivery and tests, workspace sync
+GitLab and Bitbucket Data Center instance URLs, and OAuth discovery and dynamic
+client registration. Empty by default. Configure exact IPs or narrow CIDRs only for intentional private
 integrations. Every workspace using these clients can reach an allowed address.
 Set this in the process/container environment, not workspace or action inputs.
 """
@@ -1044,6 +1119,21 @@ AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS = env_bool(
 Lets operators recover platform admin access after a lockout. Organization IP
 allowlists are unaffected.
 """
+
+AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS = env_bool(
+    "AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS", default=False
+)
+"""Break-glass override that skips security key (MFA) checks for platform admins.
+
+Skips both the sign-in challenge and step-up verification for platform
+superusers so operators can recover access after losing every security key.
+Organization members are unaffected.
+"""
+
+AUTOSECOPS__MFA_STEP_UP_MAX_AGE_SECONDS = bound_env(
+    "AUTOSECOPS__MFA_STEP_UP_MAX_AGE_SECONDS", 300, lower=30, upper=3600
+)
+"""How long a security key verification satisfies step-up checks (30 s to 1 h)."""
 
 AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS = env_networks(
     "AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS",
@@ -1172,6 +1262,22 @@ AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE = float(
 
 Covers sandbox startup, imports, and result serialization around the timed
 function call, which the action runner enforces itself."""
+
+AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH = tuple(
+    name
+    for raw_name in (
+        os.environ.get("AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH") or ""
+    ).split(",")
+    if (name := raw_name.strip())
+)
+"""Extra executor environment variables that direct-mode actions may read.
+
+Direct-mode action subprocesses receive only an allowlisted environment. This
+comma-separated list of names adds operator-chosen, non-secret variables to it.
+Platform settings (``AUTOSECOPS__*``), cloud and service credentials, and names
+that look like credentials (``*_KEY``, ``*_SECRET``, ``*_PASSWORD``,
+``*_TOKEN``, and similar) are always refused. Store secrets as workspace
+secrets instead."""
 
 # === Action Gateway === #
 AUTOSECOPS__ACTION_GATEWAY_SOCKET = (
@@ -1307,10 +1413,12 @@ provisioned independently from agent workflow/control-plane work."""
 AUTOSECOPS__AGENT_CHAT_BACKEND = (
     os.environ.get("AUTOSECOPS__AGENT_CHAT_BACKEND") or "oss"
 )
-"""Agent backend for new chat sessions that do not choose one.
+"""Agent backend for new sessions whose caller does not choose one.
 
-Applies to workspace, agent preset and case chats created through the API.
-Workflow runs, external channels and the preset builder keep the built-in backend."""
+Applies to workspace, agent preset, case and external channel (Slack) sessions,
+including case-comment and MCP preset runs, for organizations entitled to
+non-default backends. Workflow runs and the preset builder keep the built-in
+backend."""
 
 # === Rate Limiting === #
 AUTOSECOPS__RATE_LIMIT_ENABLED = env_bool(
@@ -1449,6 +1557,17 @@ AUTOSECOPS__AGG_STATEMENT_TIMEOUT_MS = bound_env(
     upper=POSTGRES_STATEMENT_TIMEOUT_MAX_MS,
 )
 """PostgreSQL statement timeout for aggregation queries, in milliseconds."""
+
+AUTOSECOPS__CASE_SEARCH_STATEMENT_TIMEOUT_MS = bound_env(
+    "AUTOSECOPS__CASE_SEARCH_STATEMENT_TIMEOUT_MS",
+    30_000,
+    lower=1,
+    upper=POSTGRES_STATEMENT_TIMEOUT_MAX_MS,
+)
+"""PostgreSQL statement timeout for case text search, in milliseconds.
+
+A slow search holds a pooled database connection for up to this long.
+"""
 
 AUTOSECOPS__LIMIT_DEFAULT = 20
 """Default list/search page size."""
@@ -1818,7 +1937,13 @@ except ValueError:
         RLSMode.OFF.value,
     )
     AUTOSECOPS__RLS_MODE = RLSMode.OFF
-"""Runtime RLS enforcement mode (off|shadow|enforce)."""
+"""Runtime RLS enforcement mode (off|shadow|enforce).
+
+The code default stays `off` so tests and ad hoc scripts that connect as the
+table owner keep bypass semantics. The shipped Compose, Helm and Fargate
+deployments set `enforce`, which only isolates tenants when the services
+connect as the runtime role (`AUTOSECOPS__DB_RUNTIME_PASSWORD`).
+"""
 
 
 # === Agent config === #
@@ -1879,6 +2004,25 @@ NsJail isolation on that worker is controlled separately by
 AUTOSECOPS__EXECUTOR_BACKEND.
 
 When False, uses the existing subprocess approach from the API service.
+"""
+
+AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE = (
+    os.environ.get("AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE") or None
+)
+"""Path to an operator-supplied known_hosts file for registry git hosts.
+
+Each registry sync copies it into its private known_hosts file. Hosts listed
+here are verified against these keys; any other host's key is scanned on first
+use (trust on first use) for that sync only. Mount the file read-only.
+"""
+
+AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS = env_bool(
+    "AUTOSECOPS__GIT_SSH_STRICT_KNOWN_HOSTS", default=False
+)
+"""Refuse registry git hosts that AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE does not list.
+
+When False (default), an unlisted host's key is scanned on first use for that
+sync. When True, such a sync fails instead of trusting a scanned key.
 """
 
 AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT = int(

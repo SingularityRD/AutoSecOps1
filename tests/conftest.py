@@ -1,5 +1,7 @@
 import asyncio
+import fcntl
 import importlib
+import importlib.util
 import os
 import socket
 import subprocess
@@ -10,6 +12,7 @@ import urllib.request
 import uuid
 from collections.abc import AsyncGenerator, Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -52,6 +55,7 @@ from autosecops.contexts import ctx_role
 from autosecops.db.engine import (
     get_async_auth_engine,
     get_async_engine,
+    get_async_session_bypass_rls_context_manager,
     get_async_session_context_manager,
     reset_async_engine,
 )
@@ -71,6 +75,10 @@ from autosecops.executor import backends as executor_backends
 from autosecops.executor.backends import ExecutorBackend
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.logger import logger
+from autosecops.process_hardening import (
+    is_process_dumpable,
+    restore_process_dumpable,
+)
 from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 from autosecops.registry.repositories.service import RegistryReposService
 from autosecops.secrets import secrets_manager
@@ -82,6 +90,13 @@ from tests.support.executor_backend import TestBackend
 # Test-specific organization ID (not UUID(0) since we removed that default)
 # This UUID is deterministic across test runs for fixture seeding
 TEST_ORG_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
+
+# Opt-in (the CI `rls` group): migrate the shared application database with
+# Alembic so it carries the tenant RLS policies, and connect the application
+# engine as the non-owner runtime role. Fixtures that seed through the raw
+# owner URI keep owner access.
+TEST_DB_RUNTIME_ROLE = os.environ.get("AUTOSECOPS_TEST_DB_RUNTIME_ROLE") == "true"
+TEST_DB_RUNTIME_PASSWORD = "autosecops-test-runtime"
 
 # Worker-specific configuration for pytest-xdist parallel execution
 # Get xdist worker ID, defaults to "master" if not using xdist
@@ -118,37 +133,29 @@ def pytest_xdist_auto_num_workers(config: pytest.Config) -> int:
 # Default ports are for cluster 1, override with PG_PORT, TEMPORAL_PORT, MINIO_PORT, REDIS_PORT
 
 
+MCP_TOKEN_REVOKER_MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "c4e8a2f6d9b1_revoke_mcp_refresh_tokens_on_any_granted_org.py"
+)
+
+
 def _install_membership_token_revoker(conn: Any) -> None:
-    """Mirror the production trigger that revokes MCP tokens on member removal."""
-    conn.execute(
-        text(
-            """
-            CREATE OR REPLACE FUNCTION revoke_mcp_tokens_on_membership_delete()
-            RETURNS trigger
-            LANGUAGE plpgsql
-            AS $$
-            BEGIN
-                UPDATE mcp_personal_access_token
-                SET revoked_at = now(),
-                    revoked_by = NULLIF(
-                        current_setting('app.current_user_id', true), ''
-                    )::uuid
-                WHERE user_id = OLD.user_id
-                  AND organization_id = OLD.organization_id
-                  AND revoked_at IS NULL;
+    """Install the production trigger that revokes MCP tokens on member removal.
 
-                UPDATE mcp_refresh_token
-                SET status = 'revoked'
-                WHERE user_id = OLD.user_id
-                  AND organization_id = OLD.organization_id
-                  AND status = 'active';
-
-                RETURN OLD;
-            END;
-            $$;
-            """
-        )
+    The function SQL comes from the migration that defines it, so tests cannot
+    drift from what deployments run.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "mcp_token_revoker_migration", MCP_TOKEN_REVOKER_MIGRATION
     )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load {MCP_TOKEN_REVOKER_MIGRATION}")
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    conn.execute(text(migration.REVOKER_FUNCTION_SQL))
+    conn.execute(text(migration.REVOKER_PRIVILEGES_SQL))
     conn.execute(
         text(
             "DROP TRIGGER IF EXISTS trg_organization_membership_revoke_mcp_tokens "
@@ -270,6 +277,46 @@ def _install_case_number_allocator(conn: Any) -> None:
     )
 
 
+def _migrate_app_db_with_runtime_role(db_uri: str) -> None:
+    """Migrate the application DB to head and provision the runtime role."""
+    env = os.environ.copy()
+    env["AUTOSECOPS__DB_URI"] = db_uri
+    env["AUTOSECOPS__DB_RUNTIME_USER"] = config.DEFAULT_DB_RUNTIME_USER
+    env["AUTOSECOPS__DB_RUNTIME_PASSWORD"] = TEST_DB_RUNTIME_PASSWORD
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Alembic upgrade failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+
+@contextmanager
+def _runtime_role_setup_file_lock(*, enabled: bool) -> Iterator[None]:
+    """Serialize migrating the shared DB across xdist workers.
+
+    A PostgreSQL lock cannot do this: a worker waiting on it holds a snapshot,
+    and the migrations' CREATE INDEX CONCURRENTLY waits for every older
+    snapshot, so the two deadlock.
+    """
+    if not enabled:
+        yield
+        return
+    lock_path = Path(tempfile.gettempdir()) / f"autosecops-tests-db-{PG_PORT}.lock"
+    with lock_path.open("w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
 def _lock_test_db_setup(conn: Any, db_uri: str) -> None:
     """Serialize shared test DB setup across xdist workers."""
     db_name = make_url(db_uri).database or "postgres"
@@ -318,16 +365,16 @@ IN_DOCKER = os.path.exists("/.dockerenv")
 
 
 def _minio_credentials() -> tuple[str, str]:
-    load_dotenv()
-    access_key = (
-        os.environ.get("AWS_ACCESS_KEY_ID")
-        or os.environ.get("MINIO_ROOT_USER")
-        or "minio"
-    )
+    # Read .env without load_dotenv(): loading it into os.environ here would
+    # restore variables env_sandbox removed, such as the runtime DB password.
+    dotenv = dotenv_values(Path(__file__).resolve().parents[1] / ".env")
+
+    def lookup(name: str) -> str | None:
+        return os.environ.get(name) or dotenv.get(name)
+
+    access_key = lookup("AWS_ACCESS_KEY_ID") or lookup("MINIO_ROOT_USER") or "minio"
     secret_key = (
-        os.environ.get("AWS_SECRET_ACCESS_KEY")
-        or os.environ.get("MINIO_ROOT_PASSWORD")
-        or "password"
+        lookup("AWS_SECRET_ACCESS_KEY") or lookup("MINIO_ROOT_PASSWORD") or "password"
     )
     return access_key, secret_key
 
@@ -400,6 +447,21 @@ def clean_redis_db(redis_server):
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture(autouse=True, scope="function")
+def keep_test_process_dumpable() -> Iterator[None]:
+    """Undo PR_SET_DUMPABLE=0 that code under test applied to this worker.
+
+    The executor, API and registry sync protect their own process from
+    same-user inspection. When a test runs that code in the pytest worker, the
+    flag would otherwise outlive the test: /proc/self and the /proc entries of
+    later tests' children become unreadable, which breaks unrelated tests in
+    the same xdist worker. A process may always make itself dumpable again.
+    """
+    yield
+    if sys.platform.startswith("linux") and not is_process_dumpable():
+        restore_process_dumpable()
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -506,12 +568,17 @@ def default_org(db: None, env_sandbox: None) -> Iterator[None]:
         sync_db_uri = sync_db_uri.replace("+asyncpg", "+psycopg")
         sync_engine = create_engine(sync_db_uri)
 
-        # Ensure schema exists for service sessions that target the default DB.
-        with sync_engine.begin() as conn:
-            _lock_test_db_setup(conn, sync_db_uri)
-            Base.metadata.create_all(conn)
-            _install_case_number_allocator(conn)
-            _install_membership_token_revoker(conn)
+        migrate = TEST_DB_RUNTIME_ROLE and sync_db_uri == config.AUTOSECOPS__DB_URI
+        with _runtime_role_setup_file_lock(enabled=migrate):
+            if migrate:
+                _migrate_app_db_with_runtime_role(sync_db_uri)
+
+            # Ensure schema exists for service sessions that target the default DB.
+            with sync_engine.begin() as conn:
+                _lock_test_db_setup(conn, sync_db_uri)
+                Base.metadata.create_all(conn)
+                _install_case_number_allocator(conn)
+                _install_membership_token_revoker(conn)
 
         with Session(sync_engine) as session:
             base_org_slug = f"test-org-{TEST_ORG_ID.hex[:8]}"
@@ -1337,6 +1404,23 @@ def env_sandbox(monkeysession: pytest.MonkeyPatch):
     )
 
     monkeysession.setenv("AUTOSECOPS__DB_URI", db_uri)
+    # A .env from env.sh carries a runtime password for a role this database
+    # does not have. Only the opt-in runtime-role run connects as that role;
+    # the engine then swaps the owner credentials in db_uri for it.
+    if TEST_DB_RUNTIME_ROLE:
+        monkeysession.setattr(
+            config, "AUTOSECOPS__DB_RUNTIME_PASSWORD", TEST_DB_RUNTIME_PASSWORD
+        )
+        monkeysession.setenv(
+            "AUTOSECOPS__DB_RUNTIME_PASSWORD", TEST_DB_RUNTIME_PASSWORD
+        )
+    else:
+        monkeysession.setattr(config, "AUTOSECOPS__DB_RUNTIME_PASSWORD", None)
+        monkeysession.delenv("AUTOSECOPS__DB_RUNTIME_PASSWORD", raising=False)
+    monkeysession.setattr(
+        config, "AUTOSECOPS__DB_RUNTIME_USER", config.DEFAULT_DB_RUNTIME_USER
+    )
+    monkeysession.delenv("AUTOSECOPS__DB_RUNTIME_USER", raising=False)
     monkeysession.setenv("AUTOSECOPS__BLOB_STORAGE_ENDPOINT", blob_storage_endpoint)
     monkeysession.setenv(
         "AUTOSECOPS__BLOB_STORAGE_BUCKET_WORKFLOW", MINIO_WORKFLOW_BUCKET
@@ -1412,6 +1496,14 @@ def inprocess_api_server(
     monkeysession.setenv("AUTOSECOPS__PUBLIC_API_URL", f"{api_url}/api")
 
     api_env = os.environ.copy()
+    # Other helpers call load_dotenv() after env_sandbox, which can restore the
+    # .env runtime password. The API process must follow the same credentials
+    # as this session: the runtime role exists only in the opt-in run.
+    if TEST_DB_RUNTIME_ROLE:
+        api_env["AUTOSECOPS__DB_RUNTIME_PASSWORD"] = TEST_DB_RUNTIME_PASSWORD
+    else:
+        api_env.pop("AUTOSECOPS__DB_RUNTIME_PASSWORD", None)
+    api_env.pop("AUTOSECOPS__DB_RUNTIME_USER", None)
     api_env["AUTOSECOPS__API_URL"] = api_url
     api_env["AUTOSECOPS__PUBLIC_API_URL"] = f"{api_url}/api"
 
@@ -1730,8 +1822,9 @@ async def svc_workspace(
 
     # Also persist the workspace in the default engine used by BaseWorkspaceService
     # so services that use `with_session()` (and thus `get_async_session_context_manager`)
-    # can see the same workspace and satisfy foreign key constraints.
-    async with get_async_session_context_manager() as global_session:
+    # can see the same workspace and satisfy foreign key constraints. Seeding
+    # has no tenant context, so it uses the explicit RLS bypass.
+    async with get_async_session_bypass_rls_context_manager() as global_session:
         # Set timeouts to avoid deadlocks with parallel workers
         await global_session.execute(text("SET LOCAL lock_timeout = '5s'"))
         await global_session.execute(text("SET LOCAL statement_timeout = '30s'"))
@@ -1756,7 +1849,9 @@ async def svc_workspace(
         logger.debug("Cleaning up test workspace")
         # Clean up workspace from global session (postgres database) first
         try:
-            async with get_async_session_context_manager() as global_cleanup_session:
+            async with (
+                get_async_session_bypass_rls_context_manager() as global_cleanup_session
+            ):
                 # Set timeouts to avoid deadlocks with parallel workers
                 await global_cleanup_session.execute(
                     text("SET LOCAL lock_timeout = '5s'")

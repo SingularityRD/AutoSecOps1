@@ -3244,7 +3244,7 @@ export function OrgSettingsAgentForm() {
               }}
               variant="destructive"
             >
-              Delete source
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3289,7 +3289,7 @@ export function OrgSettingsAgentForm() {
               }}
               variant="destructive"
             >
-              Delete model
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from autosecops_ee.agent.workflows.durable import AgentWorkflowArgs
 from temporalio import activity
 
-from autosecops.agent.schemas import RunAgentArgs
+from autosecops.agent.backends.registry import (
+    find_agent_backend,
+    get_agent_backend,
+    get_workflow_type,
+)
+from autosecops.agent.backends.types import SessionWorkflowContext
 from autosecops.agent.session.service import AgentSessionService
 from autosecops.cases.agent_invocations.completion import (
     CaseCommentAgentInvocationCompletionService,
@@ -16,6 +20,7 @@ from autosecops.cases.agent_invocations.dispatcher import (
     CaseCommentAgentInvocationDispatcher,
 )
 from autosecops.cases.agent_invocations.schemas import (
+    CommentAgentTurn,
     CompleteCommentAgentInvocationInput,
     CompleteCommentAgentInvocationResult,
     FailCommentAgentInvocationInput,
@@ -28,6 +33,7 @@ from autosecops.cases.agent_invocations.service import (
 )
 from autosecops.cases.agent_invocations.types import CaseCommentAgentInvocationError
 from autosecops.contexts import ctx_role
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.logger import logger
 
 _MAX_STORED_ERROR_LENGTH = 2_000
@@ -62,27 +68,44 @@ async def prepare_comment_agent_invocation_activity(
         prepared_turn = await session_service.prepare_new_turn(
             prepared.session_id, prepared.prompt
         )
+        backend = get_agent_backend(
+            prepared_turn.backend_id, harness_type=prepared_turn.harness_type
+        )
         config = replace(
             prepared_turn.config,
             actions=_without_comment_reply_actions(prepared_turn.config.actions),
         )
-        workflow_args = AgentWorkflowArgs(
-            role=session_service.execution_role,
-            agent_args=RunAgentArgs(
-                user_prompt=prepared_turn.prompt,
+        tools = _without_comment_reply_actions(prepared_turn.tools)
+        args = await backend.build_workflow_args(
+            SessionWorkflowContext(
                 session_id=prepared_turn.session_id,
-                active_stream_id=prepared_turn.active_stream_id,
-                curr_run_id=prepared_turn.run_id,
+                backend_id=prepared_turn.backend_id,
+                harness_type=prepared_turn.harness_type,
+                title=prepared_turn.title,
+                entity_type=prepared_turn.entity_type,
+                entity_id=prepared_turn.entity_id,
+                tools=tuple(tools) if tools is not None else None,
+                agent_preset_id=prepared_turn.agent_preset_id,
+                agent_preset_version_id=prepared_turn.agent_preset_version_id,
+                role=session_service.execution_role,
                 config=config,
-            ),
-            title=prepared_turn.title,
-            entity_type=prepared_turn.entity_type,
-            entity_id=prepared_turn.entity_id,
-            tools=_without_comment_reply_actions(prepared_turn.tools),
-            agent_preset_id=prepared_turn.agent_preset_id,
-            agent_preset_version_id=prepared_turn.agent_preset_version_id,
+                prompt=prepared_turn.prompt,
+                run_id=prepared_turn.run_id,
+                stream_id=prepared_turn.active_stream_id,
+            )
         )
-    return PrepareCommentAgentInvocationResult(workflow_args=workflow_args)
+    turn = CommentAgentTurn(
+        backend_id=prepared_turn.backend_id,
+        session_id=prepared_turn.session_id,
+        run_id=prepared_turn.run_id,
+        workflow_type=get_workflow_type(backend),
+        workflow_id=backend.workflow_id(prepared_turn.run_id),
+        task_queue=backend.task_queue,
+        priority=backend.priority,
+        retry_policy=backend.retry_policy,
+        args=args,
+    )
+    return PrepareCommentAgentInvocationResult(turn=turn)
 
 
 @activity.defn
@@ -110,13 +133,25 @@ async def complete_comment_agent_invocation_activity(
 ) -> CompleteCommentAgentInvocationResult:
     """Post the terminal agent output as an idempotent case-comment reply."""
     ctx_role.set(input.role)
+    output = input.output
+    if input.backend_id is not None:
+        # Read results of a backend that was disabled mid-turn too.
+        backend = find_agent_backend(input.backend_id)
+        if backend is None:
+            raise AutoSecOpsValidationError("Agent backend is unavailable")
+        result = backend.parse_turn_result(input.output)
+        if result.error is not None:
+            return CompleteCommentAgentInvocationResult(
+                handled=False, turn_error=result.error
+            )
+        output = result.output
     try:
         async with CaseCommentAgentInvocationCompletionService.with_session(
             role=input.role
         ) as service:
             reply = await service.create_reply_and_mark_succeeded(
                 input.session_id,
-                input.output,
+                output,
             )
     except Exception as exc:
         logger.warning(

@@ -10,7 +10,7 @@ from sqlalchemy.schema import CreateSchema, CreateTable, DropSchema
 
 from autosecops.auth.types import Role
 from autosecops.custom_fields.schemas import CustomFieldCreate, CustomFieldUpdate
-from autosecops.db.locks import derive_lock_key_from_parts, pg_advisory_lock
+from autosecops.db.locks import derive_lock_key_from_parts, pg_advisory_xact_lock
 from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers.workflow import WorkspaceUUID
 from autosecops.service import BaseWorkspaceService
@@ -81,6 +81,11 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
         await conn.execute(
             sa.DDL("ALTER TABLE %s ENABLE ROW LEVEL SECURITY", full_table_name)
         )
+        # The runtime role creates and therefore owns workspace tables; FORCE
+        # applies the workspace policy to the owner as well.
+        await conn.execute(
+            sa.DDL("ALTER TABLE %s FORCE ROW LEVEL SECURITY", full_table_name)
+        )
         await conn.execute(
             sa.DDL(
                 f"DROP POLICY IF EXISTS {DYNAMIC_WORKSPACE_RLS_POLICY} ON %s",
@@ -121,14 +126,13 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
             self.service_name,
             self._table,
         )
-        async with pg_advisory_lock(self.session, lock_key):
-            await self.session.execute(
-                CreateSchema(self.schema_name, if_not_exists=True)
-            )
-            await self.session.execute(
-                CreateTable(self._table_definition(), if_not_exists=True)
-            )
-            await self._enable_workspace_rls_for_base_table()
+        # Held until the caller's transaction ends, so a waiter sees committed DDL.
+        await pg_advisory_xact_lock(self.session, lock_key)
+        await self.session.execute(CreateSchema(self.schema_name, if_not_exists=True))
+        await self.session.execute(
+            CreateTable(self._table_definition(), if_not_exists=True)
+        )
+        await self._enable_workspace_rls_for_base_table()
         self._schema_initialized = True
 
     async def _ensure_schema_ready(self) -> None:
@@ -151,9 +155,31 @@ class CustomFieldsService(BaseWorkspaceService, ABC):
 
         await self.initialize_workspace_schema()
 
-    async def drop_workspace_schema(self) -> None:
-        """Drop the workspace schema and all contained objects."""
+    async def _lock_referenced_tables(self) -> None:
+        """Lock the shared tables the workspace table references, in name order."""
+        referenced = {
+            constraint.referred_table
+            for constraint in self._table_definition().foreign_key_constraints
+        }
+        if not referenced:
+            return
+        preparer = self.session.get_bind().dialect.identifier_preparer
+        tables = ", ".join(sorted(preparer.format_table(table) for table in referenced))
+        await self.session.execute(
+            sa.text(f"LOCK TABLE {tables} IN ACCESS EXCLUSIVE MODE")
+        )
 
+    async def drop_workspace_schema(self) -> None:
+        """Drop the workspace schema and all contained objects.
+
+        Dropping a table with a foreign key needs an ACCESS EXCLUSIVE lock on
+        the shared table it references, such as ``"case"``. Writers lock the
+        shared table first and then cascade into every workspace's table, so
+        the drop takes the shared lock up front instead of after locking its
+        own table, which would deadlock with those writers.
+        """
+
+        await self._lock_referenced_tables()
         await self.session.execute(
             DropSchema(self.schema_name, cascade=True, if_exists=True)
         )

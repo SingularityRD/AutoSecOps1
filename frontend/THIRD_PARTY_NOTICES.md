@@ -463,7 +463,7 @@ hand.
 | fault | 1.0.4 | MIT |
 | fflate | 0.4.9 | MIT |
 | fill-range | 7.1.1 | MIT |
-| follow-redirects | 1.16.1 | MIT |
+| follow-redirects | 1.16.2 | MIT |
 | form-data | 4.0.6 | MIT |
 | format | 0.2.2 | MIT |
 | framer-motion | 12.23.22 | MIT |
@@ -15744,7 +15744,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### follow-redirects 1.16.1
+### follow-redirects 1.16.2
 
 - License: MIT
 - Homepage: https://github.com/follow-redirects/follow-redirects

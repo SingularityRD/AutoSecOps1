@@ -76,6 +76,7 @@ from autosecops.cases.service import (
 from autosecops.cases.tags.schemas import CaseTagRead
 from autosecops.core.schemas import Schema
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_data_error
 from autosecops.db.models import Case
 from autosecops.exceptions import (
     AutoSecOpsAuthorizationError,
@@ -530,7 +531,7 @@ async def create_case(
     service = CasesService(session, role)
     try:
         case = await service.create_case(params)
-    except ValueError as e:
+    except (ValueError, AutoSecOpsValidationError) as e:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -598,12 +599,18 @@ async def update_case(
         )
     try:
         updated_case = await service.update_case(case, params)
+    except AutoSecOpsValidationError as e:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
     except DBAPIError as e:
+        if is_data_error(e):
+            raise
         logger.exception("Database error occurred during case operation")
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1419,6 +1426,8 @@ async def update_case_simple(
             detail=str(e),
         ) from e
     except DBAPIError as e:
+        if is_data_error(e):
+            raise
         logger.exception("Database error occurred during case operation")
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,

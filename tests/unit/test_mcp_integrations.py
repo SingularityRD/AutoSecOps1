@@ -53,6 +53,7 @@ from autosecops.db.models import (
     User,
     Workspace,
 )
+from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.integrations.catalog.loader import catalog_id_for_slug
 from autosecops.integrations.catalog.resolver import (
     ResolvedCatalogConnection,
@@ -103,6 +104,7 @@ from autosecops.integrations.service import (
 )
 from autosecops.integrations.types import DCRResponse, OAuthServerMetadata
 from autosecops.tiers import defaults as tier_defaults
+from tests.support.outbound_network import install_recording_network, resolve_all_to
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -4662,25 +4664,10 @@ class TestMCPProviderOAuth:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Generic MCP DCR must not fetch hosts resolving to private addresses."""
-
-        def fake_getaddrinfo(
-            host: str,
-            port: int,
-            *,
-            type: socket.SocketKind,
-            proto: int,
-        ) -> list[
-            tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[str, int]]
-        ]:
-            assert host == "metadata.example.test"
-            assert type == socket.SOCK_STREAM
-            assert proto == socket.IPPROTO_TCP
-            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.10", port))]
-
-        monkeypatch.setattr(
-            "autosecops.integrations.providers.base.socket.getaddrinfo",
-            fake_getaddrinfo,
-        )
+        # The outbound client resolves once, checks every answer, and dials only
+        # the checked address.
+        network = install_recording_network(monkeypatch)
+        resolve_all_to(monkeypatch, "10.0.0.10", host="metadata.example.test")
 
         with pytest.raises(ValueError) as exc:
             await integration_service._fetch_oauth_json(
@@ -4689,7 +4676,9 @@ class TestMCPProviderOAuth:
 
         message = str(exc.value)
         assert "host is not allowed" in message
+        assert "10.0.0.10" not in message
         assert "private" not in message.lower()
+        assert network.connections == []
 
     async def test_generic_mcp_callback_rejects_private_token_endpoint_resolution(
         self,
@@ -6228,7 +6217,7 @@ class TestMCPProviderOAuth:
                 )
 
         monkeypatch.setattr(
-            "autosecops.integrations.providers.base.httpx.AsyncClient",
+            "autosecops.integrations.providers.base.create_outbound_http_client",
             FakeAsyncClient,
         )
 
@@ -7874,6 +7863,103 @@ class TestMCPConnectionVerification:
         assert isinstance(exc_info.value.__cause__, MCPConfigurationError)
         assert exc_info.value.__cause__.__cause__ is busy_error
 
+    async def test_resolve_stdio_mcp_integration_reads_one_row(
+        self,
+        integration_service: IntegrationService,
+    ) -> None:
+        """Config, tool policy and env all come from the saved stdio row."""
+        mcp_integration = await integration_service.create_mcp_integration(
+            params=MCPStdioIntegrationCreate(
+                name="Snapshot Stdio MCP",
+                stdio_command="npx",
+                stdio_args=["@example/server"],
+                stdio_env={"EXAMPLE_TOKEN": "token"},
+            )
+        )
+        await integration_service.persist_mcp_integration_tools(
+            mcp_integration_id=mcp_integration.id,
+            discovered_tools=[
+                MCPToolSummary(name="read", input_schema={"type": "object"})
+            ],
+        )
+        preset_service = AgentPresetService(
+            session=integration_service.session,
+            role=integration_service.role,
+        )
+
+        without_env = await preset_service.resolve_stdio_mcp_integration(
+            mcp_integration.id, resolve_env=False
+        )
+        with_env = await preset_service.resolve_stdio_mcp_integration(
+            mcp_integration.id, resolve_env=True
+        )
+
+        assert without_env is not None and with_env is not None
+        assert with_env.config["command"] == "npx"
+        assert with_env.config.get("args") == ["@example/server"]
+        assert with_env.tools["read"].input_schema == {"type": "object"}
+        assert without_env.env is None
+        assert with_env.env == {"EXAMPLE_TOKEN": "token"}
+        assert (
+            await preset_service.resolve_stdio_mcp_integration(
+                uuid.uuid4(), resolve_env=True
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize(
+        ("stored_env", "expected_env"),
+        [
+            pytest.param(
+                {"UV_LINK_MODE": "symlink", "EXAMPLE_TOKEN": "token"},
+                {"EXAMPLE_TOKEN": "token"},
+                id="legacy-runtime-key-dropped",
+            ),
+            pytest.param(
+                {"LD_PRELOAD": "/tmp/x.so"}, None, id="protected-key-rejected"
+            ),
+            pytest.param({"BAD-KEY": "token"}, None, id="invalid-name-rejected"),
+        ],
+    )
+    async def test_resolve_stdio_mcp_integration_sanitizes_and_validates_env(
+        self,
+        integration_service: IntegrationService,
+        monkeypatch: pytest.MonkeyPatch,
+        stored_env: dict[str, str],
+        expected_env: dict[str, str] | None,
+    ) -> None:
+        """Legacy rows lose runtime-controlled keys; invalid envs never run."""
+        mcp_integration = await integration_service.create_mcp_integration(
+            params=MCPStdioIntegrationCreate(
+                name="Legacy Env Stdio MCP",
+                stdio_command="npx",
+                stdio_args=["@example/server"],
+            )
+        )
+        monkeypatch.setattr(
+            IntegrationService,
+            "decrypt_stdio_env",
+            lambda self, integration: dict(stored_env),
+        )
+        preset_service = AgentPresetService(
+            session=integration_service.session,
+            role=integration_service.role,
+        )
+
+        if expected_env is None:
+            with pytest.raises(AutoSecOpsValidationError) as exc_info:
+                await preset_service.resolve_stdio_mcp_integration(
+                    mcp_integration.id, resolve_env=True
+                )
+            assert exc_info.value.__cause__ is None
+            assert exc_info.value.__context__ is None
+            return
+        snapshot = await preset_service.resolve_stdio_mcp_integration(
+            mcp_integration.id, resolve_env=True
+        )
+        assert snapshot is not None
+        assert snapshot.env == expected_env
+
     async def test_resolve_http_config_errors(
         self,
         integration_service: IntegrationService,
@@ -8640,9 +8726,12 @@ class TestMCPConnectionVerification:
             },
         ]
 
+        search_schema = {"type": "object", "properties": {"q": {"type": "string"}}}
         merged = IntegrationService._merge_mcp_tool_summaries(
             [
-                MCPToolSummary(name="search", description="New search"),
+                MCPToolSummary(
+                    name="search", description="New search", input_schema=search_schema
+                ),
                 MCPToolSummary(name="create", description="Create issue"),
             ],
             stored,
@@ -8650,6 +8739,7 @@ class TestMCPConnectionVerification:
 
         assert [tool.name for tool in merged] == ["search", "create", "delete"]
         assert merged[0].description == "New search"
+        assert merged[0].input_schema == search_schema
         assert merged[0].enabled is False
         assert merged[0].requires_approval is True
         assert merged[0].status == "available"
