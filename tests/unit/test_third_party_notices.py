@@ -197,6 +197,41 @@ def test_frontend_requirements_follow_production_tree_only() -> None:
     assert _norm("@img/sharp-linuxmusl-arm64") in shipped
 
 
+def test_frontend_requirements_follow_npm_aliases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An aliased dependency ships the real package it points at."""
+    generator = _load_generator()
+    lockfile = tmp_path / "pnpm-lock.yaml"
+    lockfile.write_text(
+        "lockfileVersion: '9.0'\n"
+        "importers:\n"
+        "  .:\n"
+        "    dependencies:\n"
+        "      app-lib:\n"
+        "        specifier: 1.0.0\n"
+        "        version: 1.0.0\n"
+        "packages:\n"
+        "  app-lib@1.0.0: {}\n"
+        "  metrics@2.0.0: {}\n"
+        "  metrics@2.1.0: {}\n"
+        "snapshots:\n"
+        "  app-lib@1.0.0:\n"
+        "    dependencies:\n"
+        "      metrics: 2.1.0\n"
+        "      metrics-legacy: metrics@2.0.0\n"
+        "  metrics@2.0.0: {}\n"
+        "  metrics@2.1.0: {}\n"
+    )
+    monkeypatch.setattr(generator, "FRONTEND_LOCKFILE", lockfile)
+
+    assert generator.frontend_requirements() == [
+        ("app-lib", "1.0.0"),
+        ("metrics", "2.0.0"),
+        ("metrics", "2.1.0"),
+    ]
+
+
 def test_lockfile_drift_reports_missing_and_stale_rows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
