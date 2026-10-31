@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover"
 import type { useTableSearch } from "@/hooks/use-table-search"
 import { useGetTable } from "@/lib/hooks"
+import { planLabel } from "@/lib/plans"
 import { cn } from "@/lib/utils"
 
 type TableSearchState = Pick<
@@ -78,7 +79,7 @@ export function TableSearchBadge() {
       <>
         <button
           type="button"
-          aria-label="Semantic search: Enterprise only"
+          aria-label={`Semantic search: ${planLabel("semantic_search")}`}
           className={cn(
             badgeVariants({ variant: "outline" }),
             "h-7 gap-1.5 whitespace-nowrap px-2 font-medium text-muted-foreground focus:ring-0 focus-visible:ring-1"

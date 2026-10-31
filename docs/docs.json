@@ -383,6 +383,7 @@
               "self-hosting/tls",
               "self-hosting/environment-variables",
               "self-hosting/license",
+              "self-hosting/plans",
               "self-hosting/security",
               "self-hosting/support"
             ]

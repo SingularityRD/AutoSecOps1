@@ -46,7 +46,7 @@ export type MentionSectionKey =
  * How a mention source behaves on this surface.
  *
  * `unavailable` leaves the trigger character as plain text; `locked` opens the
- * popover on an Enterprise upsell row; `enabled` lists real suggestions.
+ * popover on a plan upgrade row; `enabled` lists real suggestions.
  */
 export type MentionSourceState = "unavailable" | "locked" | "enabled"
 
@@ -193,7 +193,7 @@ type ActiveSession = {
  *
  * `hasEntitlement` also answers false while its query is loading or errored,
  * so an unresolved entitlement stays `unavailable` rather than telling a
- * paying org that the feature it already has is Enterprise-only.
+ * paying org that the feature it already has needs a higher plan.
  */
 function resolveSourceState(
   config: MentionSourceConfig | undefined,
