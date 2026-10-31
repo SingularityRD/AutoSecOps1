@@ -114,13 +114,23 @@ printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
 
 The chart never generates or rotates the keyring, because a value generated
 at render time would change on every `helm upgrade` or GitOps sync and make
-encrypted workflow history unreadable. Releases installed before encryption
-was the default need a keyring before the next upgrade, or
-`autosecops.temporal.payloadEncryption.enabled=false` to keep plaintext
-payloads: with chart-created secrets the upgrade fails to render, and with
-`secrets.existingSecret` new pods wait in `CreateContainerConfigError` until
-the Secret has the key. Existing plaintext history stays readable after you
-enable it.
+encrypted workflow history unreadable.
+
+Releases installed before encryption was the default turn it on in two
+upgrades. First upgrade with the keyring in place and
+`autosecops.temporal.payloadEncryption.enabled=false`, so every pod restarts
+with the keyring (with `secrets.existingSecret`, pods do not restart on a
+Secret change: run `kubectl rollout restart deployment -l
+app.kubernetes.io/instance=<release>` and wait for it to finish); then
+upgrade again with `enabled=true`. Turning it on in a
+single upgrade lets an upgraded pod encrypt a payload that a pod still on the
+old configuration cannot decode, and an activity that runs with one attempt
+fails its workflow. Until you add a keyring, the upgrade fails to render with
+chart-created secrets. With `secrets.existingSecret`, `helm upgrade` checks
+the live Secret with `lookup` and fails before the migration hook when the key
+is missing; `helm template` and GitOps renders cannot see the Secret, so add
+the key before you sync or new pods wait in `CreateContainerConfigError`.
+Existing plaintext history stays readable after you enable encryption.
 
 With the release name `autosecops`, `<fullname>` is `autosecops`. Each service
 receives only the secrets its Fargate task definition receives:

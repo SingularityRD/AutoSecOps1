@@ -162,8 +162,9 @@ autosecops:
       # keyring in the core secret's `temporalPayloadEncryptionKeyring` key
       # (`secrets.temporalPayloadEncryptionKeyring`, or your
       # `secrets.existingSecret`), or set `keyringArn`. The chart never
-      # generates or rotates the keyring. Set `false` only to keep an existing
-      # release storing payloads in plaintext.
+      # generates or rotates the keyring. An existing release turns it on in
+      # two upgrades: first add the keyring with `false` so every pod has it,
+      # then set `true`. Keep `false` to stay on plaintext payloads.
       enabled: true
       # -- AWS Secrets Manager ARN holding the keyring, instead of the core secret.
       keyringArn: ""

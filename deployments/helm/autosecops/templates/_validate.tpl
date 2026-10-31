@@ -58,13 +58,27 @@ Temporal payload encryption is on by default. The chart never generates the
 keyring: a random value would change on every render (and `lookup` does not
 work under `helm template` or GitOps tools), silently rotating the key and
 making encrypted history unreadable. So require an explicit keyring source.
+
+With secrets.existingSecret the chart cannot see the Secret's keys from values
+alone. When the cluster is reachable (helm install/upgrade), `lookup` checks
+that the Secret holds the keyring and fails the render, before the pre-upgrade
+migration hook runs, rather than leaving every new pod in
+CreateContainerConfigError against a migrated database. `lookup` returns
+nothing under `helm template` and GitOps renders, which then skip the check.
 */}}
 {{- define "autosecops.validatePayloadEncryption" -}}
 {{- $pe := .Values.autosecops.temporal.payloadEncryption -}}
 {{- $s := .Values.secrets -}}
 {{- if $pe.enabled -}}
 {{- if not (or $pe.keyringArn $s.existingSecret $s.temporalPayloadEncryptionKeyring) -}}
-{{- fail "Temporal payload encryption is enabled (the default) but no keyring is configured. Set secrets.temporalPayloadEncryptionKeyring (generate: printf '{\"current_key_id\":\"v1\",\"keys\":{\"v1\":\"%s\"}}' \"$(openssl rand -hex 32)\"), add the temporalPayloadEncryptionKeyring key to secrets.existingSecret, or set autosecops.temporal.payloadEncryption.keyringArn. To keep an existing release storing payloads in plaintext, set autosecops.temporal.payloadEncryption.enabled=false. See https://docs.singularityrd.com/self-hosting/updating" -}}
+{{- fail "Temporal payload encryption is enabled (the default) but no keyring is configured. New release: set secrets.temporalPayloadEncryptionKeyring (generate: printf '{\"current_key_id\":\"v1\",\"keys\":{\"v1\":\"%s\"}}' \"$(openssl rand -hex 32)\"), add the temporalPayloadEncryptionKeyring key to secrets.existingSecret, or set autosecops.temporal.payloadEncryption.keyringArn. Existing release: upgrade once with the keyring and autosecops.temporal.payloadEncryption.enabled=false so every pod has the keyring, then upgrade again with enabled=true; pods without the keyring fail activities whose input another pod encrypted. See https://docs.singularityrd.com/self-hosting/updating#temporal-payload-encryption" -}}
+{{- end -}}
+{{- if and $s.existingSecret (not $pe.keyringArn) -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $s.existingSecret -}}
+{{- if and $existing (not (hasKey ($existing.data | default dict) "temporalPayloadEncryptionKeyring")) -}}
+{{- fail (printf "Temporal payload encryption is enabled (the default) but Secret %s/%s has no temporalPayloadEncryptionKeyring key. Add the key, or set autosecops.temporal.payloadEncryption.keyringArn. Existing release: upgrade once with the key added and autosecops.temporal.payloadEncryption.enabled=false, then upgrade again with enabled=true. See https://docs.singularityrd.com/self-hosting/updating#temporal-payload-encryption" .Release.Namespace $s.existingSecret) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- with $s.temporalPayloadEncryptionKeyring -}}
