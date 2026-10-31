@@ -1634,3 +1634,75 @@ def test_redis_clients_send_redis_password() -> None:
         source = path.read_text()
         if re.search(r"Redis\w*\.from_url\(|redis\.from_url\(", source):
             assert "REDIS_PASSWORD" in source, path.relative_to(REPO_ROOT)
+
+
+# === Fargate operations: log retention, Redis auth, HA profile === #
+
+FARGATE_DIR = REPO_ROOT / "deployments" / "fargate"
+
+
+def test_fargate_log_group_has_retention() -> None:
+    """CloudWatch Logs rotates ECS task logs; the group must still expire them."""
+    log_group = (FARGATE_DIR / "modules/ecs/cloudwatch.tf").read_text()
+    assert "retention_in_days = var.log_retention_in_days" in log_group
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        assert re.search(
+            r'variable "log_retention_in_days" \{[^}]*default\s*=\s*30\n',
+            (FARGATE_DIR / tf).read_text(),
+        ), tf
+    assert re.search(
+        r"log_retention_in_days\s*=\s*var\.log_retention_in_days\n",
+        (FARGATE_DIR / "main.tf").read_text(),
+    )
+
+
+def test_fargate_redis_requires_tls_and_auth() -> None:
+    redis_tf = (FARGATE_DIR / "modules/ecs/redis.tf").read_text()
+    assert re.search(r"transit_encryption_enabled\s*=\s*true", redis_tf)
+    assert re.search(r"at_rest_encryption_enabled\s*=\s*true", redis_tf)
+    # The default user is disabled; the app user needs a password.
+    assert 'access_string = "off ~* -@all"' in redis_tf
+    assert re.search(r'type\s*=\s*"password"', redis_tf)
+    assert re.search(
+        r"user_group_ids\s*=\s*\[aws_elasticache_user_group\.redis\.id\]", redis_tf
+    )
+    assert '"rediss://%s:%s@%s:%d"' in redis_tf
+    # Multi-node groups fail over automatically.
+    assert re.search(
+        r"automatic_failover_enabled\s*=\s*var\.redis_num_cache_clusters > 1",
+        redis_tf,
+    )
+
+
+def _tfvars(path: Path) -> dict[str, str]:
+    return dict(re.findall(r"(?m)^([a-z_]+)\s*=\s*(\S+)\s*$", path.read_text()))
+
+
+def test_fargate_ha_example_is_valid_and_redundant() -> None:
+    example = _tfvars(FARGATE_DIR / "examples/ha.tfvars.example")
+    root_variables = (FARGATE_DIR / "variables.tf").read_text()
+    main_tf = (FARGATE_DIR / "main.tf").read_text()
+    for name in example:
+        assert f'variable "{name}" {{' in root_variables, name
+        assert re.search(rf"\b{name}\s*=\s*var\.{name}\n", main_tf), name
+    for service in (
+        "api",
+        "worker",
+        "executor",
+        "agent_worker",
+        "agent_executor",
+        "background_worker",
+        "mcp",
+        "litellm",
+    ):
+        assert int(example[f"{service}_desired_count"]) >= 2, service
+    assert example["rds_multi_az"] == "true"
+    assert int(example["redis_num_cache_clusters"]) >= 2
+    # The HA profile is opt-in: defaults do not add standby databases.
+    assert re.search(
+        r'variable "rds_multi_az" \{[^}]*default\s*=\s*false', root_variables
+    )
+    assert re.search(
+        r'variable "redis_num_cache_clusters" \{[^}]*default\s*=\s*1\n',
+        root_variables,
+    )

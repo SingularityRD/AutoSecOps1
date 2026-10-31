@@ -52,15 +52,20 @@ resource "aws_elasticache_user_group" "redis" {
   }
 }
 
-# The replication group (single-node, TLS & KMS encryption are ON by default in Redis 7)
+# The replication group. Clients authenticate as the app user over TLS.
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id = "${var.name_prefix}-redis"
   description          = "AutoSecOps Redis - password-protected app user"
   engine               = "redis"
   engine_version       = "7.1"
-  node_type            = var.redis_node_type # default cache.t3.micro
-  num_cache_clusters   = 1                   # single AZ, no failover
+  node_type            = var.redis_node_type
   port                 = 6379
+
+  # One node by default. Two or more add replicas in other Availability Zones
+  # with automatic failover.
+  num_cache_clusters         = var.redis_num_cache_clusters
+  automatic_failover_enabled = var.redis_num_cache_clusters > 1
+  multi_az_enabled           = var.redis_num_cache_clusters > 1
 
   subnet_group_name  = aws_elasticache_subnet_group.redis.name
   security_group_ids = [aws_security_group.redis.id]

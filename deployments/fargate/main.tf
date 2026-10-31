@@ -112,6 +112,7 @@ module "ecs" {
   # RDS settings
   restore_from_snapshot            = var.restore_from_snapshot
   rds_backup_retention_period      = var.rds_backup_retention_period
+  rds_multi_az                     = var.rds_multi_az
   rds_performance_insights_enabled = var.rds_performance_insights_enabled
   rds_database_insights_mode       = var.rds_database_insights_mode
   core_db_snapshot_name            = var.core_db_snapshot_name
@@ -223,6 +224,8 @@ module "ecs" {
   temporal_db_allocated_storage            = local.temporal_db_allocated_storage
   db_engine_version                        = var.db_engine_version
   redis_node_type                          = var.redis_node_type
+  redis_num_cache_clusters                 = var.redis_num_cache_clusters
+  log_retention_in_days                    = var.log_retention_in_days
 
   # LiteLLM Service
   litellm_cpu           = var.litellm_cpu
