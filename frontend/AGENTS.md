@@ -82,6 +82,11 @@ Biome's recommended `a11y` rules run as errors on all source files
 
 - Decorative SVGs and icons take `aria-hidden="true"`. Give a meaningful
   standalone icon `role="img"` and an `aria-label`.
+- Icon components in `src/components/icons.tsx` are hidden by default and
+  exposed when named: keep the literal `aria-hidden="true"` on the `<svg>` and
+  spread the caller's props through `iconA11yProps(...)` after it. A caller
+  that passes `aria-label` or `aria-labelledby` then gets an image with that
+  name (`role="img"`, no `aria-hidden`); an unlabelled icon stays hidden.
 - `aria-label` is ignored on a plain `div` or `span`. Give the element a role
   that accepts a name (`status` for loading regions, `group`, `img`) or use a
   semantic element.

@@ -10,13 +10,16 @@ test.describe("organization members", () => {
   }, testInfo) => {
     const email = freshEmail(testInfo.title)
     const roles = await apiJson<RoleList>(page.request.get("/api/rbac/roles"))
-    // Prefer the least privileged preset organization role.
-    const role =
-      roles.items.find((item) => item.slug === "organization-member") ??
-      roles.items.find((item) => item.slug === "organization-admin")
-    expect(role, "Expected a preset organization role").toBeTruthy()
+    // The invite must use the least privileged preset organization role. Do
+    // not fall back to a broader role: a missing preset is a seed regression.
+    const role = roles.items.find((item) => item.slug === "organization-member")
     if (!role) {
-      return
+      throw new Error(
+        "Preset organization role 'organization-member' is missing from " +
+          `/api/rbac/roles (found: ${
+            roles.items.map((item) => item.slug).join(", ") || "none"
+          })`
+      )
     }
     let invitationId: string | undefined
 

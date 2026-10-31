@@ -28,6 +28,10 @@ on:
       - env.sh
       - .env.example
       - scripts/postgres/**
+      - deployments/postgres/**
+      - docker/**
+      # The image bundles docs for Workspace Chat.
+      - docs/**
       - .github/workflows/frontend-smoke.yml
   workflow_dispatch:
   schedule:

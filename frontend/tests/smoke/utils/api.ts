@@ -16,6 +16,15 @@ export async function apiJson<T>(response: Promise<APIResponse>): Promise<T> {
 }
 
 /**
+ * Await an API response, assert it succeeded, and return its raw body text.
+ */
+export async function apiText(response: Promise<APIResponse>): Promise<string> {
+  const result = await response
+  await expect(result, await describeResponse(result)).toBeOK()
+  return await result.text()
+}
+
+/**
  * Return the ID of the first workspace the signed-in user can open.
  */
 export async function firstWorkspaceId(
