@@ -36,6 +36,7 @@ import {
   useStartSlackOAuth,
 } from "@/hooks"
 import { useEntitlements } from "@/hooks/use-entitlements"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 import { copyToClipboard } from "@/lib/utils"
 
 type SetupMethod = "existing" | "new"
@@ -168,9 +169,9 @@ export function SlackChannelPanel({
     return (
       <div className="size-full p-6">
         <Alert>
-          <AlertTitle>Enterprise only</AlertTitle>
+          <AlertTitle>{planFeatureTitle("agent_channels")}</AlertTitle>
           <AlertDescription>
-            Agent channels require the agent channels entitlement.
+            Agent channels need the {planLabel("agent_channels")} or higher.
           </AlertDescription>
         </Alert>
       </div>

@@ -38,10 +38,11 @@ export default function AdminTiersPage() {
         </div>
         <Alert variant="warning">
           <AlertTriangleIcon className="size-4" />
-          <AlertTitle>Enterprise license required</AlertTitle>
+          <AlertTitle>MSSP license required</AlertTitle>
           <AlertDescription>
-            All tier settings on this page are Enterprise-only and will be gated
-            behind a license key in a future release.
+            Tiers apply in multi-tenant mode, which needs an MSSP license that
+            grants multi_tenant. Single-tenant deployments take entitlements
+            from the license key instead.
           </AlertDescription>
         </Alert>
         <AdminTiersTable />

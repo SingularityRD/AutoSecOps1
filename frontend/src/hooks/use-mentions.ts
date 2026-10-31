@@ -46,7 +46,7 @@ export type MentionSectionKey =
  * How a mention source behaves on this surface.
  *
  * `unavailable` leaves the trigger character as plain text; `locked` opens the
- * popover on an Enterprise upsell row; `enabled` lists real suggestions.
+ * popover on a plan upgrade row; `enabled` lists real suggestions.
  */
 export type MentionSourceState = "unavailable" | "locked" | "enabled"
 
@@ -193,7 +193,7 @@ type ActiveSession = {
  *
  * `hasEntitlement` also answers false while its query is loading or errored,
  * so an unresolved entitlement stays `unavailable` rather than telling a
- * paying org that the feature it already has is Enterprise-only.
+ * paying org that the feature it already has needs a higher plan.
  */
 function resolveSourceState(
   config: MentionSourceConfig | undefined,
@@ -436,7 +436,7 @@ export function useMentions({
   // Scopes and entitlements resolve after mount, so a trigger typed during the
   // cold load is discarded as `unavailable` and nothing would look at it again
   // until the next keystroke -- a user who types `@` and waits would see
-  // neither the list nor the Enterprise row. Rescan once access settles. The
+  // neither the list nor the plan upgrade row. Rescan once access settles. The
   // key guard keeps `syncSession` changing identity from re-entering this.
   const lastAccessStateRef = useRef(`${agents}:${workflows}`)
   useEffect(() => {

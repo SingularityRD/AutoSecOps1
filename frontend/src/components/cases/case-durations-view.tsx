@@ -23,6 +23,7 @@ import {
   updateCaseDurationDefinition,
 } from "@/lib/case-durations"
 import { useCaseDurationDefinitions } from "@/lib/hooks"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 import { useMutation, useQueryClient } from "@/lib/query"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
@@ -133,15 +134,15 @@ export function CaseDurationsView() {
     return <CenteredSpinner />
   }
 
-  // Show enterprise-only message if feature is not enabled
+  // Show the plan upgrade message if the feature is not enabled
   // This shows immediately after feature flags load (~200ms)
   if (!caseAddonsEnabled) {
     return (
       <div className="size-full overflow-auto">
         <div className="container flex h-full max-w-[1000px] items-center justify-center py-8">
           <EntitlementRequiredEmptyState
-            title="Enterprise only"
-            description="Case durations are only available on enterprise plans."
+            title={planFeatureTitle("case_addons")}
+            description={`Case durations need the ${planLabel("case_addons")} or higher.`}
           >
             <Button
               variant="link"

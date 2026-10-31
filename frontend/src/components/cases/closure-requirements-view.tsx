@@ -24,6 +24,7 @@ import { toast } from "@/components/ui/use-toast"
 import { useEntitlements } from "@/hooks/use-entitlements"
 import { useWorkspaceDetails } from "@/hooks/use-workspace"
 import { useCaseDropdownDefinitions, useCaseFields } from "@/lib/hooks"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 import { useMutation, useQueryClient } from "@/lib/query"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
@@ -159,8 +160,8 @@ export function ClosureRequirementsView() {
       <div className="size-full overflow-auto">
         <div className="container flex h-full max-w-[1000px] items-center justify-center py-8">
           <EntitlementRequiredEmptyState
-            title="Enterprise only"
-            description="Closure requirements are only available on enterprise plans."
+            title={planFeatureTitle("case_addons")}
+            description={`Closure requirements need the ${planLabel("case_addons")} or higher.`}
           >
             <Button
               variant="link"
