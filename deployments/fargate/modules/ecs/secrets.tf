@@ -195,6 +195,54 @@ resource "aws_secretsmanager_secret_version" "db_runtime_password" {
   secret_string = random_password.db_runtime_password.result
 }
 
+# Temporal payload encryption keyring. Unless the operator supplies their own
+# secret, Terraform generates one keyring per stack. It is created whether or
+# not encryption is enabled, so turning encryption off later keeps the key
+# that decrypts existing history. `ignore_changes` lets operators rotate the
+# keyring in Secrets Manager (add a key, move current_key_id) without the next
+# apply reverting it; the random root secret is generated once and kept in
+# state, so applies never rotate it silently.
+locals {
+  temporal_payload_encryption_generate_keyring = var.temporal_payload_encryption_keyring_arn == null
+}
+
+resource "random_password" "temporal_payload_encryption_root_secret" {
+  count   = local.temporal_payload_encryption_generate_keyring ? 1 : 0
+  length  = 64
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "temporal_payload_encryption_keyring" {
+  count       = local.temporal_payload_encryption_generate_keyring ? 1 : 0
+  name_prefix = "${var.name_prefix}-temporal-payload-keyring-"
+  description = "AutoSecOps Temporal payload encryption keyring. Losing it makes encrypted workflow history unreadable."
+}
+
+resource "aws_secretsmanager_secret_version" "temporal_payload_encryption_keyring" {
+  count     = local.temporal_payload_encryption_generate_keyring ? 1 : 0
+  secret_id = aws_secretsmanager_secret.temporal_payload_encryption_keyring[0].id
+  secret_string = jsonencode({
+    current_key_id = "v1"
+    keys = {
+      v1 = random_password.temporal_payload_encryption_root_secret[0].result
+    }
+  })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+locals {
+  # Services read the keyring from Secrets Manager at runtime (and refresh it
+  # on the cache TTL), so a rotation needs no redeploy.
+  temporal_payload_encryption_keyring_arn = (
+    local.temporal_payload_encryption_generate_keyring
+    ? aws_secretsmanager_secret.temporal_payload_encryption_keyring[0].arn
+    : var.temporal_payload_encryption_keyring_arn
+  )
+}
+
 # Sentry DSN is stored in a Terraform-managed secret and injected via ECS
 # `secrets`, never as a plain environment variable: var.sentry_dsn is
 # sensitive, so putting it in the env lists marks every affected

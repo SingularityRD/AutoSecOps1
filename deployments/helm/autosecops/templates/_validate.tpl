@@ -12,6 +12,7 @@ is missing or settings conflict. Rendered from configmap.yaml.
 {{- $_ = required "secrets.signingSecret is required unless secrets.existingSecret is set (generate: openssl rand -hex 32)" .Values.secrets.signingSecret -}}
 {{- $_ = required "secrets.userAuthSecret is required unless secrets.existingSecret is set (generate: openssl rand -hex 32)" .Values.secrets.userAuthSecret -}}
 {{- end -}}
+{{- include "autosecops.validatePayloadEncryption" . -}}
 {{- if not .Values.externalPostgres.auth.existingSecret -}}
 {{- $_ = required "externalPostgres.auth.username is required unless externalPostgres.auth.existingSecret is set" .Values.externalPostgres.auth.username -}}
 {{- $_ = required "externalPostgres.auth.password is required unless externalPostgres.auth.existingSecret is set" .Values.externalPostgres.auth.password -}}
@@ -48,6 +49,31 @@ is missing or settings conflict. Rendered from configmap.yaml.
 {{- end -}}
 {{- if eq .Values.tunnels.namespace .Release.Namespace -}}
 {{- fail "tunnels.namespace must differ from the release namespace: the API gets write access to Secrets and Deployments in the tunnels namespace" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Temporal payload encryption is on by default. The chart never generates the
+keyring: a random value would change on every render (and `lookup` does not
+work under `helm template` or GitOps tools), silently rotating the key and
+making encrypted history unreadable. So require an explicit keyring source.
+*/}}
+{{- define "autosecops.validatePayloadEncryption" -}}
+{{- $pe := .Values.autosecops.temporal.payloadEncryption -}}
+{{- $s := .Values.secrets -}}
+{{- if $pe.enabled -}}
+{{- if not (or $pe.keyringArn $s.existingSecret $s.temporalPayloadEncryptionKeyring) -}}
+{{- fail "Temporal payload encryption is enabled (the default) but no keyring is configured. Set secrets.temporalPayloadEncryptionKeyring (generate: printf '{\"current_key_id\":\"v1\",\"keys\":{\"v1\":\"%s\"}}' \"$(openssl rand -hex 32)\"), add the temporalPayloadEncryptionKeyring key to secrets.existingSecret, or set autosecops.temporal.payloadEncryption.keyringArn. To keep an existing release storing payloads in plaintext, set autosecops.temporal.payloadEncryption.enabled=false. See https://docs.singularityrd.com/self-hosting/updating" -}}
+{{- end -}}
+{{- end -}}
+{{- with $s.temporalPayloadEncryptionKeyring -}}
+{{- if not $s.existingSecret -}}
+{{- $keyring := . | toString | fromJson -}}
+{{- $keys := $keyring.keys | default dict -}}
+{{- if or $keyring.Error (not $keyring.current_key_id) (not (kindIs "map" $keys)) (not (hasKey $keys (toString $keyring.current_key_id))) -}}
+{{- fail "secrets.temporalPayloadEncryptionKeyring must be JSON like {\"current_key_id\": \"v1\", \"keys\": {\"v1\": \"<random secret>\"}} with current_key_id present in keys" -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end }}

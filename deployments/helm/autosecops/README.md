@@ -56,7 +56,7 @@ Minimal values (see `ci/minimal-values.yaml`):
 urls:
   publicApp: https://autosecops.example.com
 secrets:
-  existingSecret: autosecops-secrets          # dbEncryptionKey, serviceKey, signingSecret, userAuthSecret
+  existingSecret: autosecops-secrets          # dbEncryptionKey, serviceKey, signingSecret, userAuthSecret, temporalPayloadEncryptionKeyring
 externalPostgres:
   host: postgres.example.internal
   auth:
@@ -96,12 +96,31 @@ Every credential supports either a chart-created Secret (values) or an
 
 | Values | Secret created by the chart | Keys |
 | :----- | :-------------------------- | :--- |
-| `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, `temporalPayloadEncryptionKeyring` |
+| `secrets.*` | `<fullname>-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, optional `licenseKey`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`; `temporalPayloadEncryptionKeyring` is required while payload encryption is on without `keyringArn` |
 | `externalPostgres.auth` | `<fullname>-postgres-credentials` | `username`, `password`, optional `runtime-password` |
 | `externalRedis.auth` | `<fullname>-redis-credentials` | `url` |
 | `externalS3.auth` | `<fullname>-s3-credentials` | `accessKeyId`, `secretAccessKey` |
 | `externalTemporal.auth` | `<fullname>-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `<fullname>-pangolin-credentials` | `apiKey` |
+
+Temporal payload encryption is on by default, so the core Secret also needs
+`temporalPayloadEncryptionKeyring` unless you set
+`autosecops.temporal.payloadEncryption.keyringArn`. Generate it once and keep
+it with the other core secrets:
+
+```bash
+printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
+```
+
+The chart never generates or rotates the keyring, because a value generated
+at render time would change on every `helm upgrade` or GitOps sync and make
+encrypted workflow history unreadable. Releases installed before encryption
+was the default need a keyring before the next upgrade, or
+`autosecops.temporal.payloadEncryption.enabled=false` to keep plaintext
+payloads: with chart-created secrets the upgrade fails to render, and with
+`secrets.existingSecret` new pods wait in `CreateContainerConfigError` until
+the Secret has the key. Existing plaintext history stays readable after you
+enable it.
 
 With the release name `autosecops`, `<fullname>` is `autosecops`. Each service
 receives only the secrets its Fargate task definition receives:

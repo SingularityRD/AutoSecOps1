@@ -1171,6 +1171,7 @@ ENV_EXAMPLE_GENERATED_SECRETS = (
     "TEMPORAL__POSTGRES_PASSWORD",
     "MINIO_ROOT_PASSWORD",
     "AUTOSECOPS__DB_RUNTIME_PASSWORD",
+    "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING",
 )
 WEAK_DEFAULT_CREDENTIALS = {
     "AUTOSECOPS__POSTGRES_PASSWORD": {"postgres"},
@@ -1198,6 +1199,68 @@ def test_env_example_ships_placeholders_instead_of_weak_secrets() -> None:
         )
     for name, weak_values in WEAK_DEFAULT_CREDENTIALS.items():
         assert values[name] not in weak_values
+
+
+def test_env_example_enables_temporal_payload_encryption() -> None:
+    """New installs encrypt Temporal payloads; env.sh fills in the keyring."""
+    values = _env_example_values()
+    assert values["TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED"] == "true"
+    assert values["TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING"].startswith("change-me-")
+    # Operator-only tuning stays out of .env.example.
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS" not in values
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS" not in values
+
+
+def test_temporal_payload_encryption_upgrade_defaults_stay_plaintext(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An existing env without the setting keeps working without a keyring.
+
+    The code default and every Compose default stay `false`, so upgrading an
+    install whose .env predates the keyring does not start failing. New
+    installs get `true` from env.sh, Helm, and Terraform instead.
+    """
+    monkeypatch.delenv("TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", raising=False)
+    assert env_bool("TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", default=False) is False
+    assert re.search(
+        r"TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED = env_bool\(\s*"
+        r'"TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", default=False',
+        CONFIG_PATH.read_text(),
+    )
+    for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
+        lines = [
+            line.strip()
+            for line in path.read_text().splitlines()
+            if line.strip().startswith("TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED:")
+        ]
+        assert lines, path.name
+        assert set(lines) == {
+            "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED: "
+            "${TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED:-false}"
+        }, path.name
+
+
+def test_temporal_payload_encryption_is_on_by_default_in_helm_and_fargate() -> None:
+    values = (REPO_ROOT / "deployments/helm/autosecops/values.yaml").read_text()
+    assert re.search(r"payloadEncryption:\n(?:\s*#.*\n)*\s*enabled: true\n", values)
+    fargate = REPO_ROOT / "deployments" / "fargate"
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        assert re.search(
+            r'variable "temporal_payload_encryption_enabled" \{[^}]*default\s*=\s*true',
+            (fargate / tf).read_text(),
+        ), tf
+    secrets_tf = (fargate / "modules/ecs/secrets.tf").read_text()
+    assert 'resource "random_password" "temporal_payload_encryption_root_secret"' in (
+        secrets_tf
+    )
+    # Operators rotate the generated keyring in Secrets Manager; Terraform
+    # must not revert it.
+    assert re.search(
+        r'resource "aws_secretsmanager_secret_version" '
+        r'"temporal_payload_encryption_keyring" \{.*?ignore_changes\s*=\s*\[secret_string\]',
+        secrets_tf,
+        re.DOTALL,
+    )
 
 
 def test_env_example_defaults_to_production_mode() -> None:
@@ -1290,6 +1353,27 @@ def test_env_migration_keeps_temporal_postgres_image_pin(tmp_path: Path) -> None
 
     unpinned = _run_env_migration(tmp_path, "AUTOSECOPS__APP_ENV=production\n")
     assert "TEMPORAL__POSTGRES_IMAGE" not in unpinned
+
+
+def test_env_migration_keeps_existing_installs_on_plaintext_payloads(
+    tmp_path: Path,
+) -> None:
+    """Migrating an old .env must not enable encryption without a keyring."""
+    migrated = _run_env_migration(tmp_path, "AUTOSECOPS__APP_ENV=production\n")
+    assert re.search(
+        r"^TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false$", migrated, re.MULTILINE
+    )
+    assert re.search(r"^TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING=$", migrated, re.MULTILINE)
+    assert "change-me-temporal-payload-keyring" not in migrated
+
+    keyring = '\'{"current_key_id":"v1","keys":{"v1":"unit-test-root"}}\''
+    encrypted = _run_env_migration(
+        tmp_path,
+        "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true\n"
+        f"TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING={keyring}\n",
+    )
+    assert "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true\n" in encrypted
+    assert f"TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING={keyring}\n" in encrypted
 
 
 def test_redis_service_runs_pinned_valkey() -> None:

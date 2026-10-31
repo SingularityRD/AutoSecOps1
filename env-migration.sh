@@ -73,6 +73,14 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         if [[ -n "$old_value" ]]; then
             # Key exists in old .env, use its value
             echo "${key}=${old_value}" >> "$TEMP_FILE"
+        elif [[ "$key" == "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED" ]]; then
+            # New installs encrypt Temporal payloads, but an existing install
+            # has no keyring yet: keep its plaintext behavior until the
+            # operator adds one.
+            echo "${key}=false" >> "$TEMP_FILE"
+            payload_encryption_off=true
+        elif [[ "$key" == "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING" ]]; then
+            echo "${key}=" >> "$TEMP_FILE"
         else
             # Key doesn't exist in old .env, copy line as is
             echo "$line" >> "$TEMP_FILE"
@@ -101,3 +109,7 @@ done
 mv "$TEMP_FILE" "$OUTPUT_ENV"
 
 echo "Migration completed. New .env file created"
+if [[ "${payload_encryption_off:-false}" == "true" ]]; then
+    echo "Temporal payload encryption stays off for this install (TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false)."
+    echo "To encrypt workflow history, see https://docs.singularityrd.com/self-hosting/updating#temporal-payload-encryption"
+fi

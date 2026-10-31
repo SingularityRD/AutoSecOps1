@@ -471,8 +471,8 @@ variable "context_compression_threshold_kb" {
 
 variable "temporal_payload_encryption_enabled" {
   type        = bool
-  description = "Enable application-layer encryption for Temporal payloads"
-  default     = false
+  description = "Encrypt Temporal payloads (workflow inputs, results, failures) before they reach the Temporal database. Uses temporal_payload_encryption_keyring_arn, or a keyring Terraform generates in Secrets Manager when that is null."
+  default     = true
 }
 
 variable "temporal_payload_encryption_cache_ttl_seconds" {
@@ -512,7 +512,7 @@ variable "autosecops_signing_secret_arn" {
 
 variable "temporal_payload_encryption_keyring_arn" {
   type        = string
-  description = "The ARN of the secret containing the Temporal payload encryption keyring"
+  description = "The ARN of a secret holding your own Temporal payload encryption keyring. When null, Terraform generates one in Secrets Manager. Before switching an existing stack from the generated keyring to your own, copy its keys into yours so existing workflow history stays readable."
   default     = null
 }
 

@@ -45,7 +45,11 @@ api. Expects dict root, component.
 {{ include "autosecops.env.postgresCredentials" $root }}
 {{ include "autosecops.env.fromSecret" (dict "name" "REDIS_URL" "secret" (include "autosecops.redisSecretName" $root) "key" $root.Values.externalRedis.auth.urlKey) }}
 {{- if ne $c "litellm" }}
-{{ include "autosecops.env.fromSecret" (dict "name" "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING" "secret" $core "key" "temporalPayloadEncryptionKeyring" "optional" true) }}
+{{- /* Required while encryption is on without an ARN, so a Secret missing the
+key stops the pod with an event naming it. Optional otherwise: a keyring kept
+after turning encryption off still decrypts existing history. */}}
+{{- $pe := $root.Values.autosecops.temporal.payloadEncryption }}
+{{ include "autosecops.env.fromSecret" (dict "name" "TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING" "secret" $core "key" "temporalPayloadEncryptionKeyring" "optional" (not (and $pe.enabled (not $pe.keyringArn)))) }}
 {{- if include "autosecops.temporalAuthEnabled" $root }}
 {{ include "autosecops.env.fromSecret" (dict "name" "TEMPORAL__API_KEY" "secret" (include "autosecops.temporalSecretName" $root) "key" $root.Values.externalTemporal.auth.apiKeyKey) }}
 {{- end }}

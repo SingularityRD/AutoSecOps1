@@ -196,3 +196,8 @@ output "core_db_sg_id" {
   description = "The ID of the core database security group"
   value       = module.ecs.core_db_sg_id
 }
+
+output "temporal_payload_encryption_keyring_arn" {
+  description = "ARN of the Secrets Manager secret holding the Temporal payload encryption keyring. Back it up with the other platform secrets; rotate it in place."
+  value       = module.ecs.temporal_payload_encryption_keyring_arn
+}

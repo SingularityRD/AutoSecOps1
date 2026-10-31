@@ -173,3 +173,8 @@ output "caddy_sg_id" {
   value       = aws_security_group.caddy.id
   description = "The ID of the caddy security group"
 }
+
+output "temporal_payload_encryption_keyring_arn" {
+  description = "ARN of the Secrets Manager secret holding the Temporal payload encryption keyring (generated or supplied)"
+  value       = local.temporal_payload_encryption_keyring_arn
+}

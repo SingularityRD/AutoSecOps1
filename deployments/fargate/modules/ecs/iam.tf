@@ -200,8 +200,9 @@ resource "aws_iam_policy" "smtp_password_access" {
   })
 }
 
+# Always present: the keyring is either supplied or generated (secrets.tf).
 resource "aws_iam_policy" "temporal_payload_encryption_keyring_access" {
-  count       = var.temporal_payload_encryption_keyring_arn != null ? 1 : 0
+  count       = 1
   name        = "${var.iam_name_prefix}TemporalPayloadEncryptionKeyringAccessPolicy"
   description = "Policy for accessing the Temporal payload encryption keyring"
 
@@ -211,7 +212,7 @@ resource "aws_iam_policy" "temporal_payload_encryption_keyring_access" {
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = [var.temporal_payload_encryption_keyring_arn]
+        Resource = [local.temporal_payload_encryption_keyring_arn]
       }
     ]
   })
@@ -341,7 +342,7 @@ resource "aws_iam_role_policy_attachment" "api_worker_task_redis" {
 }
 
 resource "aws_iam_role_policy_attachment" "api_worker_task_temporal_payload_encryption_keyring" {
-  count      = var.temporal_payload_encryption_keyring_arn != null ? 1 : 0
+  count      = 1
   policy_arn = aws_iam_policy.temporal_payload_encryption_keyring_access[0].arn
   role       = aws_iam_role.api_worker_task.name
 }
@@ -404,7 +405,7 @@ resource "aws_iam_role_policy_attachment" "executor_task_redis" {
 }
 
 resource "aws_iam_role_policy_attachment" "executor_task_temporal_payload_encryption_keyring" {
-  count      = var.temporal_payload_encryption_keyring_arn != null ? 1 : 0
+  count      = 1
   policy_arn = aws_iam_policy.temporal_payload_encryption_keyring_access[0].arn
   role       = aws_iam_role.executor_task.name
 }
@@ -572,7 +573,7 @@ resource "aws_iam_role_policy" "mcp_task_blob_access" {
 }
 
 resource "aws_iam_role_policy_attachment" "mcp_task_temporal_payload_encryption_keyring" {
-  count      = var.enable_mcp && var.temporal_payload_encryption_keyring_arn != null ? 1 : 0
+  count      = var.enable_mcp ? 1 : 0
   policy_arn = aws_iam_policy.temporal_payload_encryption_keyring_access[0].arn
   role       = aws_iam_role.mcp_task[0].name
 }
