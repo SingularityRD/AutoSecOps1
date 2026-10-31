@@ -143,11 +143,12 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             raise PermissionsException("Operation not permitted")
         # NOTE(security): A stolen session must not be able to change the
         # password without knowing the current one. This covers self-service
-        # updates (`PATCH /users/me`); the superuser-only `PATCH /users/{id}`
-        # route passes safe=False.
+        # updates (`PATCH /users/me`) and a superuser targeting their own
+        # account through `PATCH /users/{id}` (safe=False), which would
+        # otherwise keep the caller's session and end every other one.
         sets_password = user_update.password is not None
         is_own_account = role.user_id == user.id
-        if safe and is_own_account and sets_password:
+        if is_own_account and sets_password:
             self._verify_current_password(user_update, user)
 
         updated_user = await super().update(

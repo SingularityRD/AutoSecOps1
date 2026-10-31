@@ -166,7 +166,35 @@ async def test_profile_update_does_not_need_current_password(
 
 
 @pytest.mark.anyio
-async def test_superuser_patch_user_sets_password_without_current_password(
+@pytest.mark.parametrize("current_password", [None, "wrong-password-000"])
+async def test_superuser_own_password_on_users_id_requires_current_password(
+    manager: UserManager,
+    user_db: AsyncMock,
+    user: User,
+    current_password: str | None,
+) -> None:
+    """A stolen superuser cookie cannot take the account over via `/users/{id}`.
+
+    That route passes safe=False; for the caller's own account it would
+    otherwise set the password, keep the attacker's session, and end every
+    legitimate one.
+    """
+    ctx_role.set(_role(superuser=True, user_id=user.id))
+
+    with pytest.raises(InvalidPasswordException):
+        await manager.update(
+            UserUpdate(password=NEW_PASSWORD, current_password=current_password),
+            user,
+            safe=False,
+            request=_request_with_session("current-session"),
+        )
+
+    user_db.update.assert_not_awaited()
+    user_db.session.execute.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_superuser_patch_own_user_with_current_password(
     manager: UserManager,
     user_db: AsyncMock,
     user: User,
@@ -176,7 +204,7 @@ async def test_superuser_patch_user_sets_password_without_current_password(
     ctx_role.set(_role(superuser=True, user_id=user.id))
 
     await manager.update(
-        UserUpdate(password=NEW_PASSWORD),
+        UserUpdate(password=NEW_PASSWORD, current_password=OLD_PASSWORD),
         user,
         safe=False,
         request=_request_with_session("current-session"),
