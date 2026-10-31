@@ -223,30 +223,39 @@ async def test_reconcile_runs_only_while_holding_the_leader_lock(
     k8s: FakeGateways, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session = AsyncMock()
-    unlock = AsyncMock()
+    lock = {"acquired": False, "released": 0}
+    lock_keys: list[int] = []
 
     @asynccontextmanager
     async def _session_cm():
         yield session
 
+    @asynccontextmanager
+    async def _hold_lock(_engine: Any, key: int, *, wait: bool = True):
+        assert wait is False
+        lock_keys.append(key)
+        try:
+            yield AsyncMock() if lock["acquired"] else None
+        finally:
+            lock["released"] += 1
+
     monkeypatch.setattr(
         gateways, "get_async_session_bypass_rls_context_manager", _session_cm
     )
-    monkeypatch.setattr(gateways, "pg_advisory_unlock", unlock)
+    monkeypatch.setattr(gateways, "get_async_engine", lambda: object())
+    monkeypatch.setattr(gateways, "hold_pg_advisory_xact_lock", _hold_lock)
     monkeypatch.setattr(gateways, "desired_gateway_specs", AsyncMock(return_value=[]))
 
-    monkeypatch.setattr(gateways, "try_pg_advisory_lock", AsyncMock(return_value=False))
     await gateways.reconcile_gateways_once()
     assert k8s.reconciled == []
-    unlock.assert_not_awaited()
 
-    monkeypatch.setattr(gateways, "try_pg_advisory_lock", AsyncMock(return_value=True))
+    lock["acquired"] = True
     await gateways.reconcile_gateways_once()
     assert k8s.reconciled == [[]]
-    unlock.assert_awaited_once()
 
     # The lock is released even when Kubernetes fails mid-reconcile.
     k8s.error = KubernetesError(500, "boom")
     with pytest.raises(KubernetesError):
         await gateways.reconcile_gateways_once()
-    assert unlock.await_count == 2
+    assert lock["released"] == 3
+    assert len(set(lock_keys)) == 1
