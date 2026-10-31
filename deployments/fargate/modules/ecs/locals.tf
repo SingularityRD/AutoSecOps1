@@ -104,6 +104,23 @@ locals {
     AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS = var.audit_trusted_proxy_cidrs
   }
 
+  # Opt-in Prometheus metrics (docs/self-hosting/monitoring.mdx). Without a
+  # scraper security group nothing outside the task can reach the listeners,
+  # so they bind to loopback for a sidecar; with one, the core security group
+  # admits only those scrapers on 9090 and 9100.
+  metrics_bind_host = length(var.metrics_scraper_security_group_ids) > 0 ? "0.0.0.0" : "127.0.0.1"
+
+  autosecops_worker_metrics_env = {
+    TEMPORAL__METRICS_PORT = var.metrics_enabled ? "9090" : null
+    TEMPORAL__METRICS_HOST = var.metrics_enabled ? local.metrics_bind_host : null
+  }
+
+  autosecops_api_metrics_env = {
+    AUTOSECOPS__API_METRICS_ENABLED = var.metrics_enabled
+    AUTOSECOPS__API_METRICS_PORT    = var.metrics_enabled ? "9100" : null
+    AUTOSECOPS__API_METRICS_HOST    = var.metrics_enabled ? local.metrics_bind_host : null
+  }
+
   autosecops_temporal_payload_encryption_env = {
     TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED           = var.temporal_payload_encryption_enabled
     TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING_ARN       = var.temporal_payload_encryption_keyring_arn
@@ -137,6 +154,7 @@ locals {
       local.autosecops_temporal_payload_encryption_env,
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
+      local.autosecops_api_metrics_env,
       {
         AUTOSECOPS__ALLOW_ORIGINS                    = local.allow_origins
         AUTOSECOPS__API_ROOT_PATH                    = "/api"
@@ -173,6 +191,7 @@ locals {
       local.autosecops_temporal_payload_encryption_env,
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_ROOT_PATH           = "/api"
         AUTOSECOPS__API_URL                 = local.internal_api_url
@@ -205,6 +224,7 @@ locals {
       local.autosecops_temporal_payload_encryption_env,
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_ROOT_PATH                   = "/api"
         AUTOSECOPS__API_URL                         = local.internal_api_url
@@ -229,6 +249,7 @@ locals {
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
       local.autosecops_db_configs_executor,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_URL                             = local.internal_api_url
         AUTOSECOPS__DB_ENDPOINT                         = local.core_db_hostname
@@ -260,6 +281,7 @@ locals {
       local.autosecops_blob_storage_env,
       local.autosecops_db_configs,
       local.autosecops_db_configs_executor,
+      local.autosecops_worker_metrics_env,
       {
         AUTOSECOPS__API_URL                                  = local.internal_api_url
         AUTOSECOPS__DB_ENDPOINT                              = local.core_db_hostname

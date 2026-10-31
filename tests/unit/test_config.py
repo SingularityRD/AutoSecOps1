@@ -1483,10 +1483,17 @@ def test_temporal_workers_have_readiness_healthchecks(path: Path) -> None:
         assert service["environment"]["TEMPORAL__METRICS_PORT"] == (
             "${TEMPORAL__METRICS_PORT:-}"
         ), name
+        # Without the passthrough, a loopback bind set in .env would be ignored.
+        assert service["environment"]["TEMPORAL__METRICS_HOST"] == (
+            "${TEMPORAL__METRICS_HOST:-0.0.0.0}"
+        ), name
         assert "9090" not in str(service.get("ports", [])), name
     api = services["api"]
     assert api["environment"]["AUTOSECOPS__API_METRICS_ENABLED"] == (
         "${AUTOSECOPS__API_METRICS_ENABLED:-false}"
+    )
+    assert api["environment"]["AUTOSECOPS__API_METRICS_HOST"] == (
+        "${AUTOSECOPS__API_METRICS_HOST:-0.0.0.0}"
     )
     assert "9100" not in str(api.get("ports", []))
 
@@ -1511,3 +1518,34 @@ def test_fargate_temporal_workers_have_health_checks(task_file: str) -> None:
         'command     = ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "live"]'
         in locals_source
     )
+
+
+def test_fargate_metrics_are_opt_in_and_scoped_to_scrapers() -> None:
+    fargate = REPO_ROOT / "deployments" / "fargate"
+    ecs_dir = fargate / "modules" / "ecs"
+    locals_source = (ecs_dir / "locals.tf").read_text()
+    for name in (
+        "TEMPORAL__METRICS_PORT",
+        "TEMPORAL__METRICS_HOST",
+        "AUTOSECOPS__API_METRICS_ENABLED",
+        "AUTOSECOPS__API_METRICS_PORT",
+        "AUTOSECOPS__API_METRICS_HOST",
+    ):
+        assert name in locals_source, name
+    # Every Temporal worker env merges the metrics env; the background worker
+    # derives from worker_env.
+    assert locals_source.count("local.autosecops_worker_metrics_env,") == 4
+    assert locals_source.count("local.autosecops_api_metrics_env,") == 1
+    # No scraper security group: loopback only, for a sidecar in the task.
+    assert (
+        'length(var.metrics_scraper_security_group_ids) > 0 ? "0.0.0.0" : "127.0.0.1"'
+        in locals_source
+    )
+    for tf in ("variables.tf", "modules/ecs/variables.tf"):
+        source = (fargate / tf).read_text()
+        assert 'variable "metrics_enabled"' in source, tf
+        assert 'variable "metrics_scraper_security_group_ids"' in source, tf
+    main = (fargate / "main.tf").read_text()
+    assert "metrics_enabled                               = var.metrics_enabled" in main
+    security_groups = (ecs_dir / "security_groups.tf").read_text()
+    assert "security_groups = var.metrics_scraper_security_group_ids" in security_groups
