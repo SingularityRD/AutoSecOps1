@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 10
     steps:
       # The default PR checkout validates the candidate merged with its base.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -46,7 +46,7 @@ jobs:
 
       # Compare with the exact base used by this event, not a moving branch tip.
       - name: Check out previous migration history
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.before }}
           path: .migration-base
