@@ -137,6 +137,15 @@ async def get_session_mfa_state(
 ) -> SessionMfaState:
     if access_token.mfa_verified_at is not None:
         return SessionMfaState.VERIFIED
+    return await new_session_mfa_state(session, user)
+
+
+async def new_session_mfa_state(session: AsyncSession, user: User) -> SessionMfaState:
+    """The MFA state a session ``user`` signs in with starts in.
+
+    Never ``VERIFIED``: a session only becomes verified through the
+    /auth/mfa routes.
+    """
     # Break-glass covers platform admin MFA only: a superuser whose
     # organization requires a security key still has to use one.
     if platform_admin_mfa_bypassed(user) and not await _org_policy_requires_mfa(

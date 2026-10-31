@@ -10778,6 +10778,7 @@ export type SecretValidationResult = {
 export type SecuritySettingsRead = {
   ip_allowlist_enabled: boolean
   ip_allowlists: Array<IPAllowlist>
+  service_account_api_key_max_ttl_days?: number | null
 }
 
 /**
@@ -10792,6 +10793,10 @@ export type SecuritySettingsUpdate = {
    * Named groups of allowed IP addresses or CIDR ranges.
    */
   ip_allowlists?: Array<IPAllowlist>
+  /**
+   * Longest lifetime, in days, of a newly issued service account API key. Keys issued without an expiry get this lifetime. Keys issued before the limit was set keep their expiry. Null sets no limit.
+   */
+  service_account_api_key_max_ttl_days?: number | null
 }
 
 export type Select = {
@@ -10836,11 +10841,16 @@ export type name =
 export type ServiceAccountApiKeyCounts = {
   total?: number
   active?: number
+  expired?: number
   revoked?: number
 }
 
 export type ServiceAccountApiKeyCreate = {
   name?: string
+  /**
+   * When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.
+   */
+  expires_at?: string | null
 }
 
 export type ServiceAccountApiKeyIssueResponse = {
@@ -10859,6 +10869,10 @@ export type ServiceAccountApiKeyRead = {
   revoked_by_user?: UserReadMinimal | null
   last_used_at?: string | null
   revoked_at?: string | null
+  /**
+   * When the key stops authenticating. Null: it never expires.
+   */
+  expires_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -10868,6 +10882,10 @@ export type ServiceAccountCreate = {
   description?: string | null
   scope_ids?: Array<string>
   initial_key_name?: string
+  /**
+   * When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.
+   */
+  initial_key_expires_at?: string | null
 }
 
 export type ServiceAccountRead = {

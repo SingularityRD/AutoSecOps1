@@ -33,16 +33,22 @@ from autosecops import config
 from autosecops.auth.api_keys import (
     ORG_API_KEY_PREFIX,
     WORKSPACE_API_KEY_PREFIX,
+    is_api_key_expired,
     parse_managed_api_key,
     verify_api_key,
 )
+from autosecops.auth.audit import AuthAuditFailureReason, emit_api_key_rejected_event
 from autosecops.auth.executor_tokens import known_trigger_type, verify_executor_token
 from autosecops.auth.ip_allowlist_enforcement import (
     enforce_org_ip_allowlist,
     enforce_platform_admin_ip_allowlist,
 )
 from autosecops.auth.mfa.dependencies import VerifiedMfaSession, enforce_step_up
-from autosecops.auth.rate_limit import check_api_key_failures, record_api_key_failure
+from autosecops.auth.rate_limit import (
+    check_api_key_failures,
+    first_expired_api_key_refusal_in_window,
+    record_api_key_failure,
+)
 from autosecops.auth.secrets import get_service_key
 from autosecops.auth.types import PlatformRole, Role
 from autosecops.auth.users import (
@@ -70,7 +76,7 @@ from autosecops.db.models import (
     Workspace,
 )
 from autosecops.db.rls import set_rls_context, set_rls_context_from_role
-from autosecops.identifiers import InternalServiceID
+from autosecops.identifiers import InternalServiceID, OrganizationID
 from autosecops.logger import logger
 from autosecops.organization.management import (
     ensure_single_tenant_user_defaults_for_session,
@@ -366,7 +372,55 @@ async def _authenticate_service(
     )
 
 
+class ExpiredApiKeyError(HTTPException):
+    """A service-account API key whose secret verified but which has expired.
+
+    Answered like any other refused key (``401``), but it is a lifecycle
+    event, not a guess: it neither counts toward the per-IP API-key failure
+    limit nor is audited more than once per key and window.
+    """
+
+    def __init__(
+        self,
+        *,
+        organization_id: OrganizationID,
+        workspace_id: uuid.UUID | None,
+        service_account_id: uuid.UUID,
+        api_key_id: uuid.UUID,
+    ) -> None:
+        super().__init__(
+            status_code=UNAUTHORIZED_EXCEPTION.status_code,
+            detail=UNAUTHORIZED_EXCEPTION.detail,
+            headers=UNAUTHORIZED_EXCEPTION.headers,
+        )
+        self.organization_id = organization_id
+        self.workspace_id = workspace_id
+        self.service_account_id = service_account_id
+        self.api_key_id = api_key_id
+
+
 async def _authenticate_api_key(
+    *,
+    api_key: str,
+    workspace_id: uuid.UUID | None,
+) -> Role | None:
+    try:
+        return await _verify_api_key(api_key=api_key, workspace_id=workspace_id)
+    except ExpiredApiKeyError as exc:
+        # Audited after the auth-pool session is released: the audit writer
+        # needs a main-pool session, which cannot be taken while it is held.
+        if await first_expired_api_key_refusal_in_window(exc.api_key_id):
+            await emit_api_key_rejected_event(
+                organization_id=exc.organization_id,
+                workspace_id=exc.workspace_id,
+                service_account_id=exc.service_account_id,
+                api_key_id=exc.api_key_id,
+                failure_reason=AuthAuditFailureReason.EXPIRED,
+            )
+        raise
+
+
+async def _verify_api_key(
     *,
     api_key: str,
     workspace_id: uuid.UUID | None,
@@ -392,6 +446,16 @@ async def _authenticate_api_key(
         if not verify_api_key(api_key, record.salt, record.hashed):
             raise UNAUTHORIZED_EXCEPTION
         service_account = record.service_account
+        now = datetime.now(UTC)
+        if is_api_key_expired(record.expires_at, now=now):
+            # Raised only after the secret verified, so a guessed key id
+            # cannot write events against someone else's key.
+            raise ExpiredApiKeyError(
+                organization_id=service_account.organization_id,
+                workspace_id=service_account.workspace_id,
+                service_account_id=service_account.id,
+                api_key_id=record.id,
+            )
         if service_account.disabled_at is not None:
             raise UNAUTHORIZED_EXCEPTION
         if not await is_org_entitled(
@@ -441,7 +505,7 @@ async def _authenticate_api_key(
                 )
             resolved_workspace_id = workspace_id or bound_workspace_id
 
-        record.last_used_at = datetime.now(UTC)
+        record.last_used_at = now
         session.add(record)
         await session.commit()
         ctx_service_account_api_key_id.set(record.id)
@@ -466,6 +530,10 @@ async def _authenticate_api_key_rate_limited(
     await check_api_key_failures(request)
     try:
         role = await _authenticate_api_key(api_key=api_key, workspace_id=workspace_id)
+    except ExpiredApiKeyError:
+        # The caller holds the real secret; an expired key is not a guess,
+        # and counting it would lock every key behind a shared egress IP.
+        raise
     except HTTPException as exc:
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
             await record_api_key_failure(request)

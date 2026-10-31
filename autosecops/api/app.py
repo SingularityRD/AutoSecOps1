@@ -99,6 +99,10 @@ from autosecops.api.lifespan import (
     unfreeze_startup_heap,
 )
 from autosecops.api.openapi import install_openapi_component_schemas
+from autosecops.auth.audit import (
+    AUTH_AUDIT_DRAIN_TIMEOUT_SECONDS,
+    drain_auth_audit_tasks,
+)
 from autosecops.auth.credentials import (
     authenticated_user_only,
     require_superuser,
@@ -399,6 +403,14 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Auth audit events (refused logins, reset requests) are written off the
+    # request path. Give them a short bounded window, inside the task drain
+    # budget, before they are cancelled and the loss is logged.
+    await drain_auth_audit_tasks(
+        timeout=min(
+            AUTH_AUDIT_DRAIN_TIMEOUT_SECONDS, config.AUTOSECOPS__API_TASK_DRAIN_TIMEOUT
+        )
+    )
     await supervisor.drain()
     unfreeze_startup_heap()
     await close_storage_client_cache()

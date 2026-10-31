@@ -12226,7 +12226,7 @@ export const settingsGetSecuritySettings =
 
 /**
  * Update Security Settings
- * Update the organization IP allowlist.
+ * Update the organization IP allowlist and API key lifetime limit.
  *
  * Enabling a non-empty allowlist that excludes the caller's own IP is
  * rejected so an admin cannot lock themselves out of the organization.

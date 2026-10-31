@@ -137,8 +137,10 @@ function createServiceAccount(params: {
   ownerUserId?: string | null
   ownerUser?: UserReadMinimal | null
   totalKeys: number
+  expiredKeys?: number
   scopes?: ServiceAccountScopeRead[]
 }): ServiceAccountRead {
+  const expiredKeys = params.expiredKeys ?? 0
   return {
     id: params.id,
     organization_id: "org-1",
@@ -156,7 +158,8 @@ function createServiceAccount(params: {
     api_key_counts: {
       total: params.totalKeys,
       active: params.activeApiKey ? 1 : 0,
-      revoked: params.activeApiKey ? params.totalKeys - 1 : params.totalKeys,
+      expired: expiredKeys,
+      revoked: params.totalKeys - expiredKeys - (params.activeApiKey ? 1 : 0),
     },
   }
 }
@@ -355,5 +358,36 @@ describe("ServiceAccountsManager", () => {
       await screen.findByRole("button", { name: "Revoke API key" })
     ).toBeInTheDocument()
     expect(screen.getAllByText(/Alice Example/).length).toBeGreaterThan(1)
+  })
+
+  it("shows an account whose only key expired as key expired, not active", () => {
+    renderManager([
+      createServiceAccount({
+        id: "sa-expired",
+        name: "Delta bot",
+        description: "Polls with an expired key",
+        totalKeys: 1,
+        expiredKeys: 1,
+      }),
+      createServiceAccount({
+        id: "sa-no-key",
+        name: "Charlie bot",
+        totalKeys: 0,
+      }),
+    ])
+
+    expect(screen.getAllByText("Key expired").length).toBeGreaterThan(1)
+
+    fireEvent.click(screen.getByRole("button", { name: "Active" }))
+    expect(screen.queryByText("Delta bot")).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Key expired" }))
+    expect(screen.getByText("Delta bot")).toBeInTheDocument()
+    expect(screen.queryByText("Charlie bot")).not.toBeInTheDocument()
+
+    // Neither account can authenticate.
+    fireEvent.click(screen.getByRole("button", { name: "No active key" }))
+    expect(screen.getByText("Delta bot")).toBeInTheDocument()
+    expect(screen.getByText("Charlie bot")).toBeInTheDocument()
   })
 })

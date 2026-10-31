@@ -77,6 +77,7 @@ def _service_account_read(
                 revoked_by=None,
                 last_used_at=now,
                 revoked_at=revoked_at,
+                expires_at=None,
                 created_at=now,
                 updated_at=revoked_at,
             ),
@@ -89,6 +90,7 @@ def _service_account_read(
                 revoked_by=None,
                 last_used_at=revoked_at,
                 revoked_at=None,
+                expires_at=None,
                 created_at=revoked_at,
                 updated_at=revoked_at,
             ),
@@ -459,10 +461,65 @@ async def test_create_organization_service_account_api_key_success(
             "revoked_by_user": None,
             "last_used_at": None,
             "revoked_at": None,
+            "expires_at": None,
             "created_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:00:00Z",
         },
     }
+    mock_svc.issue_api_key.assert_awaited_once_with(
+        service_account.id, name="Primary", expires_at=None
+    )
+
+
+@pytest.mark.anyio
+async def test_create_organization_service_account_api_key_forwards_expiry(
+    client: TestClient,
+    test_admin_role: Role,
+) -> None:
+    role_with_scope = test_admin_role.model_copy(
+        update={
+            "scopes": frozenset(
+                set(test_admin_role.scopes or frozenset())
+                | {"org:service_account:update"}
+            ),
+        }
+    )
+    organization_id = role_with_scope.organization_id
+    assert organization_id is not None
+    service_account = _organization_service_account_read(organization_id)
+    api_key = _api_key_read("Primary", "tc_org_sk_...abcd")
+    expires_at = datetime(2030, 1, 1, tzinfo=UTC)
+    api_key.expires_at = expires_at
+
+    with patch.object(
+        service_accounts_router, "OrganizationServiceAccountService"
+    ) as mock_service_cls:
+        mock_svc = AsyncMock()
+        mock_svc.issue_api_key.return_value = (service_account, api_key, "raw-secret")
+        mock_service_cls.return_value = mock_svc
+
+        token = ctx_role.set(role_with_scope)
+        try:
+            response = client.post(
+                f"/organization/service-accounts/{service_account.id}/api-keys",
+                json={"name": "Primary", "expires_at": "2030-01-01T00:00:00Z"},
+            )
+            naive = client.post(
+                f"/organization/service-accounts/{service_account.id}/api-keys",
+                json={"name": "Primary", "expires_at": "2030-01-01T00:00:00"},
+            )
+        finally:
+            ctx_role.reset(token)
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.json()["issued_api_key"]["api_key"]["expires_at"] == (
+        "2030-01-01T00:00:00Z"
+    )
+    mock_svc.issue_api_key.assert_awaited_once_with(
+        service_account.id, name="Primary", expires_at=expires_at
+    )
+    # A time-zone-less expiry is ambiguous, so the request is refused.
+    assert naive.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @pytest.mark.anyio
