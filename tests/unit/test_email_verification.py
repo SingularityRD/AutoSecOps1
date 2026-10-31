@@ -257,7 +257,8 @@ async def test_token_for_another_account_is_rejected(
         await manager.verify_with_password(token, NEW_PASSWORD)
 
 
-def test_verification_email_links_to_the_app_and_escapes() -> None:
+@pytest.mark.anyio
+async def test_verification_email_links_to_the_app_and_escapes() -> None:
     message = verification_email(to="member@example.com", token="a.b+c/d")
 
     assert message.to == ("member@example.com",)
