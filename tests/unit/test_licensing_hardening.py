@@ -351,6 +351,34 @@ async def test_license_monitor_runs_a_pass_and_stops(
     assert mock_logger.error.called
 
 
+@pytest.mark.anyio
+async def test_license_monitor_does_not_log_single_tenant_expiry_when_lapsed(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    """Lapsed tenants keep their tiers, so "entitlements are disabled" is false."""
+    _multi_tenant(monkeypatch)
+    _install(
+        monkeypatch,
+        _token(
+            embedded_key,
+            entitlements=["multi_tenant"],
+            expires_at=datetime.now(UTC) - LICENSE_GRACE_PERIOD - timedelta(days=1),
+        ),
+    )
+    monkeypatch.setattr(license_multi_tenant, "refresh_license_clock", AsyncMock())
+    monkeypatch.setattr(license_multi_tenant, "logger", MagicMock())
+    service_logger = MagicMock()
+    monkeypatch.setattr(license_service, "logger", service_logger)
+    stop = asyncio.Event()
+
+    task = asyncio.create_task(run_license_monitor(stop))
+    await asyncio.sleep(0.05)
+    stop.set()
+    await asyncio.wait_for(task, timeout=5)
+
+    service_logger.error.assert_not_called()
+
+
 # --- Admin status ----------------------------------------------------------------
 
 

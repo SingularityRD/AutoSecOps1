@@ -112,15 +112,17 @@ async def run_license_monitor(stop_event: asyncio.Event) -> None:
     """Refresh the license clock and re-check the license once an hour.
 
     Runs in every API process until ``stop_event`` is set. Each pass persists
-    the clock high-water mark, re-evaluates the license (which logs grace,
-    expired, and invalid states at most hourly), and logs an error while
+    the clock high-water mark, re-evaluates the license (which, single-tenant,
+    logs grace, expired, and invalid states at most hourly), and logs an error while
     multi-tenant mode runs on a lapsed license, so a long-running deployment
     surfaces a lapse without waiting for a restart.
     """
     while not stop_event.is_set():
         try:
             await refresh_license_clock()
-            get_license_state()
+            # In multi-tenant mode tenants keep their tier entitlements, so the
+            # single-tenant "paid entitlements are disabled" log would be false.
+            get_license_state(log=not config.AUTOSECOPS__EE_MULTI_TENANT)
             if get_multi_tenant_mode() is MultiTenantMode.LAPSED:
                 log_multi_tenant_lapsed()
         except Exception as exc:
