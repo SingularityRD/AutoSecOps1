@@ -76,8 +76,14 @@ async def test_update_service_account_can_clear_description(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    "current_key_expires_at",
+    # An expired key the rotation replaces is revoked too.
+    [None, datetime(2024, 1, 2, tzinfo=UTC)],
+)
 async def test_issue_api_key_locks_service_account_before_rotation(
     monkeypatch: pytest.MonkeyPatch,
+    current_key_expires_at: datetime | None,
 ) -> None:
     service_account_id = uuid.uuid4()
     active_key = SimpleNamespace(
@@ -85,6 +91,7 @@ async def test_issue_api_key_locks_service_account_before_rotation(
         created_at=datetime(2024, 1, 1, tzinfo=UTC),
         revoked_at=None,
         revoked_by=None,
+        expires_at=current_key_expires_at,
     )
     created_key = SimpleNamespace(id=uuid.uuid4())
     service_account = SimpleNamespace(
@@ -117,7 +124,14 @@ async def test_issue_api_key_locks_service_account_before_rotation(
         AsyncMock(return_value=(created_key, "tcok_test_raw")),
     )
 
-    result = await service._issue_api_key(service_account_id, name="Rotated")
+    # No organization key lifetime limit applies.
+    monkeypatch.setattr(
+        service, "_resolve_api_key_expiry", AsyncMock(return_value=None)
+    )
+
+    result = await service._issue_api_key(
+        service_account_id, name="Rotated", expires_at=None
+    )
 
     assert result.api_key is created_key
     assert active_key.revoked_at is not None

@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from autosecops.authz.enums import ScopeSource
 
+SERVICE_ACCOUNT_API_KEY_MAX_TTL_DAYS_KEY = "service_account_api_key_max_ttl_days"
+"""Organization setting: the longest lifetime, in days, of a newly issued key."""
+API_KEY_MAX_TTL_DAYS_MIN = 1
+API_KEY_MAX_TTL_DAYS_MAX = 3650
+
 WORKSPACE_SERVICE_ACCOUNT_ASSIGNABLE_SCOPES: frozenset[str] = frozenset(
     {
         "agent:read",

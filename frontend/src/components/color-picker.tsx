@@ -31,6 +31,7 @@ export const ColorPicker = ({
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <button
+            type="button"
             className={cn(
               "flex size-6 items-center justify-center rounded border border-border shadow-sm",
               !hasColor && "bg-muted text-[9px] text-muted-foreground"
