@@ -10,6 +10,7 @@ from fastapi_users import InvalidPasswordException
 from autosecops.audit.service import AuditService
 from autosecops.auth.credentials import SuperuserRole, SuperuserStepUpRole
 from autosecops.auth.mfa.service import MfaService
+from autosecops.auth.users import revoke_all_user_credentials
 from autosecops.db.dependencies import AsyncDBSessionBypass
 from autosecops.db.models import User
 from autosecops.exceptions import AutoSecOpsNotFoundError
@@ -146,19 +147,23 @@ async def reset_user_mfa(
 ) -> None:
     """Remove a user's security keys and recovery codes after they lose access.
 
-    If a policy still requires MFA, the user must register a new key at their
-    next sign-in.
+    A lost key may be in someone else's hands, so every login session and MCP
+    credential of the account also ends, as on a password reset. If a policy
+    still requires MFA, the user must register a new key at their next
+    sign-in.
     """
     if await session.get(User, user_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     removed = await MfaService(session).reset_user_mfa(user_id)
+    revocation = await revoke_all_user_credentials(user_id, revoked_by=role.user_id)
     logger.info(
         "Platform admin reset user MFA",
         actor_id=str(role.user_id),
         user_id=str(user_id),
         credentials_removed=removed,
+        **revocation.audit_data(),
     )
     try:
         async with AuditService.with_session(
@@ -168,6 +173,7 @@ async def reset_user_mfa(
                 resource_type="security_key",
                 action="reset",
                 resource_id=user_id,
+                data=revocation.audit_data(),
                 include_actor_label=False,
             )
     except Exception as exc:

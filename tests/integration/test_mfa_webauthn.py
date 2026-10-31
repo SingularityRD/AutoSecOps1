@@ -55,6 +55,7 @@ from autosecops.db.engine import (
 )
 from autosecops.db.models import (
     AccessToken,
+    MCPPersonalAccessToken,
     MfaRecoveryCode,
     Organization,
     OrganizationSetting,
@@ -306,6 +307,42 @@ async def _credential_count(user: User) -> int:
             select(WebAuthnCredential.id).where(WebAuthnCredential.user_id == user.id)
         )
         return len(result.scalars().all())
+
+
+async def _seed_mcp_token(user: User) -> uuid.UUID:
+    """Give a user one live MCP personal access token in a fresh organization."""
+    suffix = uuid.uuid4().hex
+    async with get_async_session_bypass_rls_context_manager() as session:
+        organization = Organization(
+            id=uuid.uuid4(), name=f"Org {suffix}", slug=f"org-{suffix}", is_active=True
+        )
+        session.add(organization)
+        await session.flush()
+        pat = MCPPersonalAccessToken(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            organization_id=organization.id,
+            name="mcp",
+            key_id=suffix,
+            hashed="unused",
+            salt="unused",
+            preview="unused",
+        )
+        session.add(pat)
+        await session.commit()
+        return pat.id
+
+
+async def _mcp_token_revoked(pat_id: uuid.UUID) -> bool:
+    async with get_async_session_bypass_rls_context_manager() as session:
+        revoked_at = (
+            await session.execute(
+                select(MCPPersonalAccessToken.revoked_at).where(
+                    MCPPersonalAccessToken.id == pat_id  # pyright: ignore[reportArgumentType]
+                )
+            )
+        ).scalar_one()
+    return revoked_at is not None
 
 
 async def _sign_count(user: User) -> int:
@@ -743,7 +780,9 @@ async def test_break_glass_bypass_keeps_organization_policy(
 
 
 @pytest.mark.anyio
-async def test_admin_reset_removes_keys_revokes_sessions_and_requires_step_up() -> None:
+async def test_admin_reset_removes_keys_revokes_credentials_and_requires_step_up() -> (
+    None
+):
     admin = await _create_user(superuser=True)
     admin_key = SoftAuthenticator()
     member = await _create_user()
@@ -752,6 +791,7 @@ async def test_admin_reset_removes_keys_revokes_sessions_and_requires_step_up() 
     async with _client(member_token) as client:
         assert (await _register(client, member_key)).status_code == 201
         assert (await client.get("/users/me")).status_code == 200
+    member_pat = await _seed_mcp_token(member)
 
     admin_token = await _new_session(admin)
     async with _client(admin_token) as client:
@@ -767,6 +807,7 @@ async def test_admin_reset_removes_keys_revokes_sessions_and_requires_step_up() 
         assert (await client.get("/users/me")).status_code == 401
 
     assert await _credential_count(member) == 0
+    assert await _mcp_token_revoked(member_pat)
     async with _client(await _new_session(member)) as client:
         assert (await client.get("/users/me")).status_code == 200
 
