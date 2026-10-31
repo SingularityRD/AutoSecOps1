@@ -278,12 +278,15 @@ Reversible encryption is keyed by `AUTOSECOPS__DB_ENCRYPTION_KEY` and uses Ferne
 - Remote MCP server headers and `stdio` MCP environment variables.
 - Custom LLM provider credentials and Slack agent-channel credentials.
 - Organization and platform settings marked sensitive, including the audit webhook URL, its headers, and its custom payload.
+- Invitation tokens, so the email outbox and `Copy invitation link` can rebuild the link. AutoSecOps looks invitations up by digest, never by this ciphertext.
 
 API tokens are hashed one-way:
 
 - AutoSecOps stores service account API keys, MCP personal access tokens, and webhook API keys as a salted BLAKE2b digest, verifies a presented token in constant time, and cannot recover the original.
 - AutoSecOps returns the raw token once, at creation, and keeps a short preview prefix so you can identify it later.
 - Rotate a lost token to replace it.
+
+Browser session cookies and invitation links carry random 256-bit or longer tokens. AutoSecOps stores only their SHA-256 digest and looks a presented token up by digest, so a database backup, a replica, or a database account yields no usable session or invitation link. Tokens issued before an installation upgraded to this behavior stay stored as before until they expire, after at most 7 days by default. Changing your password signs out your other sessions.
 
 <Warning>
   **AutoSecOps stores MCP commands and URLs in cleartext**

@@ -53,6 +53,10 @@ from autosecops.auth.ip_allowlist_enforcement import (
 from autosecops.auth.mfa.policy import get_session_mfa_state
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
+from autosecops.auth.session_tokens import (
+    HashedAccessTokenDatabase,
+    access_token_matches,
+)
 from autosecops.auth.types import PlatformRole, Role
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.contexts import ctx_request_audit, ctx_role
@@ -173,9 +177,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             AccessToken.user_id == user.id  # pyright: ignore[reportArgumentType]
         )
         if current_token:
-            statement = statement.where(
-                AccessToken.token != current_token  # pyright: ignore[reportArgumentType]
-            )
+            statement = statement.where(~access_token_matches(current_token))
         session = self._user_db.session
         result = await session.execute(statement.returning(AccessToken.id))
         revoked = len(result.scalars().all())
@@ -858,7 +860,7 @@ async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 async def get_access_token_db(
     session: AsyncSession = Depends(get_async_session),
 ) -> AsyncGenerator[SQLAlchemyAccessTokenDatabase[AccessToken], None]:
-    yield SQLAlchemyAccessTokenDatabase(session, AccessToken)
+    yield HashedAccessTokenDatabase(session, AccessToken)
 
 
 def get_user_db_context(
@@ -942,7 +944,17 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
     Captures the client IP and User-Agent when a session is created and
     refreshes ``last_seen_at`` on reads, throttled so an active session incurs
     at most one write per ``SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS``.
+
+    Paired with ``HashedAccessTokenDatabase``, the database row holds only the
+    token digest, so ``write_token`` returns the raw value it generated rather
+    than the stored one.
     """
+
+    async def write_token(self, user: User) -> str:
+        access_token_dict = self._create_access_token_dict(user)
+        raw_token: str = access_token_dict["token"]
+        await self.database.create(access_token_dict)
+        return raw_token
 
     def _create_access_token_dict(self, user: User) -> dict[str, Any]:
         token_dict = super()._create_access_token_dict(user)
