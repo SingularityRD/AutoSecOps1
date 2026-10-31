@@ -7,6 +7,14 @@ application exception handlers, binds every database dependency to the test's
 ``session`` fixture, and resolves every ``RoleACL`` dependency to a role the
 test can swap between requests.
 
+Scope: these tests cover application-level tenant isolation only, meaning the
+``organization_id`` and ``workspace_id`` filters in services and routes. Row
+level security is not exercised here, even with ``AUTOSECOPS__RLS_MODE=enforce``:
+the shared session connects as the test database owner and never runs
+``_initialize_session_rls_context``, so no policy applies. RLS policies are
+covered by ``tests/unit/test_rls_policies.py``, which connects as a non-owner
+role.
+
 Each request runs like a production request: it starts from committed state,
 and anything it flushed without committing is rolled back when it ends, as
 production discards it when it closes the request session.
