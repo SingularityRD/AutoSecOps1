@@ -435,3 +435,22 @@ def test_release_draft_starts_at_the_checkout_version() -> None:
     assert "select(.prerelease | not)" in resolve["run"]
     config = yaml.safe_load((ROOT / ".github" / "release-drafter.yml").read_text())
     assert config["tag-template"] == "$RESOLVED_VERSION"
+
+
+@pytest.mark.parametrize(
+    "doc", [".agents/skills/gh-release/SKILL.md", "CONTRIBUTING.md"]
+)
+def test_release_steps_require_the_current_publishers_before_tagging(
+    doc: str,
+) -> None:
+    """Guards in a workflow only protect tags whose commit carries them.
+
+    The forward-only `latest` guard runs from the tagged commit's own copy of
+    build-push-images.yml, so the release process must check that copy against
+    main before tagging and backport it to every supported train.
+    """
+    text = " ".join((ROOT / doc).read_text().split())
+    assert "git diff --exit-code origin/main" in text
+    for workflow in ("build-push-images.yml", "build-offline-bundle.yml"):
+        assert f".github/workflows/{workflow}" in text, workflow
+    assert "every supported train" in text

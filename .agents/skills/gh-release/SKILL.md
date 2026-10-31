@@ -48,9 +48,26 @@ Resolve the selected commit to an immutable `COMMIT_SHA` and the branch to
 retain the source commits' cherry-pick provenance. Do not release an unmerged
 PR. Check the selected commit's CI and stop on missing or failing evidence
 unless the user explicitly accepts it.
-Verify the selected branch contains the stable-only image guard and the current
-release workflow before cutting its tag; old train branches may need those
-changes cherry-picked first.
+GitHub runs the workflows stored in the tagged commit, so guards on `main`
+(the stable-only and forward-only `latest` guards, signing, and the offline
+bundle's protected environment) protect a tag only if its commit carries them.
+Before cutting a tag, require the release workflows on `COMMIT_SHA` to match
+`origin/main` exactly, and stop on any difference:
+
+```sh
+git fetch origin main
+git diff --exit-code origin/main "$COMMIT_SHA" -- \
+  .github/workflows/build-push-images.yml \
+  .github/workflows/build-offline-bundle.yml
+```
+
+On a supported older train branch, cherry-pick the current workflows from
+`main` through a reviewed PR first; do this for every supported train as soon
+as the publisher changes on `main`, not when a hotfix is already urgent. A
+hotfix tag whose `build-push-images.yml` predates the forward-only guard would
+move `latest` back to the older train. A newer stable tag whose release was
+abandoned keeps `latest` from moving; resolve it by releasing the next patch
+on the newest train, never by deleting or moving that tag.
 
 ## License signing key
 
