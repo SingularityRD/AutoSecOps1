@@ -30,10 +30,15 @@ test.describe("organization members", () => {
       await expect(
         page.getByRole("heading", { name: "Members and access control" })
       ).toBeVisible()
-      await page.getByRole("button", { name: "Invite member" }).click()
-
       const dialog = page.getByRole("dialog", { name: "Invite member" })
-      await expect(dialog).toBeVisible()
+      // The button sits in the members table toolbar, which re-renders while
+      // the member list and role queries settle; retry until the dialog opens.
+      await expect(async () => {
+        await page
+          .getByRole("button", { name: "Invite member" })
+          .click({ timeout: 2_000 })
+        await expect(dialog).toBeVisible({ timeout: 2_000 })
+      }).toPass()
       await dialog.getByPlaceholder("user@example.com").fill(email)
       await dialog.getByRole("combobox", { name: "Grant 1 role" }).click()
       await page.getByRole("option", { name: role.name, exact: true }).click()
