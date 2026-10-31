@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from autosecops import config
 from autosecops.api.app import app as api_app
+from autosecops.auth import audit as auth_audit
 from autosecops.auth import credentials
 from autosecops.auth import rate_limit as rl
 
@@ -50,6 +51,18 @@ async def redis_client(
     monkeypatch.setattr(config, "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", True)
     yield client
     await client.aclose()
+
+
+@pytest.fixture(autouse=True)
+def throttle_events(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """Capture rate-limit audit events instead of resolving a real sink."""
+    events: list[dict[str, Any]] = []
+
+    async def fake_emit(**kwargs: Any) -> None:
+        events.append(kwargs)
+
+    monkeypatch.setattr(rl, "emit_anonymous_auth_event", fake_emit)
+    return events
 
 
 def _limits(monkeypatch: pytest.MonkeyPatch, **limits: int) -> None:
@@ -317,8 +330,13 @@ async def test_api_auth_routes_are_rate_limited(
     _limits(monkeypatch, **{setting: 1})
     await rl.consume(rule(), PUBLIC_CLIENT[0])
 
-    async with _client(api_app) as client:
-        response = await client.request(method, path, **kwargs)
+    try:
+        async with _client(api_app) as client:
+            response = await client.request(method, path, **kwargs)
+    finally:
+        # Reset the built middleware stack so later tests in this worker can
+        # still add middleware to the shared app.
+        api_app.middleware_stack = None
 
     assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert "Retry-After" in response.headers
@@ -398,3 +416,151 @@ async def test_successful_api_key_auth_is_not_counted(
             is role
         )
     assert await redis_client.keys("auth:rate_limit:*") == []
+
+
+def _expired_key_error() -> credentials.ExpiredApiKeyError:
+    return credentials.ExpiredApiKeyError(
+        organization_id=uuid.uuid4(),
+        workspace_id=None,
+        service_account_id=uuid.uuid4(),
+        api_key_id=uuid.uuid4(),
+    )
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_does_not_lock_out_the_client_ip(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One expired integration behind a shared egress IP must not block others."""
+    _limits(monkeypatch, API_KEY_FAILURES_PER_IP=2)
+    monkeypatch.setattr(
+        credentials,
+        "_authenticate_api_key",
+        AsyncMock(side_effect=_expired_key_error()),
+    )
+
+    for _ in range(5):
+        with pytest.raises(HTTPException) as exc_info:
+            await credentials._authenticate_api_key_rate_limited(
+                request=_request(), api_key="tc_org_sk_expired", workspace_id=None
+            )
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    assert await redis_client.keys("auth:rate_limit:api_key_failures_ip:*") == []
+    role = Mock()
+    monkeypatch.setattr(
+        credentials, "_authenticate_api_key", AsyncMock(return_value=role)
+    )
+    assert (
+        await credentials._authenticate_api_key_rate_limited(
+            request=_request(), api_key="tc_org_sk_other", workspace_id=None
+        )
+        is role
+    )
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_refusal_is_audited_once_per_window(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Applies even with rate limiting off: it bounds audit volume, not access.
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED", False)
+    key_id, other_key_id = uuid.uuid4(), uuid.uuid4()
+
+    assert await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert not await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert not await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert await rl.first_expired_api_key_refusal_in_window(other_key_id)
+
+
+@pytest.mark.anyio
+async def test_expired_api_key_refusal_is_audited_when_redis_is_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _broken() -> Any:
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr(rl, "get_redis_client", _broken)
+    key_id = uuid.uuid4()
+
+    assert await rl.first_expired_api_key_refusal_in_window(key_id)
+    assert await rl.first_expired_api_key_refusal_in_window(key_id)
+
+
+# === Audit === #
+
+
+@pytest.mark.anyio
+async def test_only_the_tripping_login_is_audited(
+    redis_client: aioredis.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+    throttle_events: list[dict[str, Any]],
+) -> None:
+    """A flood of refused requests writes one audit event per window."""
+    _limits(monkeypatch, LOGIN_PER_IP=100, LOGIN_PER_ACCOUNT=2)
+    async with _client(_app()) as client:
+        statuses = [
+            (await _login(client, "Member@example.com")).status_code for _ in range(6)
+        ]
+
+    assert statuses == [200, 200, 429, 429, 429, 429]
+    assert throttle_events == [
+        {
+            "identifier": "member@example.com",
+            "action": "throttle",
+            "data": {"operation": "login_account", "failure_reason": "rate_limited"},
+        }
+    ]
+
+
+@pytest.mark.anyio
+async def test_api_key_lockout_is_audited_once(
+    redis_client: aioredis.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+    throttle_events: list[dict[str, Any]],
+) -> None:
+    _limits(monkeypatch, API_KEY_FAILURES_PER_IP=2)
+    monkeypatch.setattr(
+        credentials,
+        "_authenticate_api_key",
+        AsyncMock(side_effect=credentials.UNAUTHORIZED_EXCEPTION),
+    )
+
+    for _ in range(4):
+        with pytest.raises(HTTPException):
+            await credentials._authenticate_api_key_rate_limited(
+                request=_request(), api_key="tc_org_sk_bad", workspace_id=None
+            )
+
+    assert throttle_events == [
+        {
+            "identifier": None,
+            "action": "throttle",
+            "data": {
+                "operation": "api_key_failures_ip",
+                "failure_reason": "rate_limited",
+            },
+        }
+    ]
+
+
+@pytest.mark.anyio
+async def test_throttle_audit_failure_still_refuses(
+    redis_client: aioredis.Redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A broken audit sink must not turn a 429 into an admitted request."""
+    _limits(monkeypatch, LOGIN_PER_IP=1, LOGIN_PER_ACCOUNT=100)
+    monkeypatch.setattr(
+        rl, "emit_anonymous_auth_event", auth_audit.emit_anonymous_auth_event
+    )
+    monkeypatch.setattr(
+        auth_audit.AuditService,
+        "with_session",
+        Mock(side_effect=RuntimeError("audit sink unavailable")),
+    )
+    async with _client(_app()) as client:
+        first = await _login(client, "member@example.com")
+        second = await _login(client, "member@example.com")
+
+    assert first.status_code == 200
+    assert second.status_code == status.HTTP_429_TOO_MANY_REQUESTS

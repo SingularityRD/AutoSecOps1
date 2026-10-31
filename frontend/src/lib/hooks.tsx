@@ -410,6 +410,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@/lib/query"
+import { LAST_VIEWED_WORKSPACE_COOKIE } from "@/lib/workspace-cookie"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
 /**
@@ -1129,18 +1130,18 @@ export function useWorkspaceManager() {
 
   // Cookies
   const getLastWorkspaceId = useCallback(
-    () => Cookies.get("__autosecops:workspaces:last-viewed"),
+    () => Cookies.get(LAST_VIEWED_WORKSPACE_COOKIE),
     []
   )
   const setLastWorkspaceId = useCallback((id?: string) => {
     if (!id) {
-      Cookies.set("__autosecops:workspaces:last-viewed", "")
+      Cookies.set(LAST_VIEWED_WORKSPACE_COOKIE, "")
       return
     }
-    Cookies.set("__autosecops:workspaces:last-viewed", id)
+    Cookies.set(LAST_VIEWED_WORKSPACE_COOKIE, id)
   }, [])
   const clearLastWorkspaceId = useCallback(() => {
-    Cookies.remove("__autosecops:workspaces:last-viewed")
+    Cookies.remove(LAST_VIEWED_WORKSPACE_COOKIE)
   }, [])
 
   return {

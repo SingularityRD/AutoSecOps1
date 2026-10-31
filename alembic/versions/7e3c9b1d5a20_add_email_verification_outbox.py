@@ -1,7 +1,7 @@
 """Add the email verification outbox and grandfather existing accounts.
 
 Revision ID: 7e3c9b1d5a20
-Revises: 21042b4645f1
+Revises: d3a7e5c1b9f2
 Create Date: 2026-10-31 12:00:00.000000
 
 Password sign-in now requires a verified email. Accounts that exist before this
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "7e3c9b1d5a20"
-down_revision: str | None = "21042b4645f1"
+down_revision: str | None = "d3a7e5c1b9f2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

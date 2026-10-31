@@ -198,17 +198,21 @@ function ArtifactOpenButton({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span aria-label="No full view" className="inline-flex" tabIndex={0}>
-            <Button
-              aria-hidden="true"
-              size="sm"
-              variant="ghost"
-              className="pointer-events-none size-7 p-0"
-              disabled
-            >
-              <ExternalLink className="size-3.5" />
-            </Button>
-          </span>
+          {/* A natively disabled button cannot take focus or fire pointer
+              events, so the tooltip would never open. aria-disabled keeps it
+              focusable and announced as a disabled button while the click
+              handler makes it inert. */}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-disabled="true"
+            aria-label="No full view"
+            className="size-7 cursor-not-allowed p-0 opacity-50 hover:bg-transparent"
+            onClick={(event) => event.preventDefault()}
+          >
+            <ExternalLink className="size-3.5" />
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">No full view</TooltipContent>
       </Tooltip>

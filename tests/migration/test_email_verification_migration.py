@@ -11,7 +11,7 @@ from sqlalchemy.pool import NullPool
 
 from tests.database import TEST_DB_CONFIG
 
-PREVIOUS_REVISION = "21042b4645f1"
+PREVIOUS_REVISION = "d3a7e5c1b9f2"
 VERIFICATION_REVISION = "7e3c9b1d5a20"
 
 

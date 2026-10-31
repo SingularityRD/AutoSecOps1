@@ -258,7 +258,7 @@ Table text comparisons with `eq`, `ne`, `in`, and `not_in` are case-sensitive. U
 
 `score` is cosine similarity, so compare it within one search rather than against a fixed threshold. `index` reports how many rows are indexed. The action fails while the index is still building; set `allow_partial: true` to search only indexed rows. To read the next page, pass `next_cursor` as `cursor` within five minutes and keep the other inputs unchanged.
 
-Vector search requires an Enterprise plan and an [LLM provider](/agents/llm-providers) with an embedding model.
+Vector search requires the Business plan or higher and an [LLM provider](/agents/llm-providers) with an embedding model.
 
 ## Fetch full rows for search results
 

@@ -1,9 +1,9 @@
 | Field | Description |
 | --- | --- |
-| `organization_id` | Organization scope. `null` on platform events, except the platform copy of an organization-scoped `auth` `sign_in`, which carries the organization's ID. |
+| `organization_id` | Organization scope. `null` on platform events, except the platform copy of an organization-scoped authentication or account event, which carries the organization's ID. |
 | `workspace_id` | Workspace that owns the affected resource, when applicable. |
-| `actor_type` | `USER`, `SERVICE_ACCOUNT`, `SCIM`, `ROBOT`, `WORKFLOW`, or `AGENT`. |
-| `actor_id` | Stable ID of the principal that performed the action: the user, service account, SCIM connection, robot key, workflow, or agent session. |
+| `actor_type` | `USER`, `SERVICE_ACCOUNT`, `SCIM`, `ROBOT`, `WORKFLOW`, `AGENT`, or `ANONYMOUS`. |
+| `actor_id` | Stable ID of the principal that performed the action: the user, service account, SCIM connection, robot key, workflow, or agent session. For `ANONYMOUS`, a keyed pseudonym of the email the request named, or the nil UUID when it named none. |
 | `actor_label` | User email or service-account name, when available. |
 | `ip_address` | Source IP address, when available. |
 | `user_agent` | Bounded client user-agent string, when available. |

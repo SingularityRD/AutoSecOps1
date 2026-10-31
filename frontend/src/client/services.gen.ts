@@ -59,6 +59,7 @@ import type {
   AdminGetUserData,
   AdminGetUserResponse,
   AdminLicenseGetLicenseResponse,
+  AdminLicenseResetLicenseClockResponse,
   AdminListOrganizationDomainsData,
   AdminListOrganizationDomainsResponse,
   AdminListOrganizationInvitationsData,
@@ -11304,6 +11305,24 @@ export const adminLicenseGetLicense =
   }
 
 /**
+ * Reset License Clock
+ * Reset the license clock high-water mark to this replica's current time.
+ *
+ * Recovery for a host clock that pushed the mark into the future. Allowed only
+ * while the mark is ahead of the system clock and after this replica has seen
+ * a steady clock for a few minutes. Every reset is audited and recorded.
+ * @returns LicenseClockResetRead Successful Response
+ * @throws ApiError
+ */
+export const adminLicenseResetLicenseClock =
+  (): CancelablePromise<AdminLicenseResetLicenseClockResponse> => {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/admin/license/clock/reset",
+    })
+  }
+
+/**
  * Start Case Agent Session Interaction Backfill
  * Start or join the durable historical case-mutation backfill.
  * @returns CaseAgentSessionInteractionBackfillStartResponse Successful Response
@@ -12232,7 +12251,7 @@ export const settingsGetSecuritySettings =
 
 /**
  * Update Security Settings
- * Update the organization IP allowlist.
+ * Update the organization IP allowlist and API key lifetime limit.
  *
  * Enabling a non-empty allowlist that excludes the caller's own IP is
  * rejected so an admin cannot lock themselves out of the organization.

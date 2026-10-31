@@ -40,6 +40,7 @@ from autosecops.db.models import OAuthAccount, Organization, User
 from autosecops.exceptions import LicenseLimitExceeded
 from autosecops.licensing import deployment as license_deployment
 from autosecops.licensing import enforcement, keys
+from autosecops.licensing import multi_tenant as license_multi_tenant
 from autosecops.licensing import service as license_service
 from autosecops.licensing.deployment import (
     DEPLOYMENT_ID_PREFIX,
@@ -69,6 +70,7 @@ from autosecops.licensing.types import (
     LicenseState,
     LicenseStatus,
 )
+from autosecops.organization import management as organization_management
 from autosecops.organization import router as organization_router
 from autosecops.organization.management import create_organization
 from autosecops.tiers import defaults as tier_defaults
@@ -570,6 +572,16 @@ async def test_create_organization_is_blocked_at_org_limit(
 ) -> None:
     monkeypatch.setattr(config, "AUTOSECOPS__EE_MULTI_TENANT", True)
     _patch_limits(monkeypatch, LicenseLimits(max_organizations=1), organizations=1)
+    monkeypatch.setattr(
+        license_multi_tenant,
+        "get_license_state",
+        lambda log: LicenseState(
+            status=LicenseStatus.VALID, grants=frozenset({LicenseGrant.MULTI_TENANT})
+        ),
+    )
+    monkeypatch.setattr(
+        organization_management, "ensure_license_deployment_loaded", AsyncMock()
+    )
     session = AsyncMock()
     session.add = MagicMock()
 

@@ -29,6 +29,7 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from fastapi_users.exceptions import (
     FastAPIUsersException,
     InvalidID,
+    InvalidResetPasswordToken,
     UserAlreadyExists,
     UserAlreadyVerified,
     UserInactive,
@@ -41,7 +42,16 @@ from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
+from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
+from autosecops.audit.types import AuditAction, AuditMetadataValue
+from autosecops.auth.audit import (
+    AuthAuditFailureReason,
+    CredentialOperation,
+    emit_anonymous_auth_event,
+    emit_user_auth_event,
+    spawn_auth_audit_task,
+)
 from autosecops.auth.domain_policy import (
     is_domain_allowed_for_org,
     is_org_saml_enforced,
@@ -57,10 +67,18 @@ from autosecops.auth.ip_allowlist_enforcement import (
     current_client_ip,
     is_ip_allowed_for_org,
 )
-from autosecops.auth.mfa.policy import get_session_mfa_state
+from autosecops.auth.mfa.policy import (
+    SessionMfaState,
+    get_session_mfa_state,
+    new_session_mfa_state,
+)
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
-from autosecops.auth.types import PlatformRole, Role
+from autosecops.auth.session_tokens import (
+    HashedAccessTokenDatabase,
+    access_token_matches,
+)
+from autosecops.auth.types import CredentialRevocation, PlatformRole, Role
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.contexts import ctx_request_audit, ctx_role
 from autosecops.db.engine import (
@@ -74,6 +92,8 @@ from autosecops.db.models import (
     AccessToken,
     ExternalUser,
     Invitation,
+    MCPPersonalAccessToken,
+    MCPRefreshToken,
     OAuthAccount,
     OrganizationDomain,
     OrganizationMembership,
@@ -146,20 +166,80 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             raise PermissionsException("Operation not permitted")
         # NOTE(security): A stolen session must not be able to change the
         # password without knowing the current one. This covers self-service
-        # updates (`PATCH /users/me`); the superuser-only `PATCH /users/{id}`
-        # route passes safe=False.
-        changes_own_password = (
-            safe and role.user_id == user.id and user_update.password is not None
-        )
-        if changes_own_password:
+        # updates (`PATCH /users/me`) and a superuser targeting their own
+        # account through `PATCH /users/{id}` (safe=False), which would
+        # otherwise keep the caller's session and end every other one.
+        sets_password = user_update.password is not None
+        is_own_account = role.user_id == user.id
+        if is_own_account and sets_password:
             self._verify_current_password(user_update, user)
 
         updated_user = await super().update(
             user_update, user, safe=True, request=request
         )
-        if changes_own_password:
-            await self._revoke_other_sessions(updated_user, request)
+        if sets_password:
+            await self._after_password_set(
+                updated_user,
+                request=request,
+                actor_user_id=role.user_id,
+                is_own_account=is_own_account,
+            )
         return updated_user
+
+    async def _after_password_set(
+        self,
+        user: User,
+        *,
+        request: Request | None,
+        actor_user_id: uuid.UUID | None,
+        is_own_account: bool,
+    ) -> None:
+        """Revoke the sessions a new password must end, then audit the change.
+
+        The account holder keeps the session that made the change. A password
+        set by someone else ends every session of the account, since any of
+        them may belong to whoever the change is meant to lock out.
+        """
+        if is_own_account:
+            operation = CredentialOperation.PASSWORD_CHANGE
+            revoked = await self._revoke_sessions(
+                user, keep_token=self._request_session_token(request)
+            )
+            data: dict[str, AuditMetadataValue] = {
+                "operation": operation.value,
+                "changed_fields": ["password"],
+                "revoked_session_count": revoked,
+            }
+        else:
+            operation = CredentialOperation.ADMIN_PASSWORD_SET
+            revocation = await revoke_all_user_credentials(
+                user.id, revoked_by=actor_user_id
+            )
+            revoked = revocation.sessions
+            data = {
+                "operation": operation.value,
+                "changed_fields": ["password"],
+                **revocation.audit_data(),
+            }
+        self.logger.info(
+            "Revoked sessions after password change",
+            user_id=str(user.id),
+            operation=operation.value,
+            revoked=revoked,
+        )
+        # An administrator acts above the account's organizations; the
+        # organization route already audits its own member update.
+        organization_id = (
+            await self._audit_organization_for_safe(user) if is_own_account else None
+        )
+        await emit_user_auth_event(
+            user_id=user.id,
+            actor_user_id=actor_user_id,
+            resource_type="user",
+            action="update",
+            data=data,
+            organization_id=organization_id,
+        )
 
     def _verify_current_password(
         self, user_update: schemas.BaseUserUpdate, user: User
@@ -179,27 +259,21 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if not verified:
             raise InvalidPasswordException("Current password is incorrect")
 
-    async def _revoke_other_sessions(self, user: User, request: Request | None) -> None:
-        """Delete the user's sessions except the one that made this request."""
-        current_token = (
-            request.cookies.get(cookie_transport.cookie_name) if request else None
-        )
-        statement = delete(AccessToken).where(
-            AccessToken.user_id == user.id  # pyright: ignore[reportArgumentType]
-        )
-        if current_token:
-            statement = statement.where(
-                AccessToken.token != current_token  # pyright: ignore[reportArgumentType]
-            )
+    @staticmethod
+    def _request_session_token(request: Request | None) -> str | None:
+        """The session cookie that authenticated ``request``, if any."""
+        return request.cookies.get(cookie_transport.cookie_name) if request else None
+
+    async def _revoke_sessions(self, user: User, *, keep_token: str | None) -> int:
+        """Delete the user's sessions, except ``keep_token``, and commit."""
         session = self._user_db.session
-        result = await session.execute(statement.returning(AccessToken.id))
-        revoked = len(result.scalars().all())
+        revoked = await revoke_user_sessions(session, user.id, keep_token=keep_token)
         await session.commit()
-        self.logger.info(
-            "Revoked other sessions after password change",
-            user_id=str(user.id),
-            revoked=revoked,
-        )
+        return revoked
+
+    async def _audit_organization_for_safe(self, user: User) -> OrganizationID | None:
+        """:func:`single_organization_for_audit`, or the platform sink on error."""
+        return await audit_organization_for_user(user)
 
     async def admin_update(
         self,
@@ -257,22 +331,62 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         validate_email(email=email, allowed_domains=allowed_domains)
 
     async def authenticate(self, credentials: OAuth2PasswordRequestForm) -> User | None:
-        """Authenticate local email/password and enforce platform/org policy."""
+        """Authenticate local email/password and enforce platform/org policy.
+
+        Every refusal is audited before it is returned. The client gets the
+        same bad-credentials response for each, so only the audit trail tells
+        the reasons apart.
+        """
         user = await super().authenticate(credentials)
         if user is None:
+            # Audited off the request path, so the response time cannot tell
+            # an unknown email from a wrong password.
+            spawn_auth_audit_task(_audit_failed_password_login(credentials.username))
+            return None
+        if not user.is_active:
+            # The login route refuses inactive accounts with the same response.
+            await self._audit_sign_in_failure(
+                user,
+                auth_method="basic",
+                reason=AuthAuditFailureReason.INACTIVE_ACCOUNT,
+            )
             return None
         if not await self._is_local_password_login_allowed(user):
             self.logger.info(
                 "Blocked local email/password login by auth policy",
                 user_id=str(user.id),
-                email=user.email,
+            )
+            await self._audit_sign_in_failure(
+                user,
+                auth_method="basic",
+                reason=AuthAuditFailureReason.AUTH_POLICY,
             )
             return None
-        await self._enforce_login_ip_allowlist(user)
+        await self._enforce_login_ip_allowlist(user, auth_method="basic")
         return user
 
+    async def _audit_sign_in_failure(
+        self,
+        user: User,
+        *,
+        auth_method: str,
+        reason: AuthAuditFailureReason,
+        organization_id: OrganizationID | None = None,
+    ) -> None:
+        """Audit a refused sign-in by a known account; never raises."""
+        await _audit_sign_in_failure(
+            user,
+            auth_method=auth_method,
+            reason=reason,
+            organization_id=organization_id,
+        )
+
     async def _enforce_login_ip_allowlist(
-        self, user: User, *, organization_id: OrganizationID | None = None
+        self,
+        user: User,
+        *,
+        auth_method: str,
+        organization_id: OrganizationID | None = None,
     ) -> None:
         """Reject a login whose client IP no member organization admits.
 
@@ -301,6 +415,12 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             "Blocked login by organization IP allowlist",
             user_id=str(user.id),
             client_ip=str(client_ip) if client_ip else None,
+        )
+        await self._audit_sign_in_failure(
+            user,
+            auth_method=auth_method,
+            reason=AuthAuditFailureReason.IP_NOT_ALLOWED,
+            organization_id=next(iter(org_ids)) if len(org_ids) == 1 else None,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -517,7 +637,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if is_verified_by_default and not user.is_verified:
             # Linked by email to an account nobody verified.
             user = await self.adopt_unverified_account(user, method="oidc")
-        await self._enforce_login_ip_allowlist(user)
+        await self._enforce_login_ip_allowlist(user, auth_method="oidc")
         return user
 
     async def create(
@@ -602,16 +722,39 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 user=user.email,
                 error=e,
             )
-        # Only fan out to an organization sink when the login carries explicit
-        # org context (e.g. SAML against a specific org). A context-less login
-        # (basic/OIDC) has no org scope, so it is recorded in the platform sink
-        # only and must not be attributed into org-controlled audit sinks.
-        org_ids = {organization_id} if organization_id is not None else set()
+        # Fan out to an organization sink only when the login carries explicit
+        # org context (e.g. SAML against a specific org) or the account belongs
+        # to exactly one organization. A context-less login by a superuser or
+        # a multi-organization member is recorded in the platform sink only
+        # and must not be attributed into org-controlled audit sinks.
+        org_ids: set[OrganizationID] = set()
+        if organization_id is not None:
+            org_ids.add(organization_id)
+        elif (
+            audit_org_id := await self._audit_organization_for_safe(user)
+        ) is not None:
+            org_ids.add(audit_org_id)
+        # A session that still owes a security key is not signed in yet: the
+        # /auth/mfa routes record the sign-in once the key is verified.
+        mfa_state = await self._new_session_mfa_state(user)
         await self._emit_auth_success_audit(
             user=user,
             auth_method=self._auth_method_from_request(request),
             org_ids=org_ids,
+            mfa_state=mfa_state,
         )
+
+    async def _new_session_mfa_state(self, user: User) -> SessionMfaState | None:
+        """The MFA state of the session just created, or ``None`` if unknown."""
+        try:
+            return await new_session_mfa_state(self._user_db.session, user)
+        except Exception as exc:
+            self.logger.warning(
+                "Failed to resolve MFA state for sign-in audit",
+                user_id=str(user.id),
+                error_type=type(exc).__name__,
+            )
+            return None
 
     async def on_after_register(
         self, user: User, request: Request | None = None
@@ -836,18 +979,30 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         user: User,
         auth_method: str,
         org_ids: set[OrganizationID] | None = None,
+        mfa_state: SessionMfaState | None = SessionMfaState.NOT_REQUIRED,
     ) -> None:
         """Emit sanitized auth success events to the relevant audit sinks.
 
-        ``org_ids`` is the set of organizations the login is explicitly scoped
-        to. It is empty (or ``None``) for context-less logins (basic/OIDC),
-        which are recorded in the platform sink only. Organization-scoped sinks
+        ``org_ids`` is the set of organizations the login is attributed to. It
+        is empty (or ``None``) for a login no single organization owns, which
+        is recorded in the platform sink only. Organization-scoped sinks
         receive a sign-in event only for orgs in ``org_ids`` -- we never fan out
         across all of a user's memberships for a login that carried no org
         context, since that would attribute a non-org-specific login (including
         platform-superuser sessions) into org-controlled audit sinks.
+        A superuser sign-in always reaches the platform sink as well.
+
+        A session that still owes a security key (or whose MFA state could
+        not be read) is recorded as ``ATTEMPT`` with ``data.mfa_state``, not
+        ``SUCCESS``: a stolen password alone must not read as a sign-in.
         """
-        if user.is_superuser:
+        data: dict[str, AuditMetadataValue] = {"auth_method": auth_method}
+        if mfa_state is None or mfa_state.is_pending:
+            status = AuditEventStatus.ATTEMPT
+            data["mfa_state"] = mfa_state.value if mfa_state else "unknown"
+        else:
+            status = AuditEventStatus.SUCCESS
+        if user.is_superuser or not org_ids:
             audit_role = PlatformRole(
                 type="user",
                 user_id=user.id,
@@ -862,7 +1017,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                         resource_type="auth",
                         action="sign_in",
                         resource_id=user.id,
-                        data={"auth_method": auth_method},
+                        status=status,
+                        data=data,
                         include_actor_label=False,
                     )
             except Exception as exc:
@@ -891,7 +1047,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                             resource_type="auth",
                             action="sign_in",
                             resource_id=user.id,
-                            data={"auth_method": auth_method},
+                            status=status,
+                            data=data,
                             include_actor_label=False,
                         )
                 except Exception as exc:
@@ -913,6 +1070,17 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 "Blocked password reset request by auth policy",
                 user_id=str(user.id),
             )
+            # Off the request path, like every forgot-password audit, so the
+            # response time cannot tell a registered email from an unknown one.
+            spawn_auth_audit_task(
+                self._audit_credential_event(
+                    user,
+                    action="request",
+                    operation=CredentialOperation.PASSWORD_RESET_REQUESTED,
+                    status=AuditEventStatus.FAILURE,
+                    failure_reason=AuthAuditFailureReason.AUTH_POLICY,
+                )
+            )
             return
         await super().forgot_password(user, request)
 
@@ -922,6 +1090,84 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # NOTE(security): Never log the token. It is a bearer credential that
         # resets the account password, and logs reach far more readers.
         self.logger.info("Password reset requested", user_id=str(user.id))
+        # Off the request path: an unknown email returns at once, so audit
+        # work here would make registered accounts measurably slower.
+        spawn_auth_audit_task(
+            self._audit_credential_event(
+                user,
+                action="request",
+                operation=CredentialOperation.PASSWORD_RESET_REQUESTED,
+            )
+        )
+
+    async def reset_password(
+        self, token: str, password: str, request: Request | None = None
+    ) -> User:
+        """Reset a password with a reset token, auditing a refused token."""
+        try:
+            return await super().reset_password(token, password, request)
+        except InvalidResetPasswordToken:
+            # The token names no account the caller has proven to hold, so the
+            # refusal is attributed to an anonymous actor.
+            await emit_anonymous_auth_event(
+                identifier=None,
+                action="reset",
+                data={
+                    "operation": CredentialOperation.PASSWORD_RESET.value,
+                    "failure_reason": AuthAuditFailureReason.INVALID_TOKEN.value,
+                },
+            )
+            raise
+
+    async def on_after_reset_password(
+        self, user: User, request: Request | None = None
+    ) -> None:
+        """End every session and MCP credential of the account, then audit it.
+
+        A reset is how an account is recovered from whoever holds it, so no
+        existing session survives it, including any the requester holds, and
+        neither do the MCP personal access tokens or MCP OAuth grants that
+        whoever held the account could have minted.
+        """
+        revocation = await revoke_all_user_credentials(user.id, revoked_by=None)
+        self.logger.info(
+            "Revoked all sessions and MCP credentials after password reset",
+            user_id=str(user.id),
+            revoked=revocation.sessions,
+            revoked_mcp_personal_access_tokens=revocation.mcp_personal_access_tokens,
+            revoked_mcp_refresh_tokens=revocation.mcp_refresh_tokens,
+        )
+        await self._audit_credential_event(
+            user,
+            action="reset",
+            operation=CredentialOperation.PASSWORD_RESET,
+            revocation=revocation,
+        )
+
+    async def _audit_credential_event(
+        self,
+        user: User,
+        *,
+        action: AuditAction,
+        operation: CredentialOperation,
+        status: AuditEventStatus = AuditEventStatus.SUCCESS,
+        failure_reason: AuthAuditFailureReason | None = None,
+        revocation: CredentialRevocation | None = None,
+    ) -> None:
+        """Audit a credential lifecycle event the account holder acted in."""
+        data: dict[str, AuditMetadataValue] = {"operation": operation.value}
+        if failure_reason is not None:
+            data["failure_reason"] = failure_reason.value
+        if revocation is not None:
+            data.update(revocation.audit_data())
+        await emit_user_auth_event(
+            user_id=user.id,
+            resource_type="user",
+            action=action,
+            status=status,
+            data=data,
+            organization_id=await self._audit_organization_for_safe(user),
+        )
 
     async def request_verify(self, user: User, request: Request | None = None) -> None:
         """Queue a verification email instead of minting a token now.
@@ -989,7 +1235,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             allow_auto_provisioning=allow_auto_provisioning,
             provider="saml",
         )
-        await self._enforce_login_ip_allowlist(user, organization_id=organization_id)
+        await self._enforce_login_ip_allowlist(
+            user, auth_method="saml", organization_id=organization_id
+        )
         self.logger.info(f"User {user.id} authenticated via SAML.")
         return user
 
@@ -1071,7 +1319,7 @@ async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 async def get_access_token_db(
     session: AsyncSession = Depends(get_async_session),
 ) -> AsyncGenerator[SQLAlchemyAccessTokenDatabase[AccessToken], None]:
-    yield SQLAlchemyAccessTokenDatabase(session, AccessToken)
+    yield HashedAccessTokenDatabase(session, AccessToken)
 
 
 def get_user_db_context(
@@ -1155,7 +1403,17 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
     Captures the client IP and User-Agent when a session is created and
     refreshes ``last_seen_at`` on reads, throttled so an active session incurs
     at most one write per ``SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS``.
+
+    Paired with ``HashedAccessTokenDatabase``, the database row holds only the
+    token digest, so ``write_token`` returns the raw value it generated rather
+    than the stored one.
     """
+
+    async def write_token(self, user: User) -> str:
+        access_token_dict = self._create_access_token_dict(user)
+        raw_token: str = access_token_dict["token"]
+        await self.database.create(access_token_dict)
+        return raw_token
 
     def _create_access_token_dict(self, user: User) -> dict[str, Any]:
         token_dict = super()._create_access_token_dict(user)
@@ -1236,6 +1494,26 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
                 session_id=access_token.id,
                 error=e,
             )
+
+    async def destroy_token(self, token: str, user: User) -> None:
+        """End the session, then audit the sign-out."""
+        await super().destroy_token(token, user)
+        organization_id: OrganizationID | None = None
+        try:
+            organization_id = await single_organization_for_audit(user)
+        except Exception as exc:
+            logger.warning(
+                "Failed to resolve organization for sign-out audit",
+                user_id=str(user.id),
+                error_type=type(exc).__name__,
+            )
+        await emit_user_auth_event(
+            user_id=user.id,
+            resource_type="auth",
+            action="sign_out",
+            data={"auth_method": "session"},
+            organization_id=organization_id,
+        )
 
 
 def get_database_strategy(
@@ -1319,6 +1597,204 @@ async def get_or_create_user(params: UserCreate, exist_ok: bool = True) -> User:
                     if not exist_ok:
                         raise
                     return await user_manager.get_by_email(params.email)
+
+
+async def revoke_user_sessions(
+    session: AsyncSession, user_id: uuid.UUID, *, keep_token: str | None = None
+) -> int:
+    """Delete a user's login sessions without committing.
+
+    Args:
+        session: The session to delete in; the caller commits.
+        user_id: The account whose sessions end.
+        keep_token: A session token to keep, such as the one that made the
+            request; every other session of the account is deleted.
+
+    Returns:
+        The number of sessions deleted.
+    """
+    statement = delete(AccessToken).where(
+        AccessToken.user_id == user_id  # pyright: ignore[reportArgumentType]
+    )
+    if keep_token:
+        # Rows hold the token digest (or the raw value for pre-hashing rows),
+        # so the raw cookie value must be matched the same way a login is.
+        statement = statement.where(~access_token_matches(keep_token))
+    result = await session.execute(statement.returning(AccessToken.id))
+    return len(result.scalars().all())
+
+
+async def revoke_user_mcp_credentials(
+    session: AsyncSession, user_id: uuid.UUID, *, revoked_by: uuid.UUID | None
+) -> tuple[int, int]:
+    """Revoke a user's MCP personal access tokens and refresh tokens.
+
+    Does not commit. Takes the user's MCP refresh-token lock first, so a
+    rotation that commits concurrently cannot leave a fresh token behind.
+    MCP access tokens already issued from a refresh token are not tracked
+    and stay valid until they expire.
+
+    Args:
+        session: A session that can see every organization's rows, such as
+            an RLS-bypass session; the caller commits.
+        user_id: The account whose MCP credentials end.
+        revoked_by: The administrator who caused the revocation, if any.
+
+    Returns:
+        The number of personal access tokens and of refresh tokens revoked.
+    """
+    await lock_mcp_refresh_token_users(session, [user_id])
+    pat_result = await session.execute(
+        update(MCPPersonalAccessToken)
+        .where(
+            MCPPersonalAccessToken.user_id == user_id,  # pyright: ignore[reportArgumentType]
+            MCPPersonalAccessToken.revoked_at.is_(None),  # pyright: ignore[reportAttributeAccessIssue]
+        )
+        .values(revoked_at=func.now(), revoked_by=revoked_by)
+        .returning(MCPPersonalAccessToken.id)
+    )
+    refresh_result = await session.execute(
+        update(MCPRefreshToken)
+        .where(
+            MCPRefreshToken.user_id == user_id,  # pyright: ignore[reportArgumentType]
+            MCPRefreshToken.status == "active",  # pyright: ignore[reportArgumentType]
+        )
+        .values(status="revoked")
+        .returning(MCPRefreshToken.id)
+    )
+    return len(pat_result.scalars().all()), len(refresh_result.scalars().all())
+
+
+async def revoke_all_user_credentials(
+    user_id: uuid.UUID, *, revoked_by: uuid.UUID | None
+) -> CredentialRevocation:
+    """End every login session and MCP credential of an account, atomically.
+
+    Used when a password is reset or set by an administrator, where every
+    credential may belong to whoever the change is meant to lock out. Runs on
+    an RLS-bypass session of its own: the request that triggers it has no
+    tenant scope that covers all of the account's organizations, and a scoped
+    session would silently skip the other organizations' tokens. Errors
+    propagate, so a failed revocation is never reported as a recovery.
+
+    Args:
+        user_id: The account whose credentials end.
+        revoked_by: The administrator who set the password, if any.
+
+    Returns:
+        How many credentials of each kind were revoked.
+    """
+    async with get_async_session_bypass_rls_context_manager() as session:
+        sessions = await revoke_user_sessions(session, user_id)
+        pats, refresh_tokens = await revoke_user_mcp_credentials(
+            session, user_id, revoked_by=revoked_by
+        )
+        await session.commit()
+    return CredentialRevocation(
+        sessions=sessions,
+        mcp_personal_access_tokens=pats,
+        mcp_refresh_tokens=refresh_tokens,
+    )
+
+
+async def single_organization_for_audit(user: User) -> OrganizationID | None:
+    """The one organization an unscoped auth event can be attributed to.
+
+    A platform superuser acts above organizations, and a member of several
+    organizations gives no way to tell which one an unscoped event is about,
+    so both stay in the platform sink. A member of exactly one organization
+    is unambiguous.
+
+    Args:
+        user: The account the event is about.
+
+    Returns:
+        The organization ID, or ``None`` when the event belongs in the
+        platform sink only.
+    """
+    if user.is_superuser:
+        return None
+    statement = (
+        select(OrganizationMembership.organization_id)
+        .where(OrganizationMembership.user_id == user.id)
+        .limit(2)
+    )
+    async with get_async_session_auth_context_manager() as session:
+        org_ids = (await session.execute(statement)).scalars().all()
+    return org_ids[0] if len(org_ids) == 1 else None
+
+
+async def audit_organization_for_user(user: User) -> OrganizationID | None:
+    """:func:`single_organization_for_audit`, or the platform sink on error."""
+    try:
+        return await single_organization_for_audit(user)
+    except Exception as exc:
+        logger.warning(
+            "Failed to resolve organization for auth audit",
+            user_id=str(user.id),
+            error_type=type(exc).__name__,
+        )
+        return None
+
+
+async def _audit_sign_in_failure(
+    user: User,
+    *,
+    auth_method: str,
+    reason: AuthAuditFailureReason,
+    organization_id: OrganizationID | None = None,
+) -> None:
+    """Audit a refused sign-in by a known account; never raises."""
+    if organization_id is None:
+        organization_id = await audit_organization_for_user(user)
+    await emit_user_auth_event(
+        user_id=user.id,
+        resource_type="auth",
+        action="sign_in",
+        status=AuditEventStatus.FAILURE,
+        data={"auth_method": auth_method, "failure_reason": reason.value},
+        organization_id=organization_id,
+    )
+
+
+async def _lookup_user_for_audit(email: str) -> User | None:
+    """Find the account a submitted email names, on a session of its own."""
+    async with get_async_session_auth_context_manager() as session:
+        result = await session.execute(
+            select(User).where(func.lower(User.email) == email.strip().lower())  # pyright: ignore[reportArgumentType]
+        )
+        return result.scalars().first()
+
+
+async def _audit_failed_password_login(email: str) -> None:
+    """Audit a password login that matched no account or a wrong password.
+
+    The submitted password is never recorded. The submitted email is recorded
+    only as a keyed pseudonym, and only when no account holds it. Never raises.
+    """
+    try:
+        user = await _lookup_user_for_audit(email)
+    except Exception as exc:
+        logger.warning(
+            "Failed to resolve account for login failure audit",
+            error_type=type(exc).__name__,
+        )
+        return
+    if user is None:
+        await emit_anonymous_auth_event(
+            identifier=email,
+            action="sign_in",
+            data={
+                "auth_method": "basic",
+                "failure_reason": AuthAuditFailureReason.UNKNOWN_ACCOUNT.value,
+            },
+        )
+        return
+    await _audit_sign_in_failure(
+        user,
+        auth_method="basic",
+        reason=AuthAuditFailureReason.INVALID_CREDENTIALS,
+    )
 
 
 async def _has_matching_invitation(

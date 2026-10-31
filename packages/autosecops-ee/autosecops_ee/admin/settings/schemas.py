@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from autosecops.settings.schemas import (
     AuditSettingsRead,
     AuditSettingsUpdate,
-    SecuritySettingsRead,
-    SecuritySettingsUpdate,
+    IPAllowlistSettingsRead,
+    IPAllowlistSettingsUpdate,
 )
 
 
@@ -36,11 +36,11 @@ class PlatformAuditSettingsUpdate(AuditSettingsUpdate):
     """Update platform audit settings."""
 
 
-class PlatformSecuritySettingsRead(SecuritySettingsRead):
+class PlatformSecuritySettingsRead(IPAllowlistSettingsRead):
     """Platform admin IP allowlist settings response."""
 
 
-class PlatformSecuritySettingsUpdate(SecuritySettingsUpdate):
+class PlatformSecuritySettingsUpdate(IPAllowlistSettingsUpdate):
     """Update the platform admin IP allowlist.
 
     Applies only to the platform admin API, not to organizations.

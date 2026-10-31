@@ -102,6 +102,10 @@ curl https://<host>/api/users/me \
 
 Wrong credentials fail at login with `400` and `LOGIN_BAD_CREDENTIALS`. A password shorter than `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` fails with `400` and the code `UPDATE_USER_INVALID_PASSWORD`.
 
+Changing your own password ends every other session of the account and keeps the one that made the change. It needs `current_password` on every route, including when a superadmin changes their own password through `PATCH /users/{user_id}`. MCP personal access tokens and MCP OAuth grants survive your own change; revoke them separately if you think they're compromised.
+
+A password reset with a reset token, or a password a superadmin sets for another account, recovers the account: it ends every session, revokes every MCP personal access token, and revokes every MCP OAuth refresh token of the account. An MCP access token already issued stays valid until it expires, at most one hour later.
+
 A superadmin resets another account's password with the same body at `PATCH /users/{user_id}`, and a non-superadmin session gets `403`. Organization admins can't set a member's password or email either: `PATCH /organization/members/{user_id}` returns `403` for those fields. Accounts created by OIDC or SAML sign-in hold a generated password and authenticate at the identity provider, so reset those there.
 
 ## Related pages

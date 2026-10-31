@@ -137,6 +137,7 @@ type ServiceAccountStatusFilter =
   | "all"
   | "active"
   | "disabled"
+  | "key-expired"
   | "no-active-key"
 
 type ActionDialogState =
@@ -161,7 +162,11 @@ const EMPTY_DRAFT: ServiceAccountDraft = {
   initialKeyName: "Primary",
 }
 
-type ServiceAccountStatusGroup = "active" | "disabled" | "no_active_key"
+type ServiceAccountStatusGroup =
+  | "active"
+  | "disabled"
+  | "key_expired"
+  | "no_active_key"
 
 interface StatusGroupConfig {
   label: string
@@ -180,6 +185,11 @@ const STATUS_GROUPS: Record<ServiceAccountStatusGroup, StatusGroupConfig> = {
     dotClassName: "bg-muted-foreground",
     textClassName: "text-muted-foreground",
   },
+  key_expired: {
+    label: "Key expired",
+    dotClassName: "bg-amber-500",
+    textClassName: "text-amber-700 dark:text-amber-400",
+  },
   no_active_key: {
     label: "No active key",
     dotClassName: "bg-rose-500",
@@ -187,10 +197,22 @@ const STATUS_GROUPS: Record<ServiceAccountStatusGroup, StatusGroupConfig> = {
   },
 }
 
+/**
+ * Whether the account has no key that authenticates because its unrevoked
+ * key expired, as opposed to never having had one or having it revoked.
+ */
+function hasOnlyExpiredKeys(serviceAccount: ServiceAccountRead): boolean {
+  return (
+    !serviceAccount.active_api_key &&
+    (serviceAccount.api_key_counts?.expired ?? 0) > 0
+  )
+}
+
 function getServiceAccountGroup(
   serviceAccount: ServiceAccountRead
 ): ServiceAccountStatusGroup {
   if (serviceAccount.disabled_at) return "disabled"
+  if (hasOnlyExpiredKeys(serviceAccount)) return "key_expired"
   if (!serviceAccount.active_api_key) return "no_active_key"
   return "active"
 }
@@ -202,6 +224,7 @@ const SERVICE_ACCOUNT_STATUS_FILTERS: Array<{
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "disabled", label: "Disabled" },
+  { value: "key-expired", label: "Key expired" },
   { value: "no-active-key", label: "No active key" },
 ]
 
@@ -268,23 +291,53 @@ function formatFullTimestamp(value?: string | null): string {
   return format(new Date(value), "PPpp")
 }
 
+type ApiKeyStatus = "active" | "expired" | "revoked"
+
+/** Whether an API key has passed its expiry time and no longer authenticates. */
+function isApiKeyExpired(apiKey: ServiceAccountApiKeyRead): boolean {
+  return Boolean(
+    apiKey.expires_at && new Date(apiKey.expires_at).getTime() <= Date.now()
+  )
+}
+
+function getApiKeyStatus(apiKey: ServiceAccountApiKeyRead): ApiKeyStatus {
+  if (apiKey.revoked_at) return "revoked"
+  if (isApiKeyExpired(apiKey)) return "expired"
+  return "active"
+}
+
+const API_KEY_STATUS_LABELS: Record<ApiKeyStatus, string> = {
+  active: "Active",
+  expired: "Expired",
+  revoked: "Revoked",
+}
+
 function getApiKeyStatusLabel(apiKey: ServiceAccountApiKeyRead): string {
-  return apiKey.revoked_at ? "Revoked" : "Active"
+  return API_KEY_STATUS_LABELS[getApiKeyStatus(apiKey)]
 }
 
 function getApiKeyStatusTone(apiKey: ServiceAccountApiKeyRead): {
   dotClassName: string
   textClassName: string
 } {
-  return apiKey.revoked_at
-    ? {
-        dotClassName: "bg-rose-500",
-        textClassName: "text-rose-700 dark:text-rose-400",
-      }
-    : {
-        dotClassName: "bg-green-500",
-        textClassName: "text-green-700 dark:text-green-400",
-      }
+  if (getApiKeyStatus(apiKey) === "active") {
+    return {
+      dotClassName: "bg-green-500",
+      textClassName: "text-green-700 dark:text-green-400",
+    }
+  }
+  return {
+    dotClassName: "bg-rose-500",
+    textClassName: "text-rose-700 dark:text-rose-400",
+  }
+}
+
+function formatApiKeyExpiry(value?: string | null): string {
+  if (!value) {
+    return "Never"
+  }
+
+  return format(new Date(value), "PP")
 }
 
 function matchesServiceAccountStatusFilter(
@@ -302,6 +355,12 @@ function matchesServiceAccountStatusFilter(
       )
     case "disabled":
       return serviceAccount.disabled_at !== null
+    case "key-expired":
+      return (
+        serviceAccount.disabled_at === null &&
+        hasOnlyExpiredKeys(serviceAccount)
+      )
+    // Includes accounts whose key expired: none of them can authenticate.
     case "no-active-key":
       return (
         serviceAccount.disabled_at === null && !serviceAccount.active_api_key
@@ -385,6 +444,8 @@ function LastUsedIndicator({ value }: { value?: string | null }) {
             "flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors",
             "hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring"
           )}
+          role="img"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable so keyboard users can open the last-used tooltip.
           tabIndex={0}
           aria-label={accessibleLabel}
           onClick={(event) => event.stopPropagation()}
@@ -506,6 +567,7 @@ function ServiceAccountDetailPanel({
                     <TableHead className="text-xs">Created by</TableHead>
                     <TableHead className="text-xs">Created</TableHead>
                     <TableHead className="text-xs">Last used</TableHead>
+                    <TableHead className="text-xs">Expires</TableHead>
                     <TableHead className="h-8 w-[40px]" />
                   </TableRow>
                 </TableHeader>
@@ -554,6 +616,16 @@ function ServiceAccountDetailPanel({
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {formatTimestamp(apiKey.last_used_at)}
+                        </TableCell>
+                        <TableCell
+                          className="text-xs text-muted-foreground"
+                          title={
+                            apiKey.expires_at
+                              ? formatFullTimestamp(apiKey.expires_at)
+                              : undefined
+                          }
+                        >
+                          {formatApiKeyExpiry(apiKey.expires_at)}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

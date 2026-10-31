@@ -189,7 +189,7 @@ export function CaseCommentAgentInvocationList({
   }
 
   return (
-    <div aria-label="Agent activity" className="space-y-2 pt-1">
+    <div role="group" aria-label="Agent activity" className="space-y-2 pt-1">
       {visibleInvocations.map((invocation) => (
         <InvocationStatus key={invocation.id} invocation={invocation} />
       ))}

@@ -23645,6 +23645,21 @@ export const $LibrarySkillSourceRead = {
     "Library group, maintainer, and optional upstream location of a skill.",
 } as const
 
+export const $LicenseClockResetRead = {
+  properties: {
+    clock_high_water: {
+      type: "string",
+      format: "date-time",
+      title: "Clock High Water",
+      description: "The new high-water mark: this API replica's current time",
+    },
+  },
+  type: "object",
+  required: ["clock_high_water"],
+  title: "LicenseClockResetRead",
+  description: "Result of resetting the license clock high-water mark.",
+} as const
+
 export const $LicenseErrorCode = {
   type: "string",
   enum: [
@@ -24032,6 +24047,73 @@ export const $LicenseRead = {
           type: "null",
         },
       ],
+    },
+    multi_tenant_requested: {
+      type: "boolean",
+      title: "Multi Tenant Requested",
+      description: "Whether AUTOSECOPS__EE_MULTI_TENANT=true is set",
+      default: false,
+    },
+    multi_tenant_mode: {
+      $ref: "#/components/schemas/MultiTenantMode",
+      description:
+        "Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed",
+      default: "off",
+    },
+    clock_high_water: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock High Water",
+      description:
+        "Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock",
+    },
+    clock_rollback_detected_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Rollback Detected At",
+      description:
+        "When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up",
+    },
+    clock_rollback_seconds: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Rollback Seconds",
+      description:
+        "How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not",
+    },
+    clock_last_reset_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Last Reset At",
+      description:
+        "When a superuser last reset the high-water mark through POST /admin/license/clock/reset",
     },
   },
   type: "object",
@@ -26812,6 +26894,14 @@ export const $ModelUsage = {
 
 Keys match the TypeScript SDK's \`\`ModelUsage\`\` shape (camelCase), since
 the value is passed through verbatim from the CLI's \`\`modelUsage\`\` field.`,
+} as const
+
+export const $MultiTenantMode = {
+  type: "string",
+  enum: ["off", "active", "lapsed"],
+  title: "MultiTenantMode",
+  description:
+    "Whether this deployment runs multi-tenant, and under what license.",
 } as const
 
 export const $NotClause = {
@@ -35217,6 +35307,17 @@ export const $SecuritySettingsRead = {
       type: "array",
       title: "Ip Allowlists",
     },
+    service_account_api_key_max_ttl_days: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Service Account Api Key Max Ttl Days",
+    },
   },
   type: "object",
   required: ["ip_allowlist_enabled", "ip_allowlists"],
@@ -35241,6 +35342,21 @@ export const $SecuritySettingsUpdate = {
       maxItems: 100,
       title: "Ip Allowlists",
       description: "Named groups of allowed IP addresses or CIDR ranges.",
+    },
+    service_account_api_key_max_ttl_days: {
+      anyOf: [
+        {
+          type: "integer",
+          maximum: 3650,
+          minimum: 1,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Service Account Api Key Max Ttl Days",
+      description:
+        "Longest lifetime, in days, of a newly issued service account API key. Keys issued without an expiry get this lifetime. Keys issued before the limit was set keep their expiry. Null sets no limit.",
     },
   },
   type: "object",
@@ -35340,6 +35456,11 @@ export const $ServiceAccountApiKeyCounts = {
       title: "Active",
       default: 0,
     },
+    expired: {
+      type: "integer",
+      title: "Expired",
+      default: 0,
+    },
     revoked: {
       type: "integer",
       title: "Revoked",
@@ -35358,6 +35479,20 @@ export const $ServiceAccountApiKeyCreate = {
       minLength: 1,
       title: "Name",
       default: "Primary",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+      description:
+        "When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.",
     },
   },
   type: "object",
@@ -35465,6 +35600,19 @@ export const $ServiceAccountApiKeyRead = {
       ],
       title: "Revoked At",
     },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+      description: "When the key stops authenticating. Null: it never expires.",
+    },
     created_at: {
       type: "string",
       format: "date-time",
@@ -35515,6 +35663,20 @@ export const $ServiceAccountCreate = {
       minLength: 1,
       title: "Initial Key Name",
       default: "Primary",
+    },
+    initial_key_expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Initial Key Expires At",
+      description:
+        "When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.",
     },
   },
   type: "object",

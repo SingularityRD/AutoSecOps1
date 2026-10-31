@@ -186,3 +186,9 @@ class OrganizationTierRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     tier: TierRead | None = None
+
+
+class LicenseClockResetRead(BaseModel):
+    """License clock reset response."""
+
+    clock_high_water: datetime

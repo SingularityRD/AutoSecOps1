@@ -18,7 +18,7 @@ from autosecops.agent.constants import (
 from autosecops.auth.enums import AuthType
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.feature_flags.enums import FeatureFlag
-from autosecops.licensing.evaluation import license_grants_multi_tenant
+from autosecops.licensing.evaluation import license_permits_multi_tenant_mode
 
 # === Logger === #
 logger = logging.getLogger(__name__)
@@ -1841,13 +1841,19 @@ Read ``AUTOSECOPS__EE_MULTI_TENANT`` to know whether multi-tenant mode is on.
 
 AUTOSECOPS__EE_MULTI_TENANT = (
     AUTOSECOPS__EE_MULTI_TENANT_REQUESTED
-    and license_grants_multi_tenant(AUTOSECOPS__LICENSE_KEY)
+    and license_permits_multi_tenant_mode(AUTOSECOPS__LICENSE_KEY)
 )
 """Whether multi-tenant enterprise features are enabled.
 
-Requires ``AUTOSECOPS__EE_MULTI_TENANT=true`` and a license key that is valid
-or in its grace period and grants ``multi_tenant``, evaluated at process start.
-Otherwise the process runs single-tenant with license-based entitlements.
+Requires ``AUTOSECOPS__EE_MULTI_TENANT=true`` and a verified license key that
+grants ``multi_tenant``, evaluated at process start. For
+``MULTI_TENANT_LAPSE_LIMIT`` after its grace period, an expired license keeps
+multi-tenant mode on in a degraded state (``MultiTenantMode.LAPSED``) so
+existing tenants are not dropped at once; the API allows that only on a
+deployment that ran multi-tenant under the same license while it was valid.
+See ``autosecops.licensing.multi_tenant``. Otherwise the process runs single-tenant
+with license-based entitlements, and the API refuses to start if the database
+already holds more than one organization.
 """
 
 # === Managed tunnels (Pangolin) === #

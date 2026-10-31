@@ -118,6 +118,7 @@ export function ChatList({
           <div className="space-y-1 p-3">
             {chats.map((chat) => (
               <button
+                type="button"
                 key={chat.id}
                 onClick={() => onChatSelect?.(chat.id)}
                 className={cn(

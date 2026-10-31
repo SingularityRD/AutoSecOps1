@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const LOCKED_FEATURE_BULLETS = [
-  "Get production-ready automations with enterprise agents, reusable skills, metrics, and premium workflow tools.",
+  "Get production-ready automations with agent add-ons, reusable skills, metrics, and premium workflow tools.",
   "Author, version, and publish skills to share agent behavior across your workspace.",
   "Access RBAC, SLAs, governance, and features built for production environments.",
 ]
@@ -37,7 +37,7 @@ export function LockedFeatureModal({
   open,
   onOpenChange,
   title = "Upgrade to unlock this feature",
-  description = "Upgrade for enterprise agents, skills, metrics, and other advanced features.",
+  description = "Upgrade your plan for agent add-ons, skills, metrics, and other advanced features.",
   bullets = LOCKED_FEATURE_BULLETS,
   footer,
   hideFooter = false,

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
 from autosecops.api.common import bootstrap_role
+from autosecops.auth.audit import AuthAuditFailureReason, drain_auth_audit_tasks
 from autosecops.auth.enums import AuthErrorCode, AuthType
 from autosecops.auth.users import InvalidEmailException, UserManager
 from autosecops.authz.enums import ScimConnectionStatus
@@ -500,10 +501,18 @@ async def test_forgot_password_blocked_for_scim_provisioned_user(
     )
     on_after = AsyncMock()
     monkeypatch.setattr(user_manager, "on_after_forgot_password", on_after)
+    audit = AsyncMock()
+    monkeypatch.setattr(user_manager, "_audit_credential_event", audit)
 
     await user_manager.forgot_password(user)
+    await drain_auth_audit_tasks()
 
     on_after.assert_not_awaited()
+    audit.assert_awaited_once()
+    assert audit.await_args is not None
+    assert audit.await_args.kwargs["failure_reason"] == (
+        AuthAuditFailureReason.AUTH_POLICY
+    )
 
 
 @pytest.mark.anyio

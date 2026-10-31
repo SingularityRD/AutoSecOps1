@@ -8,11 +8,16 @@ Identifiers are hashed before they become Redis keys.
 
 If Redis is unreachable the limiter fails open with a warning: losing the
 limit is preferable to taking authentication down with the cache.
+
+The hit that first trips a rule in a window is audited as an ``auth``
+``throttle`` event. Later refusals in the same window are not, so a flood of
+refused requests cannot flood the audit sink.
 """
 
 from __future__ import annotations
 
 import hashlib
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +25,7 @@ from fastapi import HTTPException, Request, status
 from redis.exceptions import RedisError
 
 from autosecops import config
+from autosecops.auth.audit import AuthAuditFailureReason, emit_anonymous_auth_event
 from autosecops.logger import logger
 from autosecops.middleware.request import resolve_client_ip
 from autosecops.redis.client import get_redis_client
@@ -62,6 +68,8 @@ class RateLimitDecision:
 
     allowed: bool
     retry_after_seconds: int
+    count: int = 0
+    """Hits in the current window, including this one when it was counted."""
 
 
 _ALLOW = RateLimitDecision(allowed=True, retry_after_seconds=0)
@@ -98,11 +106,15 @@ async def _eval(
     return int(count), int(ttl)
 
 
-def _decision(rate_limit: RateLimit, *, blocked: bool, ttl: int) -> RateLimitDecision:
+def _decision(
+    rate_limit: RateLimit, *, blocked: bool, ttl: int, count: int
+) -> RateLimitDecision:
     if not blocked:
-        return _ALLOW
+        return RateLimitDecision(allowed=True, retry_after_seconds=0, count=count)
     retry_after = ttl if ttl > 0 else rate_limit.window_seconds
-    return RateLimitDecision(allowed=False, retry_after_seconds=retry_after)
+    return RateLimitDecision(
+        allowed=False, retry_after_seconds=retry_after, count=count
+    )
 
 
 async def consume(rate_limit: RateLimit, identifier: str) -> RateLimitDecision:
@@ -112,7 +124,7 @@ async def consume(rate_limit: RateLimit, identifier: str) -> RateLimitDecision:
     if (counter := await _eval(_CONSUME_LUA, rate_limit, identifier)) is None:
         return _ALLOW
     count, ttl = counter
-    return _decision(rate_limit, blocked=count > rate_limit.limit, ttl=ttl)
+    return _decision(rate_limit, blocked=count > rate_limit.limit, ttl=ttl, count=count)
 
 
 async def peek(rate_limit: RateLimit, identifier: str) -> RateLimitDecision:
@@ -122,7 +134,9 @@ async def peek(rate_limit: RateLimit, identifier: str) -> RateLimitDecision:
     if (counter := await _eval(_PEEK_LUA, rate_limit, identifier)) is None:
         return _ALLOW
     count, ttl = counter
-    return _decision(rate_limit, blocked=count >= rate_limit.limit, ttl=ttl)
+    return _decision(
+        rate_limit, blocked=count >= rate_limit.limit, ttl=ttl, count=count
+    )
 
 
 def too_many_requests(
@@ -142,17 +156,50 @@ def too_many_requests(
     )
 
 
-async def enforce(request: Request, *checks: tuple[RateLimit, str]) -> None:
+async def audit_rate_limit_tripped(
+    rate_limit: RateLimit, *, account: str | None = None
+) -> None:
+    """Audit that a client just tripped ``rate_limit``; never raises.
+
+    Args:
+        rate_limit: The rule that tripped.
+        account: The account identifier the request named, if any. Only its
+            keyed pseudonym reaches the audit sink.
+    """
+    await emit_anonymous_auth_event(
+        identifier=account,
+        action="throttle",
+        data={
+            "operation": rate_limit.name,
+            "failure_reason": AuthAuditFailureReason.RATE_LIMITED.value,
+        },
+    )
+
+
+async def enforce(
+    request: Request,
+    *checks: tuple[RateLimit, str],
+    account: str | None = None,
+) -> None:
     """Count a hit for every check and raise 429 if any is over its limit.
 
     Every check is counted even after one refuses, so a client cannot dodge a
-    narrow rule by tripping a wider one first.
+    narrow rule by tripping a wider one first. The hit that first trips a rule
+    in its window is audited.
+
+    Args:
+        request: The request being limited.
+        checks: The rules to count, each with the identifier it counts by.
+        account: The account identifier the request named, for the audit
+            event's pseudonymous actor.
     """
     refused: tuple[RateLimit, RateLimitDecision] | None = None
     for rate_limit, identifier in checks:
         decision = await consume(rate_limit, identifier)
         if decision.allowed:
             continue
+        if decision.count == rate_limit.limit + 1:
+            await audit_rate_limit_tripped(rate_limit, account=account)
         if refused is None or decision.retry_after_seconds > (
             refused[1].retry_after_seconds
         ):
@@ -276,7 +323,7 @@ async def limit_login(request: Request) -> None:
     form = await request.form()
     if email := normalize_email(form.get("username")):
         checks.append((login_per_account(), f"{ip}|{email}"))
-    await enforce(request, *checks)
+    await enforce(request, *checks, account=email)
 
 
 async def limit_forgot_password(request: Request) -> None:
@@ -284,7 +331,7 @@ async def limit_forgot_password(request: Request) -> None:
     checks = [(forgot_password_per_ip(), client_ip(request))]
     if email := await _json_email(request):
         checks.append((forgot_password_per_account(), email))
-    await enforce(request, *checks)
+    await enforce(request, *checks, account=email)
 
 
 async def limit_reset_password(request: Request) -> None:
@@ -324,5 +371,35 @@ async def check_api_key_failures(request: Request) -> None:
 
 
 async def record_api_key_failure(request: Request) -> None:
-    """Count one failed API-key authentication against the client IP."""
-    await consume(api_key_failures_per_ip(), client_ip(request))
+    """Count one failed API-key authentication against the client IP.
+
+    The failure that locks the client out (the ``limit``-th in the window,
+    after which :func:`check_api_key_failures` refuses) is audited.
+    """
+    rate_limit = api_key_failures_per_ip()
+    decision = await consume(rate_limit, client_ip(request))
+    if _is_active(rate_limit) and decision.count == rate_limit.limit:
+        await audit_rate_limit_tripped(rate_limit)
+
+
+def expired_api_key_audit_window() -> RateLimit:
+    """One audited refusal per expired key per hour."""
+    return RateLimit("api_key_expired_audit", 1, HOUR)
+
+
+async def first_expired_api_key_refusal_in_window(api_key_id: uuid.UUID) -> bool:
+    """Whether this refusal of an expired key is the first in its window.
+
+    An integration that keeps polling with an expired key would otherwise
+    write an audit event per request. Unlike the rate limits, this applies
+    even when rate limiting is disabled. When Redis is unreachable it
+    answers ``True``: an extra audit event beats a lost one.
+
+    Args:
+        api_key_id: The expired key that was refused.
+
+    Returns:
+        True when the refusal should be audited.
+    """
+    counter = await _eval(_CONSUME_LUA, expired_api_key_audit_window(), str(api_key_id))
+    return counter is None or counter[0] == 1
