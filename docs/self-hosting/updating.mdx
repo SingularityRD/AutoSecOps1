@@ -247,6 +247,14 @@ Kubernetes and Fargate replace agent worker replicas one at a time, so for a few
 - Let the agent worker rollout finish within 10 minutes. `kubectl -n autosecops rollout status deployment/autosecops-agent-worker` reports progress on Kubernetes.
 - An agent run whose activity is not picked up within 10 minutes fails with an activity timeout. Rerun it after the rollout completes.
 
+## Agent runtime hardening
+
+From the release that hardens the agent runtime, three agent behaviors change:
+
+- The `agent-executor` worker marks itself non-dumpable at startup, as the executor worker already does. It writes no core dumps, and attaching `py-spy` or `gdb` to it needs `CAP_SYS_PTRACE`.
+- Tool results from remote and stdio MCP integrations that the trusted MCP proxy returns show `***` in place of that integration's own credential values: its header values for HTTP servers, or its environment values for stdio servers. AutoSecOps also masks each word of 8 characters or more in a value such as `Bearer <token>`, and leaves values shorter than 8 characters as they are.
+- On the `direct` backend, stdio MCP connection probes no longer use the worker's home directory, and resolve the server command on the same `PATH` as agent runs, `/usr/local/bin:/usr/bin:/bin`. `python` and `python3` in a stdio MCP command now run the image's system Python during the connection test too, instead of the AutoSecOps virtual environment. The probe also caps CPU time, file size, open files, and address space; a server that needs more than the probe's address-space budget fails its connection test. Raise the cap with `AUTOSECOPS__AGENT_SANDBOX_ADDRESS_SPACE_MB`.
+
 ## Roll back
 
 AutoSecOps migrations are forward-only. A release that ran migrations cannot run on an older image: the older migrations step fails with `Can't locate revision identified by '<revision>'`, and the API never starts.
