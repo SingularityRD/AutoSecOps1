@@ -473,6 +473,47 @@ def test_bundle_upload_never_falls_back_to_the_aws_managed_key(
             assert "--sse" not in call
 
 
+@pytest.mark.parametrize("matches", [True, False])
+def test_bundle_workflow_refuses_a_tag_with_an_outdated_workflow(
+    tmp_path: Path, matches: bool
+) -> None:
+    step = _bundle_step("Refuse an outdated workflow")
+    workflow = step["env"]["WORKFLOW"]
+    assert workflow == ".github/workflows/build-offline-bundle.yml"
+    blob = subprocess.run(
+        ["git", "rev-parse", f"HEAD:{workflow}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    sha = blob if matches else "0" * 40
+    bin_dir = _fake_bin(tmp_path, "gh", f'echo "{sha}"\n')
+    result = subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", step["run"]],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "REPOSITORY": "example/autosecops",
+            "DEFAULT_BRANCH": "main",
+            "WORKFLOW": workflow,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (result.returncode == 0) is matches, result.stdout
+    # It runs before anything is pulled, signed, or uploaded.
+    names = [
+        s["name"]
+        for s in yaml.safe_load(BUNDLE_WORKFLOW.read_text())["jobs"]["bundle"]["steps"]
+    ]
+    assert names.index("Refuse an outdated workflow") < names.index(
+        "Assume the bundle publishing role"
+    )
+
+
 VALID_BUNDLE_CONFIG = {
     "S3_URI": "s3://example-bundles/autosecops",
     "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/offline-bundle",

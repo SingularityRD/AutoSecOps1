@@ -128,6 +128,8 @@ Set up AWS once:
 3. Grant the role `s3:ListBucket` on the bucket (limited to the prefix), `s3:PutObject` on `<prefix>/*`, `kms:GenerateDataKey` and `kms:Decrypt` on the bucket's encryption key (multipart uploads of the multi-GB archive need both), and, for KMS signing, `kms:Sign` and `kms:GetPublicKey` on the signing key. Do not grant `s3:DeleteObject`.
 4. Give the `offline-bundle` environment required reviewers and restrict it to release tags.
 
+GitHub runs the workflow file from the tag you dispatch it on, so the workflow refuses a tag whose copy of it differs from the default branch. To get a signed, private bundle for a release tagged before the current workflow, cut a new patch release.
+
 Deliver bundles to customers from the bucket with short-lived presigned URLs or your secure file transfer service, and send the public key (`autosecops-offline-<version>.cosign.pub`) through a separate channel so customers can authenticate what they receive.
 
 ## Verify the bundle
