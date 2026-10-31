@@ -204,3 +204,89 @@ def test_redact_mode_filters_stdin() -> None:
     for secret in SECRET_VALUES[:8]:
         assert secret not in result.stdout, secret
     assert "workflow run completed status=success" in result.stdout
+
+
+def _redact(text: str) -> str:
+    return subprocess.run(
+        ["bash", str(SCRIPT), "--redact"],
+        input=text + "\n",
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    ).stdout
+
+
+# Lines AutoSecOps, uvicorn, PostgreSQL, or integrations write to logs, each
+# with the synthetic secret it carries and what the redacted line keeps.
+@pytest.mark.parametrize(
+    ("line", "secret", "kept"),
+    [
+        (
+            'INFO: 10.0.0.5:5123 - "POST /webhooks/wf_abc123/whsecretvalue1 HTTP/1.1" 200',
+            "whsecretvalue1",
+            "/webhooks/wf_abc123/[REDACTED] HTTP/1.1",
+        ),
+        (
+            '"POST /api/webhooks/wf_abc123/whsecretvalue2/wait?x=1 HTTP/1.1"',
+            "whsecretvalue2",
+            "/api/webhooks/wf_abc123/[REDACTED]/wait",
+        ),
+        (
+            "STATEMENT:  CREATE ROLE autosecops_app LOGIN PASSWORD 'pg-role-pass-1'",
+            "pg-role-pass-1",
+            "LOGIN PASSWORD '[REDACTED]'",
+        ),
+        (
+            "STATEMENT:  ALTER ROLE autosecops_app WITH LOGIN PASSWORD 'it''s-pass-2'",
+            "s-pass-2",
+            "PASSWORD '[REDACTED]'",
+        ),
+        (
+            r"{\"password\": \"escaped-json-pass\", \"user\": \"bob\"}",
+            "escaped-json-pass",
+            r"\"user\": \"bob\"",
+        ),
+        (
+            '"password": "correct horse battery staple", "user": "alice"',
+            "horse battery staple",
+            '"user": "alice"',
+        ),
+        (
+            "{'api_key': 'repr value with spaces'}",
+            "value with spaces",
+            "{'api_key': '[REDACTED]'}",
+        ),
+        (
+            '"token": "quote\\"inside-token"',
+            "inside-token",
+            '"token": "[REDACTED]"',
+        ),
+        (
+            "posting to https://hooks.slack.com/services/T0000/B0000/slackcapsecret",
+            "slackcapsecret",
+            "https://hooks.slack.com/services/[REDACTED]",
+        ),
+        (
+            "https://example.webhook.office.com/webhookb2/teamscapsecret",
+            "teamscapsecret",
+            "webhook.office.com/[REDACTED]",
+        ),
+        (
+            "https://bucket.s3.amazonaws.com/k?X-Amz-Algorithm=AWS4"
+            "&X-Amz-Signature=deadbeefsig0&X-Amz-Date=20260101",
+            "deadbeefsig0",
+            "X-Amz-Signature=[REDACTED]&X-Amz-Date=20260101",
+        ),
+        (
+            "charge failed with key sk_live_abcdefghijklmnop0123",
+            "abcdefghijklmnop0123",
+            "[REDACTED_TOKEN]",
+        ),
+    ],
+)
+def test_redactor_covers_known_secret_shapes(line: str, secret: str, kept: str) -> None:
+    redacted = _redact(line)
+    assert secret not in redacted
+    assert kept in redacted
+

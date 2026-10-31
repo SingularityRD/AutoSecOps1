@@ -14,10 +14,11 @@
 #                   entitlement status, read inside the API container
 #   logs/*.log      recent logs of every service, with secrets redacted
 #
-# Nothing in it is a secret: the probe never reads the license key or any
-# credential, .env values are allowlisted, and every log line passes through
-# the redactor below. Review the bundle before you send it; your own log
-# messages may hold data your policy treats as sensitive.
+# The probe never reads the license key or any credential, .env values are
+# allowlisted, and every collected line passes through the redactor below,
+# which replaces known secret patterns. Pattern matching cannot catch every
+# secret, so review the bundle before you send it; your own log messages may
+# also hold data your policy treats as sensitive.
 
 set -euo pipefail
 
@@ -117,18 +118,46 @@ done
 printf 'A\n' | sed -E 's/a/b/I' >/dev/null 2>&1 && [[ "$(printf 'A\n' | sed -E 's/a/b/I')" == b ]] ||
   die "GNU sed is required for redaction (on macOS: brew install gnu-sed and put gsed first in PATH as sed)"
 
-# Redact secrets from stdin. Order matters: whole tokens first, then
-# key=value and key: value pairs, then credentials inside URLs.
+# Redaction rules for GNU sed -E, applied to every line in order: whole tokens
+# first, then key/value pairs, then secrets inside SQL and URLs. They match
+# known secret shapes only, so the bundle must still be reviewed before it is
+# sent. The key/value rules share one pattern for secret-looking key names.
+REDACT_SED=$(
+  cat <<'SED'
+s/-----BEGIN [A-Z ]*PRIVATE KEY-----.*-----END [A-Z ]*PRIVATE KEY-----/[REDACTED PRIVATE KEY]/g
+/-----BEGIN [A-Z ]*PRIVATE KEY-----/,/-----END [A-Z ]*PRIVATE KEY-----/c [REDACTED PRIVATE KEY]
+s/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g
+s/(bearer|basic|token)[[:space:]]+[A-Za-z0-9._~+\/=-]{8,}/\1 [REDACTED]/Ig
+s/(A3T[A-Z0-9]|AKIA|ASIA)[A-Z0-9]{16}/[REDACTED_AWS_KEY_ID]/g
+s/(gh[pousr]_|github_pat_|glpat-|xox[abposr]-|xapp-|sk-|[sr]k_live_|[sr]k_test_)[A-Za-z0-9_-]{10,}/[REDACTED_TOKEN]/g
+# Secret key in escaped JSON, {\"password\": \"value\"}: the value ends at the
+# next backslash or quote.
+s/([A-Za-z0-9_.-]*(password|passwd|pwd|secret|token|api[_-]?key|apikey|private[_-]?key|access[_-]?key|encryption[_-]?key|service[_-]?key|signing[_-]?key|license[_-]?key|keyring|authorization|cookie|credential|session[_-]?id)s?[A-Za-z0-9_.-]*\\+["']?[[:space:]]*[:=][[:space:]]*\\+["'])[^"'\\]*/\1[REDACTED]/Ig
+# Secret key with a double-quoted value, up to the closing quote even across
+# spaces.
+s/([A-Za-z0-9_.-]*(password|passwd|pwd|secret|token|api[_-]?key|apikey|private[_-]?key|access[_-]?key|encryption[_-]?key|service[_-]?key|signing[_-]?key|license[_-]?key|keyring|authorization|cookie|credential|session[_-]?id)s?[A-Za-z0-9_.-]*"?[[:space:]]*[:=][[:space:]]*")([^"\\]|\\.)*/\1[REDACTED]/Ig
+# Secret key with a single-quoted value, such as a Python repr.
+s/([A-Za-z0-9_.-]*(password|passwd|pwd|secret|token|api[_-]?key|apikey|private[_-]?key|access[_-]?key|encryption[_-]?key|service[_-]?key|signing[_-]?key|license[_-]?key|keyring|authorization|cookie|credential|session[_-]?id)s?[A-Za-z0-9_.-]*'?[[:space:]]*[:=][[:space:]]*')([^'\\]|\\.)*/\1[REDACTED]/Ig
+# Secret key with an unquoted value, up to whitespace or a separator.
+s/([A-Za-z0-9_.-]*(password|passwd|pwd|secret|token|api[_-]?key|apikey|private[_-]?key|access[_-]?key|encryption[_-]?key|service[_-]?key|signing[_-]?key|license[_-]?key|keyring|authorization|cookie|credential|session[_-]?id)s?[A-Za-z0-9_.-]*["']?[[:space:]]*[:=][[:space:]]*["']?)[^"'[:space:],;&}]+/\1[REDACTED]/Ig
+# SQL literals that PostgreSQL logs on error: CREATE/ALTER ROLE ... PASSWORD
+# 'value', where '' escapes a quote.
+s/(PASSWORD[[:space:]]+E?')([^']|'')*'/\1[REDACTED]'/Ig
+# Webhook URL secrets: /webhooks/<workflow_id>/<secret>, also under /api.
+s#(/webhooks/[^/[:space:]"'?&]+/)[^/[:space:]"'?&]+#\1[REDACTED]#g
+# Capability URLs whose path is the credential.
+s#(hooks\.slack\.com/(services|workflows|triggers)/)[^[:space:]"'<>]+#\1[REDACTED]#Ig
+s#(\.webhook\.office\.com/)[^[:space:]"'<>]+#\1[REDACTED]#Ig
+# Signed URL query parameters (S3 and GCS presigned URLs, Azure SAS).
+s/([?&](X-Amz-Signature|X-Amz-Credential|X-Goog-Signature|X-Goog-Credential|sig|signature)=)[^&[:space:]"'<>]+/\1[REDACTED]/Ig
+# Credentials inside URLs: scheme://user:password@host.
+s#([a-z][a-z0-9+.-]*://[^:/@[:space:]]+:)[^@[:space:]]+@#\1[REDACTED]@#Ig
+SED
+)
+
+# Redact secrets from stdin.
 redact() {
-  sed -E \
-    -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----.*-----END [A-Z ]*PRIVATE KEY-----/[REDACTED PRIVATE KEY]/g' \
-    -e '/-----BEGIN [A-Z ]*PRIVATE KEY-----/,/-----END [A-Z ]*PRIVATE KEY-----/c [REDACTED PRIVATE KEY]' \
-    -e 's/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g' \
-    -e 's/(bearer|basic|token)[[:space:]]+[A-Za-z0-9._~+\/=-]{8,}/\1 [REDACTED]/Ig' \
-    -e 's/(A3T[A-Z0-9]|AKIA|ASIA)[A-Z0-9]{16}/[REDACTED_AWS_KEY_ID]/g' \
-    -e 's/(gh[pousr]_|github_pat_|xox[abposr]-|sk-)[A-Za-z0-9_-]{10,}/[REDACTED_TOKEN]/g' \
-    -e 's/([A-Za-z0-9_.-]*(password|passwd|pwd|secret|token|api[_-]?key|apikey|private[_-]?key|access[_-]?key|encryption[_-]?key|service[_-]?key|signing[_-]?key|license[_-]?key|keyring|authorization|cookie|credential|session[_-]?id)s?[A-Za-z0-9_.-]*["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?)[^"'"'"'[:space:],;&}]+/\1[REDACTED]/Ig' \
-    -e 's#([a-z][a-z0-9+.-]*://[^:/@[:space:]]+:)[^@[:space:]]+@#\1[REDACTED]@#Ig'
+  sed -E "$REDACT_SED"
 }
 
 if [[ "$MODE" == redact ]]; then

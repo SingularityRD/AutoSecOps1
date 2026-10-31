@@ -18,9 +18,9 @@ keywords: ["support bundle", "diagnostics", "troubleshooting", "logs", "support_
 | `events.txt` | Kubernetes only. Namespace events |
 | `logs/` | Recent logs of every service or pod |
 
-The script never collects secret values. It reads no license key or credential, includes `.env` values only from an allowlist, and passes every collected file through a redactor that replaces passwords, tokens, API keys, JWTs, private keys, AWS access key IDs, and credentials in URLs with `[REDACTED]`. The archive is created with mode `0600`.
+The script reads no license key or credential and includes `.env` values only from an allowlist. It passes every collected file through a redactor that replaces known secret patterns with `[REDACTED]`: passwords, tokens, and API keys in key/value pairs, JSON, and escaped JSON; JWTs; private keys; AWS access key IDs; `PASSWORD '...'` literals in SQL statements that PostgreSQL logs; the secret part of webhook URLs (`/webhooks/<workflow_id>/<secret>`); Slack and Microsoft Teams incoming-webhook URLs; presigned URL signatures; and credentials in URLs. The archive is created with mode `0600`.
 
-Your own workflow and integration logs can still contain data your policy treats as sensitive, such as hostnames or user names. Review the archive before you send it:
+The redactor matches patterns, so it cannot recognize every secret, and your own workflow and integration logs can contain data your policy treats as sensitive, such as hostnames or user names. Review the archive before you send it:
 
 ```bash
 tar -tzf autosecops-support-<timestamp>.tar.gz
