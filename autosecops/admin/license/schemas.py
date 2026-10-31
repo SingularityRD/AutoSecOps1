@@ -14,6 +14,7 @@ from autosecops.licensing.types import (
     LicenseNoticeLevel,
     LicensePlan,
     LicenseStatus,
+    MultiTenantMode,
 )
 from autosecops.tiers.enums import Entitlement
 
@@ -76,3 +77,28 @@ class LicenseRead(BaseModel):
         description="Deployment ID the license is bound to, if any",
     )
     error: LicenseErrorCode | None = Field(default=None)
+    multi_tenant_requested: bool = Field(
+        default=False,
+        description="Whether AUTOSECOPS__EE_MULTI_TENANT=true is set",
+    )
+    multi_tenant_mode: MultiTenantMode = Field(
+        default=MultiTenantMode.OFF,
+        description="Whether this deployment runs multi-tenant. 'lapsed' means"
+        " the license that grants multi_tenant expired past its grace period:"
+        " existing organizations keep working and new ones are blocked",
+    )
+    clock_high_water: datetime | None = Field(
+        default=None,
+        description="Latest time this deployment has observed. License expiry"
+        " is evaluated against the later of this and the system clock",
+    )
+    clock_rollback_detected_at: datetime | None = Field(
+        default=None,
+        description="System clock reading when this API process last saw the"
+        " clock behind the high-water mark by more than the tolerance",
+    )
+    clock_rollback_seconds: int | None = Field(
+        default=None,
+        description="How many seconds the system clock was behind the"
+        " high-water mark at that reading",
+    )

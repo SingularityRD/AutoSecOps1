@@ -162,3 +162,33 @@ def license_grants_multi_tenant(
         check_deployment=False,
     )
     return LicenseGrant.MULTI_TENANT in state.grants
+
+
+def license_permits_multi_tenant_mode(
+    token: str | None, *, now: datetime | None = None
+) -> bool:
+    """Whether ``token`` lets ``AUTOSECOPS__EE_MULTI_TENANT=true`` take effect.
+
+    True when the license verifies, is not otherwise invalid, and lists
+    ``multi_tenant``, including after its grace period ends. A multi-tenant
+    deployment whose license lapses must not silently fall back to
+    single-tenant mode on its next restart: that would cut every organization
+    but the default one off from SSO and organization selection. Instead it
+    keeps running multi-tenant in ``MultiTenantMode.LAPSED``, where existing
+    organizations keep working and new ones are blocked (see
+    ``autosecops.licensing.multi_tenant``).
+
+    Like ``license_grants_multi_tenant``, this runs at import time, before the
+    database is reachable, so it does not check a ``deployment_id`` claim.
+    """
+    if not token:
+        return False
+    state = evaluate_license(
+        token,
+        now=now or datetime.now(UTC),
+        public_key=load_public_key(keys.LICENSE_PUBLIC_KEY_PEM),
+        check_deployment=False,
+    )
+    if state.claims is None or state.status is LicenseStatus.INVALID:
+        return False
+    return LicenseGrant.MULTI_TENANT.value in state.claims.entitlements

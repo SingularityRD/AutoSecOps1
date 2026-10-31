@@ -59,6 +59,19 @@ class LicenseGrant(StrEnum):
     """Lets ``AUTOSECOPS__EE_MULTI_TENANT=true`` take effect."""
 
 
+class MultiTenantMode(StrEnum):
+    """Whether this deployment runs multi-tenant, and under what license."""
+
+    OFF = "off"
+    """Single-tenant: ``AUTOSECOPS__EE_MULTI_TENANT`` is unset or not licensed."""
+    ACTIVE = "active"
+    """Multi-tenant under a license that is valid or in grace and grants it."""
+    LAPSED = "lapsed"
+    """Multi-tenant under a license that granted it but is now past its grace
+    period. Existing organizations keep working; creating organizations is
+    blocked until a renewed license is installed."""
+
+
 class LicenseNoticeLevel(StrEnum):
     """Why administrators should be warned about the license."""
 

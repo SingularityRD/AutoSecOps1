@@ -1,19 +1,23 @@
 """Superuser-only license status endpoint."""
 
-from datetime import UTC, datetime
-
 from fastapi import APIRouter
 
 from autosecops import config
 from autosecops.admin.license.schemas import LicenseRead
 from autosecops.auth.credentials import SuperuserRole
 from autosecops.db.dependencies import AsyncDBSessionBypass
+from autosecops.licensing.clock import (
+    effective_now,
+    ensure_license_clock_fresh,
+    get_license_clock_status,
+)
 from autosecops.licensing.deployment import ensure_deployment_id
 from autosecops.licensing.enforcement import (
     count_active_users,
     count_organizations,
     count_workspaces,
 )
+from autosecops.licensing.multi_tenant import get_multi_tenant_mode
 from autosecops.licensing.schemas import LicenseUsageRead
 from autosecops.licensing.service import (
     get_license_state,
@@ -33,9 +37,12 @@ async def get_license(
     """Get the status, limits, usage, and deployment ID of this installation."""
     # Readable without a license, so a customer can request a bound key.
     deployment_id = await ensure_deployment_id()
+    await ensure_license_clock_fresh()
+    now = effective_now()
     # Status reads must not emit single-tenant entitlement logs in multi-tenant mode.
-    state = get_license_state(log=False)
-    now = datetime.now(UTC)
+    state = get_license_state(now, log=False)
+    clock = get_license_clock_status()
+    rollback = clock.rollback
     claims = state.claims
     return LicenseRead(
         status=state.status,
@@ -66,4 +73,11 @@ async def get_license(
         deployment_id=deployment_id,
         license_deployment_id=claims.deployment_id if claims else None,
         error=state.error,
+        multi_tenant_requested=config.AUTOSECOPS__EE_MULTI_TENANT_REQUESTED,
+        multi_tenant_mode=get_multi_tenant_mode(),
+        clock_high_water=clock.high_water,
+        clock_rollback_detected_at=rollback.observed_at if rollback else None,
+        clock_rollback_seconds=int(rollback.behind.total_seconds())
+        if rollback
+        else None,
     )

@@ -30,6 +30,7 @@ You can upgrade across several versions at once. The migrations apply every inte
    ```
 
 4. Plan for downtime. On Docker Compose and Fargate, the API stays down until the migrations finish. Most migrations take seconds; release notes call out migrations that rewrite large tables.
+5. On a multi-tenant deployment, check that `AUTOSECOPS__LICENSE_KEY` is set on every service and grants `multi_tenant`. With `AUTOSECOPS__EE_MULTI_TENANT=true`, more than one organization, and no such license, the `api` service refuses to start. See [Multi-tenant deployments](/self-hosting/license#multi-tenant-deployments).
 
 <Warning>
   Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, and `USER_AUTH_SECRET` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable.

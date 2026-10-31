@@ -79,7 +79,65 @@ function invalidReason(license: LicenseRead): string {
   return `The configured license key is invalid (${license.error ?? "unknown error"}).`
 }
 
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  if (hours >= 48) {
+    return `${Math.floor(hours / 24)} days`
+  }
+  if (hours >= 1) {
+    return `${hours} hours`
+  }
+  return `${Math.max(1, Math.floor(seconds / 60))} minutes`
+}
+
+/** Warns when the system clock fell behind the latest observed time. */
+function ClockRollbackAlert({ license }: { license: LicenseRead }) {
+  const seconds = license.clock_rollback_seconds
+  if (seconds === null || seconds === undefined) {
+    return null
+  }
+  return (
+    <Alert variant="destructive">
+      <AlertTriangleIcon className="size-4" />
+      <AlertTitle>System clock moved backwards</AlertTitle>
+      <AlertDescription>
+        At {formatDate(license.clock_rollback_detected_at)} the system clock was{" "}
+        {formatDuration(seconds)} behind the latest time this deployment
+        observed ({formatDate(license.clock_high_water)}). License expiry is
+        evaluated against the latest observed time. Fix the host clock (NTP) on
+        every node.
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 function LicenseAlert({ license }: { license: LicenseRead }) {
+  if (license.multi_tenant_mode === "lapsed") {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangleIcon className="size-4" />
+        <AlertTitle>Multi-tenant license lapsed</AlertTitle>
+        <AlertDescription>
+          The license that grants multi-tenant mode expired and its grace period
+          ended. Existing organizations keep working with their tiers, but new
+          organizations cannot be created. Contact {LICENSE_CONTACT} to renew.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  if (license.enforced && license.multi_tenant_requested) {
+    return (
+      <Alert variant="warning">
+        <AlertTriangleIcon className="size-4" />
+        <AlertTitle>Multi-tenant mode is not licensed</AlertTitle>
+        <AlertDescription>
+          AUTOSECOPS__EE_MULTI_TENANT=true is set, but the license does not
+          grant multi_tenant, so this deployment runs single-tenant. Contact{" "}
+          {LICENSE_CONTACT} for a multi-tenant license.
+        </AlertDescription>
+      </Alert>
+    )
+  }
   if (!license.enforced) {
     return (
       <Alert>
@@ -308,6 +366,7 @@ export function PlatformLicenseStatus() {
   return (
     <div className="space-y-8">
       <LicenseAlert license={license} />
+      <ClockRollbackAlert license={license} />
       <dl className="grid grid-cols-[160px_1fr] gap-y-3 text-sm">
         <dt className="text-muted-foreground">Status</dt>
         <dd>

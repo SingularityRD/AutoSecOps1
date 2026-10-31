@@ -370,6 +370,22 @@ class LicenseLimitExceeded(AutoSecOpsException):
         )
 
 
+class MultiTenantLicenseLapsed(AutoSecOpsException):
+    """Raised when creating an organization while the multi-tenant license lapsed.
+
+    The deployment keeps serving its existing organizations; only new ones are
+    blocked until a renewed license that grants ``multi_tenant`` is installed.
+    """
+
+    def __init__(self, *, contact: str) -> None:
+        message = (
+            "The license that grants multi-tenant mode has expired and its grace"
+            " period ended. Existing organizations keep working, but new"
+            f" organizations cannot be created. Contact {contact} to renew."
+        )
+        super().__init__(message, detail={"grant": "multi_tenant"})
+
+
 class EntitlementRequired(AutoSecOpsException):
     """Exception raised when a feature requires an upgraded plan.
 

@@ -69,7 +69,7 @@ curl -H "Authorization: Bearer <superuser-token>" \
   https://autosecops.yourdomain.com/api/admin/license
 ```
 
-The response includes `status`, `plan`, `customer`, `expires_at`, `grace_ends_at`, `days_remaining`, `limits`, `usage` (active users, workspaces, and organizations), and `deployment_id`.
+The response includes `status`, `plan`, `customer`, `expires_at`, `grace_ends_at`, `days_remaining`, `limits`, `usage` (active users, workspaces, and organizations), `deployment_id`, `multi_tenant_mode`, and the clock protection fields described in [Clock protection](#clock-protection).
 The `api` service also logs the license status at startup.
 
 | Status | Meaning | Paid entitlements |
@@ -128,12 +128,38 @@ The `forms` flag still gates forms, so forms need both the `forms` flag and a li
 ## Multi-tenant deployments
 
 Multi-tenant mode needs both `AUTOSECOPS__EE_MULTI_TENANT=true` and a license key that grants `multi_tenant`.
-The license must be valid or in its grace period when each service starts.
+The license must verify on this installation when each service starts; after it expires, see [When a multi-tenant license lapses](#when-a-multi-tenant-license-lapses).
 In multi-tenant mode, AutoSecOps resolves entitlements from the tiers that platform admins assign to organizations, and the license key's other entitlements do not apply.
 
-If `AUTOSECOPS__EE_MULTI_TENANT=true` is set without such a license, the `api` service logs an error at startup and every service runs single-tenant, with entitlements from the license key as described above.
+If `AUTOSECOPS__EE_MULTI_TENANT=true` is set and the license key does not list `multi_tenant` (no key, a key without the grant, or a key that fails verification), every service runs single-tenant, with entitlements from the license key as described above, and the `api` service logs an error at startup.
+If the database already holds more than one organization, the `api` service refuses to start instead, because single-tenant mode would cut every organization but the default one off from sign-in. Restore the multi-tenant license key on every service to start it again.
 Services evaluate the `multi_tenant` grant at startup, so restart them after you install or replace the key.
 If a license that grants `multi_tenant` is bound to a different deployment ID, the `api` service refuses to start.
+
+### When a multi-tenant license lapses
+
+A multi-tenant deployment never drops its tenants because its license expired.
+While the license is in its 14-day grace period, nothing changes.
+After the grace period, the deployment keeps running multi-tenant in a degraded, `lapsed` mode:
+
+- Existing organizations keep working, with the tiers platform admins assigned to them, including SSO and organization selection.
+- Creating an organization is blocked and returns `403` with the type `MultiTenantLicenseLapsed`.
+- The `api` service logs a `MULTI-TENANT LICENSE LAPSED` error at startup and every hour.
+- The `License` page in the admin console shows a `Multi-tenant license lapsed` alert, and the license API reports `multi_tenant_mode: "lapsed"`.
+
+Install a renewed key that grants `multi_tenant` and restart the services to leave `lapsed` mode.
+The license API reports `multi_tenant_requested` and `multi_tenant_mode` (`off`, `active`, or `lapsed`) on every deployment.
+
+## Clock protection
+
+AutoSecOps resists turning the system clock back to keep an expired license working.
+It records the latest time it has observed in the database, at most once an hour, and evaluates license expiry against the later of that time and the system clock.
+When the system clock is more than 15 minutes behind the recorded time, AutoSecOps logs an error, and the `License` page shows a `System clock moved backwards` alert.
+The license API reports the recorded time as `clock_high_water`, and the rollback as `clock_rollback_detected_at` and `clock_rollback_seconds`.
+
+Keep every host's clock synchronized with NTP.
+If a host clock was once set far into the future and then corrected, license time stays at the future time until real time catches up, so the license can look expired early.
+Contact [info@singularityrd.com](mailto:info@singularityrd.com) if that happens; do not edit the recorded time yourself.
 
 ## Third-party notices
 
@@ -156,5 +182,6 @@ docker rm aso-notices
 
 ## Related pages
 
+- See [Plans and entitlements](/self-hosting/plans) for the entitlements each plan includes.
 - See [Environment variables](/self-hosting/environment-variables) for every setting you can pass alongside the license key.
 - See [Updating](/self-hosting/updating) before you upgrade a deployment that used feature flags for paid features.

@@ -24033,6 +24033,59 @@ export const $LicenseRead = {
         },
       ],
     },
+    multi_tenant_requested: {
+      type: "boolean",
+      title: "Multi Tenant Requested",
+      description: "Whether AUTOSECOPS__EE_MULTI_TENANT=true is set",
+      default: false,
+    },
+    multi_tenant_mode: {
+      $ref: "#/components/schemas/MultiTenantMode",
+      description:
+        "Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working and new ones are blocked",
+      default: "off",
+    },
+    clock_high_water: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock High Water",
+      description:
+        "Latest time this deployment has observed. License expiry is evaluated against the later of this and the system clock",
+    },
+    clock_rollback_detected_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Rollback Detected At",
+      description:
+        "System clock reading when this API process last saw the clock behind the high-water mark by more than the tolerance",
+    },
+    clock_rollback_seconds: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Clock Rollback Seconds",
+      description:
+        "How many seconds the system clock was behind the high-water mark at that reading",
+    },
   },
   type: "object",
   required: ["status", "enforced", "usage", "deployment_id"],
@@ -26812,6 +26865,14 @@ export const $ModelUsage = {
 
 Keys match the TypeScript SDK's \`\`ModelUsage\`\` shape (camelCase), since
 the value is passed through verbatim from the CLI's \`\`modelUsage\`\` field.`,
+} as const
+
+export const $MultiTenantMode = {
+  type: "string",
+  enum: ["off", "active", "lapsed"],
+  title: "MultiTenantMode",
+  description:
+    "Whether this deployment runs multi-tenant, and under what license.",
 } as const
 
 export const $NotClause = {
