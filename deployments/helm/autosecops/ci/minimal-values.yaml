@@ -14,6 +14,6 @@ externalPostgres:
     runtimePassword: placeholder-runtime-password
 externalRedis:
   auth:
-    url: redis://redis.example.internal:6379
+    url: redis://:placeholder-redis-password@redis.example.internal:6379
 externalTemporal:
   clusterUrl: temporal-frontend.temporal.svc:7233

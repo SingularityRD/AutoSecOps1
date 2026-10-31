@@ -560,6 +560,9 @@
             },
             "urlKey": {
               "type": "string"
+            },
+            "allowUnauthenticated": {
+              "type": "boolean"
             }
           },
           "additionalProperties": false
