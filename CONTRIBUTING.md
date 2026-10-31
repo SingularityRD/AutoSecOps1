@@ -183,6 +183,8 @@ Removing something takes three steps, usually across three releases:
 
 Routine bumps and Low, Moderate, or High severity advisories are `build(deps):`. Reserve `security(deps):` for Critical unauthenticated remote-code-execution advisories, so the Security section stays worth dropping everything for.
 
+Dependabot version updates propose only minor and patch releases for Python packages, frontend packages, and Docker base images. Major upgrades land as deliberate, tested migration pull requests opened by a person; GitHub Actions majors still arrive in the grouped Actions pull request, and Dependabot security updates are not limited by these rules.
+
 Every change to `uv.lock` or `frontend/pnpm-lock.yaml` regenerates the third-party notices in the same pull request, or the `Notices match lockfiles` check and the unit tests fail. Dependabot does not run the generator, so its version and security update pull requests start red on purpose: the notices ship to customers, and no bot with write access regenerates them. Regenerate them on the Dependabot branch and push; your push re-runs CI:
 
 ```bash

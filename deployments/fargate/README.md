@@ -49,6 +49,32 @@ Terraform stack for AutoSecOps on AWS ECS Fargate (`>1.0.0-beta.xx`).
 - `temporal_cpu=8192`
 - `temporal_memory=16384`
 - `redis_node_type=cache.t4g.small`
+- `redis_num_cache_clusters=1`
+- `rds_multi_az=false`
+- `log_retention_in_days=30`
+
+CloudWatch Logs stores and expires the task logs, so the tasks need no log
+rotation of their own. ElastiCache always runs with TLS and a password for the
+application user; the default user is disabled.
+
+## High availability
+
+The defaults already run two tasks of the API, worker, executor, and agent
+worker. For a deployment that survives the loss of an Availability Zone, apply
+the opt-in profile in `examples/ha.tfvars.example`: two tasks of every
+stateless AutoSecOps service, including the UI and Caddy (`ui_desired_count`,
+`caddy_desired_count`, default 1), a Multi-AZ RDS standby, and a Redis replica
+with automatic failover. It roughly doubles the RDS and ElastiCache cost.
+
+The bundled Temporal server and Temporal UI stay single tasks. While ECS
+replaces a lost Temporal task, which takes minutes, no workflow runs. For
+zone-loss tolerance, use Temporal Cloud or your own highly available Temporal
+cluster: set `temporal_cluster_url` and `disable_temporal_autosetup=true`.
+
+```bash
+cp examples/ha.tfvars.example ha.tfvars
+terraform apply -var-file=ha.tfvars
+```
 
 For the bundled Fargate `temporalio/auto-setup` deployment, `temporal_db_force_ssl` now defaults to `false`. This disables `rds.force_ssl` only on the Temporal RDS instance, requires a DB reboot when changed, and permits non-TLS connections for the bundled Temporal service.
 

@@ -11,7 +11,7 @@ requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 authors = [{ name = "SingularityRD" }]
 dependencies = [
-    "asyncpg==0.29.0",
+    "asyncpg==0.32.0",
     "httpx==0.28.1",
     "python-dotenv==1.2.2",
     "pyyaml==6.0.3",

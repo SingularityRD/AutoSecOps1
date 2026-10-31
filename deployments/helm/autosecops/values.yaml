@@ -158,9 +158,16 @@ autosecops:
       enabled: false
       port: 9090
     payloadEncryption:
-      # -- Encrypt Temporal payloads. Put the JSON keyring in the core secret
-      # (`temporalPayloadEncryptionKeyring`) or set `keyringArn`.
-      enabled: false
+      # -- Encrypt Temporal payloads (workflow inputs, results, failures)
+      # before they reach Temporal's database. On by default: put a JSON
+      # keyring in the core secret's `temporalPayloadEncryptionKeyring` key
+      # (`secrets.temporalPayloadEncryptionKeyring`, or your
+      # `secrets.existingSecret`), or set `keyringArn`. The chart never
+      # generates or rotates the keyring. An existing release turns it on in
+      # two upgrades: first add the keyring with `false` so every pod has it,
+      # then set `true`. Keep `false` to stay on plaintext payloads.
+      enabled: true
+      # -- AWS Secrets Manager ARN holding the keyring, instead of the core secret.
       keyringArn: ""
       cacheTtlSeconds: 3600
       cacheMaxItems: 4096
@@ -216,6 +223,8 @@ autosecops:
 # `<fullname>-secrets`. Generate values with:
 #   dbEncryptionKey: openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_'
 #   serviceKey, signingSecret, userAuthSecret: openssl rand -hex 32
+#   temporalPayloadEncryptionKeyring:
+#     printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
 # Never change these between upgrades: losing dbEncryptionKey makes stored
 # credentials unrecoverable.
 secrets:
@@ -243,6 +252,10 @@ secrets:
   sentryDsn: ""
   outboundProxyUrl: ""
   otelExporterOtlpHeaders: ""
+  # -- Temporal payload encryption keyring (JSON). Required while
+  # `autosecops.temporal.payloadEncryption.enabled` is true, unless
+  # `existingSecret` holds it or `keyringArn` is set. To rotate, add a new key
+  # and point `current_key_id` at it; keep retired keys while history uses them.
   temporalPayloadEncryptionKeyring: ""
 
 # External PostgreSQL 15+ with the pgvector extension available.
@@ -284,6 +297,11 @@ externalRedis:
     url: ""
     existingSecret: ""
     urlKey: url
+    # -- Accept an inline `url` without a password. Leave false: an
+    # unauthenticated Redis lets anything on its network read and forge
+    # workflow, agent, and MCP state. The chart cannot inspect a URL in
+    # `existingSecret`, so keep credentials in that URL too.
+    allowUnauthenticated: false
 
 # S3 or an S3-compatible store (MinIO, Ceph, R2, ...).
 externalS3:

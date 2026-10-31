@@ -20,7 +20,12 @@ from tenacity import (
     wait_exponential,
 )
 
-from autosecops.config import REDIS_CHAT_TTL_SECONDS, REDIS_URL, REDIS_URL__ARN
+from autosecops.config import (
+    REDIS_CHAT_TTL_SECONDS,
+    REDIS_PASSWORD,
+    REDIS_URL,
+    REDIS_URL__ARN,
+)
 from autosecops.logger import logger
 
 
@@ -111,6 +116,7 @@ class RedisClient:
             # Create connection pool
             RedisClient._pool = redis.from_url(
                 _resolve_redis_url(),
+                password=REDIS_PASSWORD,
                 encoding="utf-8",
                 decode_responses=True,
                 max_connections=50,

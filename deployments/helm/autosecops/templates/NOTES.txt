@@ -33,6 +33,13 @@ as the database owner and tenant row-level security is inactive. Set it (or the
 `{{ .Values.externalPostgres.auth.runtimePasswordKey }}` key of an existing Secret) and upgrade.
 {{- end }}
 
+{{- if not .Values.autosecops.temporal.payloadEncryption.enabled }}
+
+WARNING: autosecops.temporal.payloadEncryption.enabled is false, so workflow
+inputs, results, and failures are stored in plaintext in Temporal's database.
+Add a keyring and enable it: https://docs.singularityrd.com/self-hosting/security#temporal-payload-encryption
+{{- end }}
+
 {{- if .Values.autosecops.auth.superadminEmail }}
 
 Sign in first as {{ .Values.autosecops.auth.superadminEmail }} to become superadmin.

@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
+from urllib.parse import quote
 
 from dotenv import dotenv_values, load_dotenv
 
@@ -29,6 +30,13 @@ os.environ.setdefault(
     )
     or "test-service-key",
 )
+# The Compose Redis requires a password. autosecops.config reads
+# REDIS_PASSWORD at import, so take it from .env before that import, or the
+# shared RedisClient pool connects unauthenticated.
+if _redis_password := dotenv_values(Path(__file__).resolve().parents[1] / ".env").get(
+    "REDIS_PASSWORD"
+):
+    os.environ.setdefault("REDIS_PASSWORD", _redis_password)
 
 import aioboto3
 import autosecops_registry.integrations.aws_boto3 as boto3_module
@@ -391,7 +399,23 @@ REDIS_DB = (WORKER_OFFSET % 15) + 1
 # Redis URL - use Docker hostname when inside container, localhost otherwise
 # Ignore REDIS_URL from .env as it contains Docker-internal hostname
 REDIS_HOST = "redis" if IN_DOCKER else "localhost"
-REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+REDIS_URL_DISPLAY = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+
+
+def _redis_url() -> str:
+    """Return the test Redis URL, with the Compose Redis password when set.
+
+    The Compose Redis requires REDIS_PASSWORD from .env. Read it without
+    load_dotenv(), as `_minio_credentials` does.
+    """
+    dotenv = dotenv_values(Path(__file__).resolve().parents[1] / ".env")
+    password = os.environ.get("REDIS_PASSWORD") or dotenv.get("REDIS_PASSWORD")
+    if not password:
+        return REDIS_URL_DISPLAY
+    return f"redis://:{quote(password, safe='')}@{REDIS_HOST}:{REDIS_PORT}"
+
+
+REDIS_URL = _redis_url()
 
 
 # ---------------------------------------------------------------------------
@@ -417,7 +441,8 @@ def redis_server():
         try:
             if client.ping():
                 logger.info(
-                    f"Redis available at {worker_redis_url} (worker={WORKER_ID})"
+                    f"Redis available at {REDIS_URL_DISPLAY}/{REDIS_DB} "
+                    f"(worker={WORKER_ID})"
                 )
                 # Set REDIS_URL with worker-specific database for isolation
                 os.environ["REDIS_URL"] = worker_redis_url
@@ -427,7 +452,7 @@ def redis_server():
             time.sleep(1)
 
     pytest.fail(
-        f"Redis not available at {REDIS_URL}. "
+        f"Redis not available at {REDIS_URL_DISPLAY}. "
         "Start it with: docker-compose -f docker-compose.dev.yml up -d redis"
     )
 

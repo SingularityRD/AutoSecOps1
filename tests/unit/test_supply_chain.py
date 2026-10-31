@@ -125,6 +125,32 @@ def test_dependabot_titles_pass_the_pr_title_check(ecosystem: str) -> None:
         assert report.ok, (title, [v.code for v in report.violations])
 
 
+@pytest.mark.parametrize("ecosystem", ["uv", "npm", "docker"])
+def test_dependabot_version_updates_skip_majors(ecosystem: str) -> None:
+    """Majors move in deliberate migration PRs, not in bot bumps.
+
+    Every ignore rule must also carry `update-types`: a rule that ignores a
+    dependency outright can suppress its security updates too.
+    """
+    config = yaml.safe_load((ROOT / ".github/dependabot.yml").read_text())
+    (update,) = [u for u in config["updates"] if u["package-ecosystem"] == ecosystem]
+    rules = update["ignore"]
+    assert {
+        "dependency-name": "*",
+        "update-types": ["version-update:semver-major"],
+    } in rules
+    for rule in rules:
+        assert rule.get("update-types"), rule
+
+
+def test_dependabot_keeps_github_actions_majors_in_the_grouped_pr() -> None:
+    config = yaml.safe_load((ROOT / ".github/dependabot.yml").read_text())
+    (actions,) = [
+        u for u in config["updates"] if u["package-ecosystem"] == "github-actions"
+    ]
+    assert "ignore" not in actions
+
+
 def test_dependabot_ignores_runtime_changing_base_image_tags() -> None:
     config = yaml.safe_load((ROOT / ".github/dependabot.yml").read_text())
     (docker,) = [u for u in config["updates"] if u["package-ecosystem"] == "docker"]

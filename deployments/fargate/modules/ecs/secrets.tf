@@ -195,6 +195,149 @@ resource "aws_secretsmanager_secret_version" "db_runtime_password" {
   secret_string = random_password.db_runtime_password.result
 }
 
+# Temporal payload encryption keyring. Terraform generates one keyring per
+# stack while temporal_payload_encryption_generate_keyring is true (the
+# default). Generation has its own switch instead of following whether
+# temporal_payload_encryption_keyring_arn is set: tying it to the ARN would
+# delete the generated keyring when an operator supplies their own and create
+# a different one if they switch back, leaving history encrypted under the
+# first one unreadable. The keyring is kept whether or not encryption is on, so
+# turning encryption off keeps the key that decrypts existing history.
+# `ignore_changes` lets operators rotate the keyring in Secrets Manager (add a
+# key, move current_key_id) without the next apply reverting it. The random
+# root secret is generated once and kept in Terraform state (which already
+# holds the database passwords, so keep state encrypted); applies never rotate
+# it. The key ID is random too, so a regenerated keyring can never reuse the
+# ID of a lost one: decoding old history then fails with "unknown key ID"
+# rather than an authentication error.
+resource "random_password" "temporal_payload_encryption_root_secret" {
+  count   = var.temporal_payload_encryption_generate_keyring ? 1 : 0
+  length  = 64
+  special = false
+}
+
+resource "random_id" "temporal_payload_encryption_key_id" {
+  count       = var.temporal_payload_encryption_generate_keyring ? 1 : 0
+  byte_length = 4
+  prefix      = "tf-"
+}
+
+resource "aws_secretsmanager_secret" "temporal_payload_encryption_keyring" {
+  count       = var.temporal_payload_encryption_generate_keyring ? 1 : 0
+  name_prefix = "${var.name_prefix}-temporal-payload-keyring-"
+  description = "AutoSecOps Temporal payload encryption keyring. Losing it makes encrypted workflow history unreadable."
+
+  # Deleting this secret by mistake (for example by setting
+  # temporal_payload_encryption_generate_keyring = false) leaves the longest
+  # window Secrets Manager allows to restore it.
+  recovery_window_in_days = 30
+}
+
+resource "aws_secretsmanager_secret_version" "temporal_payload_encryption_keyring" {
+  count     = var.temporal_payload_encryption_generate_keyring ? 1 : 0
+  secret_id = aws_secretsmanager_secret.temporal_payload_encryption_keyring[0].id
+  secret_string = jsonencode({
+    current_key_id = random_id.temporal_payload_encryption_key_id[0].hex
+    keys = {
+      (random_id.temporal_payload_encryption_key_id[0].hex) = random_password.temporal_payload_encryption_root_secret[0].result
+    }
+  })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+# Two-phase rollout. ECS replaces the API, worker, executor, agent and MCP
+# tasks one service at a time, so for a while old and new tasks run side by
+# side. A task without the keyring cannot decode a payload a new task
+# encrypted, and the Temporal SDK fails that activity attempt; actions that
+# run with maximum_attempts=1 then fail their workflow. So on an existing
+# stack, encryption only turns on once a previous apply has already given
+# every service this keyring:
+#   apply 1: services get the keyring ARN with encryption still off (decoding
+#            always uses the keyring, so they can already read encrypted
+#            payloads), and the marker parameter below records the rollout;
+#   apply 2: the marker matches, so encryption turns on.
+# A new stack has no running tasks, so it encrypts from its first apply.
+# Both data sources are read at plan time, before this apply changes anything.
+data "aws_ecs_clusters" "existing" {}
+
+data "aws_ssm_parameters_by_path" "temporal_payload_encryption_rollout" {
+  path = local.temporal_payload_encryption_rollout_path
+}
+
+locals {
+  temporal_payload_encryption_keyring_configured = (
+    var.temporal_payload_encryption_keyring_arn != null
+    || var.temporal_payload_encryption_generate_keyring
+  )
+
+  # Services read the keyring from Secrets Manager at runtime (and refresh it
+  # on the cache TTL), so a rotation inside the secret needs no redeploy.
+  temporal_payload_encryption_keyring_arn = (
+    var.temporal_payload_encryption_keyring_arn != null
+    ? var.temporal_payload_encryption_keyring_arn
+    : (
+      var.temporal_payload_encryption_generate_keyring
+      ? aws_secretsmanager_secret.temporal_payload_encryption_keyring[0].arn
+      : null
+    )
+  )
+
+  temporal_payload_encryption_rollout_path = "/${var.name_prefix}/autosecops/temporal-payload-keyring-rollout"
+
+  # Parameter names cannot hold an ARN, so the marker is named after its hash.
+  # Switching to a different keyring ARN therefore starts a new two-phase
+  # rollout.
+  temporal_payload_encryption_rollout_marker = (
+    local.temporal_payload_encryption_keyring_configured
+    ? "${local.temporal_payload_encryption_rollout_path}/${substr(sha256(coalesce(local.temporal_payload_encryption_keyring_arn, "none")), 0, 32)}"
+    : null
+  )
+
+  autosecops_stack_exists = contains(
+    [for arn in data.aws_ecs_clusters.existing.cluster_arns : reverse(split("/", arn))[0]],
+    "${var.name_prefix}-cluster"
+  )
+
+  temporal_payload_encryption_keyring_rolled_out = (
+    var.temporal_payload_encryption_assume_keyring_rolled_out || !local.autosecops_stack_exists
+    ? true
+    : contains(
+      data.aws_ssm_parameters_by_path.temporal_payload_encryption_rollout.names,
+      coalesce(local.temporal_payload_encryption_rollout_marker, "-")
+    )
+  )
+
+  # What the services actually run with.
+  temporal_payload_encryption_active = (
+    var.temporal_payload_encryption_enabled
+    && local.temporal_payload_encryption_keyring_configured
+    && local.temporal_payload_encryption_keyring_rolled_out
+  )
+}
+
+# Written only after every service that reads the keyring has been updated, so
+# its presence at the next plan means the keyring reached all of them.
+resource "aws_ssm_parameter" "temporal_payload_encryption_rollout" {
+  count       = local.temporal_payload_encryption_keyring_configured ? 1 : 0
+  name        = local.temporal_payload_encryption_rollout_marker
+  description = "Marks that every AutoSecOps service received this Temporal payload encryption keyring. Managed by Terraform."
+  type        = "String"
+  value       = "rolled-out"
+
+  depends_on = [
+    aws_ecs_service.autosecops_api,
+    aws_ecs_service.autosecops_worker,
+    aws_ecs_service.autosecops_background_worker,
+    aws_ecs_service.autosecops_executor,
+    aws_ecs_service.autosecops_agent_worker,
+    aws_ecs_service.autosecops_agent_executor,
+    aws_ecs_service.autosecops_mcp,
+  ]
+}
+
 # Sentry DSN is stored in a Terraform-managed secret and injected via ECS
 # `secrets`, never as a plain environment variable: var.sentry_dsn is
 # sensitive, so putting it in the env lists marks every affected

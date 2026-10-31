@@ -953,9 +953,8 @@ class BaseTablesService(BaseWorkspaceService):
 
         old_type = column.type
         old_name = self._sanitize_identifier(column.name)
-        new_name = self._sanitize_identifier(
-            set_fields["name"] if "name" in set_fields else column.name
-        )
+        # A None name was popped above, so a present name is a non-empty str.
+        new_name = self._sanitize_identifier(set_fields.get("name") or column.name)
         new_type = set_fields.get("type", column.type)
 
         # Handle physical column changes if name or type is being updated

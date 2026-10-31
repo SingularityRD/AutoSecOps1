@@ -1004,8 +1004,7 @@ async def test_case_search_rejects_unresolved_tags(
     ):
         response = http.get(
             f"{prefix}{path}",
-            params=[("workspace_id", str(test_admin_role.workspace_id))]
-            + [("tags", tag) for tag in tags],
+            params={"workspace_id": str(test_admin_role.workspace_id), "tags": tags},
         )
 
     resolver.assert_awaited_once_with(
@@ -1048,8 +1047,7 @@ async def test_case_search_empty_tags_remain_unfiltered(
         service_cls.return_value = service
         response = http.get(
             f"{prefix}{path}",
-            params=[("workspace_id", str(test_admin_role.workspace_id))]
-            + [("tags", tag) for tag in tags],
+            params={"workspace_id": str(test_admin_role.workspace_id), "tags": tags},
         )
 
     assert response.status_code == status.HTTP_200_OK

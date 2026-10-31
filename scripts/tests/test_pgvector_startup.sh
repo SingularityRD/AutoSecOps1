@@ -25,6 +25,7 @@ cat > "$work_dir/.env" <<ENV
 AUTOSECOPS__LOCAL_REPOSITORY_PATH=/tmp/synthetic-registry
 PUBLIC_APP_PORT=8080
 TEMPORAL__UI_VERSION=latest
+REDIS_PASSWORD=synthetic-redis-password
 AUTOSECOPS__DB_URI=postgresql+psycopg://$admin_user:synthetic-test-password@postgres_db:5432/postgres
 ENV
 cd "$work_dir"

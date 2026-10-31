@@ -3349,6 +3349,7 @@ def test_loadtest_override_exposes_resource_and_throughput_dimensions() -> None:
         "caddy",
         "api",
         "worker",
+        "background-worker",
         "executor",
         "agent-worker",
         "litellm",
@@ -3366,7 +3367,9 @@ def test_loadtest_override_exposes_resource_and_throughput_dimensions() -> None:
     for service_name in resource_services:
         service = services.get(service_name)
         assert isinstance(service, dict)
-        assert {"cpus", "mem_limit", "memswap_limit"} <= service.keys()
+        assert "memswap_limit" in service
+        limits = service["deploy"]["resources"]["limits"]
+        assert {"cpus", "memory"} <= limits.keys()
 
     worker = services["worker"]
     executor = services["executor"]
