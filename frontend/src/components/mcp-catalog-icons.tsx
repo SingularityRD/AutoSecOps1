@@ -22,6 +22,7 @@ function createEmbeddedCatalogIcon(href: string, darkHref?: string) {
   }: CatalogIconProps) => (
     <div className={className}>
       <svg
+        aria-hidden="true"
         viewBox="0 0 1 1"
         className={cn("size-full", iconClassName)}
         {...rest}

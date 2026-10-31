@@ -385,6 +385,8 @@ function LastUsedIndicator({ value }: { value?: string | null }) {
             "flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors",
             "hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring"
           )}
+          role="img"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable so keyboard users can open the last-used tooltip.
           tabIndex={0}
           aria-label={accessibleLabel}
           onClick={(event) => event.stopPropagation()}

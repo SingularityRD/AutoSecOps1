@@ -40,6 +40,21 @@
     "enabled": true,
     "rules": {
       "recommended": false,
+      "a11y": {
+        "recommended": true,
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "inputComponents": [
+              "Checkbox",
+              "Input",
+              "RadioGroupItem",
+              "Switch",
+              "Textarea"
+            ]
+          }
+        }
+      },
       "complexity": {
         "noBannedTypes": "error",
         "noUselessTypeConstraint": "error"
@@ -141,6 +156,114 @@
             "noUnsafeNegation": "off",
             "noVar": "error",
             "useGetterReturn": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/components/agents/agent-model-combobox.tsx",
+        "src/components/agents/agent-preset-rail-tools.tsx",
+        "src/components/agents/agent-presets-builder.tsx",
+        "src/components/agents/agents-dashboard.tsx",
+        "src/components/agents/create-agent-dialog.tsx",
+        "src/components/ai-elements/file-tree.tsx",
+        "src/components/builder/canvas/action-node-effect.tsx",
+        "src/components/builder/canvas/canvas-toolbar.tsx",
+        "src/components/builder/canvas/custom-handle.tsx",
+        "src/components/builder/canvas/trigger-node.tsx",
+        "src/components/builder/events/workflow-rerun-dialog.tsx",
+        "src/components/builder/panel/action-panel-fields.tsx",
+        "src/components/builder/panel/action-panel.tsx",
+        "src/components/builder/panel/workflow-panel.tsx",
+        "src/components/cases/case-attachments-section.tsx",
+        "src/components/cases/case-comment-agent.tsx",
+        "src/components/cases/case-comment-editor.tsx",
+        "src/components/cases/case-description-editor.tsx",
+        "src/components/cases/case-item.tsx",
+        "src/components/cases/case-panel-custom-fields.tsx",
+        "src/components/cases/case-panel-fields-group.tsx",
+        "src/components/cases/case-panel-view.tsx",
+        "src/components/cases/case-sub-cases.tsx",
+        "src/components/cases/cases-header.tsx",
+        "src/components/cases/multiselect-case-filters.tsx",
+        "src/components/chat/approval-request-part.tsx",
+        "src/components/chat/chat-history-dropdown.tsx",
+        "src/components/dashboard/folder-move-dialog.tsx",
+        "src/components/dashboard/workflow-move-dialog.tsx",
+        "src/components/events/workflow-events-list.tsx",
+        "src/components/forms/form-config-tab.tsx",
+        "src/components/forms/widgets/file.tsx",
+        "src/components/forms/widgets/user.tsx",
+        "src/components/inbox/runs-table.tsx",
+        "src/components/json-viewer-compact.tsx",
+        "src/components/json-viewer.tsx",
+        "src/components/license/license-expiry-banner.tsx",
+        "src/components/organization/invite-member-dialog.tsx",
+        "src/components/organization/org-members-table.tsx",
+        "src/components/organization/org-vcs-github-manual-form.tsx",
+        "src/components/organization/rbac-list-item.tsx",
+        "src/components/organization/service-accounts-manager.tsx",
+        "src/components/registry/action-listbox.tsx",
+        "src/components/service-account-json-uploader.tsx",
+        "src/components/skills/editor-panel.tsx",
+        "src/components/skills/skills-dashboard.tsx",
+        "src/components/skills/upload-skill-dialog.tsx",
+        "src/components/tables/ag-grid-table.tsx",
+        "src/components/tables/cell-editors.tsx",
+        "src/components/tables/table-rows-grid.tsx",
+        "src/components/tables/tables-dashboard.tsx",
+        "src/components/tags-input.tsx",
+        "src/components/tiptap-node/image-upload-node/image-upload-node.tsx",
+        "src/components/tiptap-ui-primitive/button/button.tsx",
+        "src/components/tiptap-ui-primitive/toolbar/toolbar.tsx",
+        "src/components/tiptap-ui/blockquote-button/blockquote-button.tsx",
+        "src/components/tiptap-ui/code-block-button/code-block-button.tsx",
+        "src/components/tiptap-ui/color-highlight-button/color-highlight-button.tsx",
+        "src/components/tiptap-ui/color-highlight-popover/color-highlight-popover.tsx",
+        "src/components/tiptap-ui/heading-button/heading-button.tsx",
+        "src/components/tiptap-ui/heading-dropdown-menu/heading-dropdown-menu.tsx",
+        "src/components/tiptap-ui/image-upload-button/image-upload-button.tsx",
+        "src/components/tiptap-ui/link-popover/link-popover.tsx",
+        "src/components/tiptap-ui/list-button/list-button.tsx",
+        "src/components/tiptap-ui/list-dropdown-menu/list-dropdown-menu.tsx",
+        "src/components/tiptap-ui/mark-button/mark-button.tsx",
+        "src/components/tiptap-ui/text-align-button/text-align-button.tsx",
+        "src/components/tiptap-ui/undo-redo-button/undo-redo-button.tsx",
+        "src/components/toggleable-dropdown-item.tsx",
+        "src/components/tools/tool-picker-dialog.tsx",
+        "src/components/ui/carousel.tsx",
+        "src/components/ui/input-group.tsx",
+        "src/components/workflow-runs/workflow-run-item.tsx",
+        "src/components/workflow-runs/workflow-runs-layout.tsx",
+        "src/components/workspace-chat/artifacts/artifact-tabs.tsx",
+        "src/components/workspace-sync/git-sync-action-bar.tsx",
+        "src/components/workspace-sync/git-sync-commit-picker.tsx",
+        "src/components/workspace-sync/git-sync-connection.tsx",
+        "src/components/workspace-sync/git-sync-pull.tsx",
+        "src/components/workspaces/create-credential-dialog.tsx",
+        "src/components/workspaces/edit-workspace-secret.tsx",
+        "src/components/workspaces/secret-source-picker.tsx",
+        "src/components/workspaces/workspace-credentials-inventory.tsx",
+        "src/components/workspaces/workspaces-admin-button.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noStaticElementInteractions": "warn",
+            "useKeyWithClickEvents": "warn",
+            "useSemanticElements": "warn"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["tests/**", "**/*.test.ts", "**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "recommended": false,
+            "noLabelWithoutControl": "off"
           }
         }
       }
