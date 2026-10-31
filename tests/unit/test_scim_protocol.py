@@ -751,6 +751,7 @@ async def test_other_tenants_user_is_not_visible(
 # =============================================================================
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("path", "expected"),
     [
@@ -761,7 +762,7 @@ async def test_other_tenants_user_is_not_visible(
         ("/api/scim/connection", False),
     ],
 )
-def test_is_scim_path_only_matches_the_protocol_surface(
+async def test_is_scim_path_only_matches_the_protocol_surface(
     path: str, expected: bool
 ) -> None:
     """The envelope must not rewrite errors for the rest of the API.

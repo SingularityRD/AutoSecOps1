@@ -33,7 +33,7 @@ bootstrap = [
     "autosecops",
 ]
 dev = [
-    "pytest==9.0.3",
+    "pytest==9.1.1",
     "respx==0.22.0",
 ]
 

@@ -31,9 +31,9 @@ AutoSecOps rejects server URLs that resolve to private, loopback, or link-local 
 
 Authentication modes:
 
-- No Authentication
-- Custom
-- OAuth
+- `No Authentication`
+- `API key / token`
+- `OAuth 2.0`
 
 ![Remote MCP authentication](/img/integrations/remote-mcp-auth-options.png)
 
@@ -45,7 +45,7 @@ For a custom remote MCP server, first create a custom OAuth provider in [OAuth](
 
 ### Custom headers for remote MCP
 
-`Custom` authentication stores request headers as JSON.
+`API key / token` authentication stores request headers as JSON.
 
 ```json
 {

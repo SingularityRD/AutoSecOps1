@@ -2,6 +2,7 @@ import asyncio
 import fcntl
 import importlib
 import importlib.util
+import inspect
 import os
 import socket
 import subprocess
@@ -135,6 +136,31 @@ def pytest_xdist_auto_num_workers(config: pytest.Config) -> int:
         except ValueError:
             pass
     return min(os.cpu_count() or 1, MAX_AUTO_XDIST_WORKERS)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Keep async fixtures off sync tests that no plugin runs them for.
+
+    pytest 9.1 fails a sync test whose fixture closure holds an async fixture
+    the anyio plugin does not handle, such as an async autouse fixture.
+    Earlier pytest only warned and never ran the fixture body, so dropping
+    those fixtures keeps the behaviour sync tests always had. A fixture the
+    test requests by argument stays, so a real misuse still fails.
+    """
+    for item in items:
+        if not isinstance(item, pytest.Function) or inspect.iscoroutinefunction(
+            item.obj
+        ):
+            continue
+        if "anyio_backend" in item.fixturenames:
+            continue
+        info = item._fixtureinfo
+        for name in list(item.fixturenames):
+            if name in info.argnames or not (defs := info.name2fixturedefs.get(name)):
+                continue
+            func = defs[-1].func
+            if inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func):
+                item.fixturenames.remove(name)
 
 
 # Port configuration - reads from environment for worktree cluster support

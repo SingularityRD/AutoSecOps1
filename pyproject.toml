@@ -42,8 +42,8 @@ dependencies = [
     "fastapi-users[sqlalchemy,oauth]==15.0.5",
     "fido2==2.2.1",
     "fastapi[standard]==0.162.0",
-    "fastmcp==3.4.10",
-    "google-auth==2.48.0",
+    "fastmcp==3.4.11",
+    "google-auth==2.62.0",
     "greenlet==3.5.6",
     "griffe==2.4.1",
     "httpcore==1.0.9",
@@ -62,7 +62,7 @@ dependencies = [
     "paramiko==5.0.0",
     "pgvector==0.5.1",
     "polyfile==0.6.0",
-    "protobuf==6.33.5",
+    "protobuf==6.33.6",
     "psycopg[binary]==3.1.19",
     "pydantic-extra-types==2.11.1",
     "pydantic==2.12.5",
@@ -150,8 +150,8 @@ dev = [
     "pytest-mock==3.17.0",
     "pytest-repeat==0.9.4",
     "pytest-xdist==3.8.0",
-    "pytest==9.0.3",
-    "python-dotenv==1.2.2",
+    "pytest==9.1.1",
+    "python-dotenv==1.2.4",
     "respx==0.22.0",
     "ruff==0.17.2",
     {include-group = "lint"},
@@ -227,7 +227,6 @@ filterwarnings = [
     # Sync tests inherit autouse async fixtures such as `test_db_engine` in
     # tests/conftest.py. pytest 8 never ran them; pytest 9 errors instead.
     # Keep the pytest 8 behavior until those fixtures skip sync tests.
-    "ignore:.*requested an async fixture:pytest.PytestRemovedIn9Warning",
 ]
 markers = [
     "anyio: marks tests as requiring the anyio pytest plugin",
