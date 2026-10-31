@@ -19,9 +19,11 @@ from autosecops.agent.backends.default import DefaultBackend
 from autosecops.agent.preset.activities import (
     ResolveAgentPresetConfigActivityInput,
     ResolveAgentsConfigActivityInput,
+    ResolveGatewayCatalogByModelActivityInput,
     resolve_agent_preset_config_activity,
     resolve_agents_config_activity,
     resolve_custom_model_provider_config_activity,
+    resolve_gateway_catalog_by_model_activity,
 )
 from autosecops.agent.preset.resolver import (
     AgentPresetResolutionService,
@@ -869,22 +871,15 @@ class _CatalogResolver:
 def _gateway_service(
     *,
     workspace_credentials: dict[str, str] | None,
-    catalog_credentials: dict[str, str] | None = None,
-    catalog_row: object | None = None,
 ) -> SimpleNamespace:
     role = _role()
     return SimpleNamespace(
         role=role,
         organization_id=role.organization_id,
-        session=SimpleNamespace(
-            execute=AsyncMock(
-                return_value=SimpleNamespace(scalar_one_or_none=lambda: catalog_row)
-            )
-        ),
+        session=SimpleNamespace(),
         get_workspace_provider_credentials=AsyncMock(
             return_value=workspace_credentials
         ),
-        get_catalog_credentials=AsyncMock(return_value=catalog_credentials),
     )
 
 
@@ -902,26 +897,30 @@ def _patch_gateway_services(
     )
 
 
+def _lookup_input(
+    service: SimpleNamespace,
+    *,
+    model_provider: str = "ollama",
+    model_name: str = "llama3",
+) -> ResolveGatewayCatalogByModelActivityInput:
+    return ResolveGatewayCatalogByModelActivityInput(
+        role=service.role, model_provider=model_provider, model_name=model_name
+    )
+
+
 @pytest.mark.anyio
-async def test_resolve_gateway_config_binds_org_catalog_row_by_model_name(
+async def test_gateway_catalog_lookup_binds_org_catalog_row_by_model_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An org-configured Ollama model without catalog id or workspace secret."""
     catalog_id = uuid.uuid4()
-    service = _gateway_service(
-        workspace_credentials=None,
-        catalog_credentials={"OLLAMA_BASE_URL": "http://ollama.internal:11434/v1/"},
-        catalog_row=SimpleNamespace(custom_provider_id=None, model_provider="ollama"),
-    )
+    service = _gateway_service(workspace_credentials=None)
     resolver = _CatalogResolver(AsyncMock(return_value=catalog_id))
     _patch_gateway_services(monkeypatch, service, resolver)
 
-    result = await resolve_custom_model_provider_config_activity(
-        service.role, None, False, "ollama", "llama3"
-    )
+    result = await resolve_gateway_catalog_by_model_activity(_lookup_input(service))
 
     assert result.catalog_id == catalog_id
-    assert result.base_url == "http://ollama.internal:11434/v1"
     resolver.resolve.assert_awaited_once_with(
         org_id=service.organization_id,
         model_provider="ollama",
@@ -929,11 +928,10 @@ async def test_resolve_gateway_config_binds_org_catalog_row_by_model_name(
         workspace_id=service.role.workspace_id,
     )
     assert resolver.sessions == [service.session]
-    service.get_catalog_credentials.assert_awaited_once_with(catalog_id)
 
 
 @pytest.mark.anyio
-async def test_resolve_gateway_config_keeps_workspace_credentials_precedence(
+async def test_gateway_catalog_lookup_keeps_workspace_credentials_precedence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _gateway_service(
@@ -942,60 +940,29 @@ async def test_resolve_gateway_config_keeps_workspace_credentials_precedence(
     resolver = _CatalogResolver(AsyncMock(return_value=uuid.uuid4()))
     _patch_gateway_services(monkeypatch, service, resolver)
 
-    result = await resolve_custom_model_provider_config_activity(
-        service.role, None, False, "ollama", "llama3"
-    )
+    result = await resolve_gateway_catalog_by_model_activity(_lookup_input(service))
 
     assert result.catalog_id is None
-    assert result.base_url == "http://workspace-ollama/v1"
     resolver.resolve.assert_not_awaited()
     service.get_workspace_provider_credentials.assert_awaited_once_with("ollama")
-    service.get_catalog_credentials.assert_not_awaited()
 
 
 @pytest.mark.anyio
-async def test_resolve_gateway_config_without_model_name_keeps_legacy_failure(
+async def test_gateway_catalog_lookup_returns_none_when_no_row_matches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Four-argument histories never look up the catalog by model name."""
-    service = _gateway_service(workspace_credentials=None)
-    resolver = _CatalogResolver(AsyncMock(return_value=uuid.uuid4()))
-    _patch_gateway_services(monkeypatch, service, resolver)
-
-    with pytest.raises(ApplicationError) as exc_info:
-        await resolve_custom_model_provider_config_activity(
-            service.role, None, False, "ollama"
-        )
-
-    classification = extract_error_classification(exc_info.value)
-    assert classification is not None
-    assert classification.kind is RuntimeErrorKind.AGENT_CONFIGURATION_INVALID
-    resolver.resolve.assert_not_awaited()
-
-
-@pytest.mark.anyio
-async def test_resolve_gateway_config_fails_when_no_catalog_row_matches(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+    """No match leaves the config activity to raise its standard error."""
     service = _gateway_service(workspace_credentials=None)
     resolver = _CatalogResolver(AsyncMock(return_value=None))
     _patch_gateway_services(monkeypatch, service, resolver)
 
-    with pytest.raises(ApplicationError) as exc_info:
-        await resolve_custom_model_provider_config_activity(
-            service.role, None, False, "ollama", "llama3"
-        )
+    result = await resolve_gateway_catalog_by_model_activity(_lookup_input(service))
 
-    classification = extract_error_classification(exc_info.value)
-    assert classification is not None
-    assert classification.owner is RuntimeErrorOwner.USER
-    assert classification.kind is RuntimeErrorKind.AGENT_CONFIGURATION_INVALID
-    assert exc_info.value.non_retryable is True
-    service.get_catalog_credentials.assert_not_awaited()
+    assert result.catalog_id is None
 
 
 @pytest.mark.anyio
-async def test_resolve_gateway_config_rejects_ambiguous_model_name(
+async def test_gateway_catalog_lookup_rejects_ambiguous_model_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _gateway_service(workspace_credentials=None)
@@ -1009,8 +976,12 @@ async def test_resolve_gateway_config_rejects_ambiguous_model_name(
     _patch_gateway_services(monkeypatch, service, resolver)
 
     with pytest.raises(ApplicationError) as exc_info:
-        await resolve_custom_model_provider_config_activity(
-            service.role, None, False, "custom-model-provider", "shared-model"
+        await resolve_gateway_catalog_by_model_activity(
+            _lookup_input(
+                service,
+                model_provider="custom-model-provider",
+                model_name="shared-model",
+            )
         )
 
     classification = extract_error_classification(exc_info.value)
@@ -1019,64 +990,38 @@ async def test_resolve_gateway_config_rejects_ambiguous_model_name(
     assert classification.kind is RuntimeErrorKind.AGENT_CONFIGURATION_INVALID
     assert exc_info.value.non_retryable is True
     assert "matches several enabled models" in exc_info.value.message
-    service.get_catalog_credentials.assert_not_awaited()
 
 
 @pytest.mark.anyio
-async def test_resolve_gateway_config_rejects_catalog_row_for_other_provider(
+async def test_gateway_catalog_lookup_rejects_direct_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A resolved row still has to belong to the requested gateway provider."""
-    service = _gateway_service(
-        workspace_credentials=None,
-        catalog_credentials={"OLLAMA_BASE_URL": "http://ollama.internal/v1"},
-        catalog_row=SimpleNamespace(custom_provider_id=None, model_provider="vllm"),
-    )
+    service = _gateway_service(workspace_credentials=None)
     resolver = _CatalogResolver(AsyncMock(return_value=uuid.uuid4()))
     _patch_gateway_services(monkeypatch, service, resolver)
 
-    with pytest.raises(ApplicationError):
-        await resolve_custom_model_provider_config_activity(
-            service.role, None, False, "ollama", "llama3"
-        )
-
-    service.get_catalog_credentials.assert_not_awaited()
-
-
-@pytest.mark.anyio
-async def test_resolve_gateway_config_accepts_untyped_legacy_arguments(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Temporal drops type hints when a history schedules four arguments."""
-    catalog_id = uuid.uuid4()
-    service = _gateway_service(
-        workspace_credentials=None,
-        catalog_credentials={"OLLAMA_BASE_URL": "http://ollama.internal/v1"},
-        catalog_row=SimpleNamespace(custom_provider_id=None, model_provider="ollama"),
-    )
-    resolver = _CatalogResolver(AsyncMock())
-    _patch_gateway_services(monkeypatch, service, resolver)
-
-    converter = get_data_converter()
-    payloads = await converter.encode([service.role, catalog_id, False, "ollama"])
-    decoded = await converter.decode(payloads, type_hints=None)
-    assert isinstance(decoded[0], dict)
-    assert decoded[1] == str(catalog_id)
-
-    result = await resolve_custom_model_provider_config_activity(*decoded)
-
-    assert result.catalog_id == catalog_id
-    service.get_catalog_credentials.assert_awaited_once_with(catalog_id)
-    resolver.resolve.assert_not_awaited()
-
-
-@pytest.mark.anyio
-async def test_resolve_gateway_config_rejects_malformed_catalog_id() -> None:
     with pytest.raises(ApplicationError) as exc_info:
-        await resolve_custom_model_provider_config_activity(
-            _role(), "not-a-uuid", False, "ollama"
+        await resolve_gateway_catalog_by_model_activity(
+            _lookup_input(service, model_provider="openai")
         )
 
-    classification = extract_error_classification(exc_info.value)
-    assert classification is not None
-    assert classification.kind is RuntimeErrorKind.AGENT_CONFIGURATION_INVALID
+    assert exc_info.value.non_retryable is True
+    resolver.resolve.assert_not_awaited()
+    service.get_workspace_provider_credentials.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_input_round_trips_temporal_converter() -> None:
+    """The single-model input keeps its types across the Temporal payload."""
+    role = _role()
+    activity_input = ResolveGatewayCatalogByModelActivityInput(
+        role=role, model_provider="ollama", model_name="llama3"
+    )
+    converter = get_data_converter()
+
+    payloads = await converter.encode([activity_input])
+    decoded = await converter.decode(
+        payloads, type_hints=[ResolveGatewayCatalogByModelActivityInput]
+    )
+
+    assert decoded == [activity_input]
