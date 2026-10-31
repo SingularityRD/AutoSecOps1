@@ -16,7 +16,10 @@ from autosecops.agent.common.exceptions import (
     UserMCPDiscoveryUnavailableError,
 )
 from autosecops.agent.sandbox.config import AgentResourceLimits
-from autosecops.exceptions import RegistryLockAmbiguousActionError
+from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
+    RegistryLockAmbiguousActionError,
+)
 from autosecops.runtime.errors import (
     RetryDisposition,
     RuntimeErrorClassification,
@@ -64,6 +67,22 @@ def invalid_agent_configuration(
 # Caps for user-configured names echoed in messages, bounding their size.
 _MAX_MESSAGE_NAME_LENGTH = 64
 _MAX_MESSAGE_ACTION_NAMES = 5
+
+
+def ambiguous_agent_model(
+    error: AgentCatalogModelAmbiguousError,
+) -> RuntimeErrorClassification:
+    """Classify a model name that matches several enabled catalog models."""
+    return RuntimeErrorClassification.user(
+        kind=RuntimeErrorKind.AGENT_CONFIGURATION_INVALID,
+        message=(
+            f"Model '{_message_name(error.model_name)}' from provider "
+            f"'{_message_name(error.model_provider)}' matches several enabled "
+            "models; select a specific catalog model in the agent configuration"
+        ),
+        retry_disposition=RetryDisposition.NON_RETRYABLE,
+        cause=error,
+    )
 
 
 def _message_name(name: str) -> str:

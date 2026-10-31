@@ -19,9 +19,11 @@ from autosecops.agent.backends.default import DefaultBackend
 from autosecops.agent.preset.activities import (
     ResolveAgentPresetConfigActivityInput,
     ResolveAgentsConfigActivityInput,
+    ResolveGatewayCatalogByModelActivityInput,
     resolve_agent_preset_config_activity,
     resolve_agents_config_activity,
     resolve_custom_model_provider_config_activity,
+    resolve_gateway_catalog_by_model_activity,
 )
 from autosecops.agent.preset.resolver import (
     AgentPresetResolutionService,
@@ -37,6 +39,7 @@ from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.auth.types import Role
 from autosecops.dsl._converter import get_data_converter
 from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
     AutoSecOpsAuthorizationError,
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
@@ -851,3 +854,174 @@ async def test_resolve_custom_model_provider_config_classifies_revoked_catalog(
     assert classification.kind is RuntimeErrorKind.AGENT_CONFIGURATION_INVALID
     assert exc_info.value.non_retryable is True
     assert "catalog access revoked" not in str(exc_info.value)
+
+
+class _CatalogResolver:
+    """Stand-in for ``AgentCatalogService`` with a recorded runtime lookup."""
+
+    def __init__(self, resolve: AsyncMock) -> None:
+        self.resolve = resolve
+        self.sessions: list[object] = []
+
+    def __call__(self, *, session: object) -> SimpleNamespace:
+        self.sessions.append(session)
+        return SimpleNamespace(resolve_runtime_catalog_id_by_model=self.resolve)
+
+
+def _gateway_service(
+    *,
+    workspace_credentials: dict[str, str] | None,
+) -> SimpleNamespace:
+    role = _role()
+    return SimpleNamespace(
+        role=role,
+        organization_id=role.organization_id,
+        session=SimpleNamespace(),
+        get_workspace_provider_credentials=AsyncMock(
+            return_value=workspace_credentials
+        ),
+    )
+
+
+def _patch_gateway_services(
+    monkeypatch: pytest.MonkeyPatch,
+    service: SimpleNamespace,
+    resolver: _CatalogResolver,
+) -> None:
+    monkeypatch.setattr(
+        "autosecops.agent.preset.activities.AgentManagementService.with_session",
+        lambda *_args, **_kwargs: _AsyncContext(service),
+    )
+    monkeypatch.setattr(
+        "autosecops.agent.preset.activities.AgentCatalogService", resolver
+    )
+
+
+def _lookup_input(
+    service: SimpleNamespace,
+    *,
+    model_provider: str = "ollama",
+    model_name: str = "llama3",
+) -> ResolveGatewayCatalogByModelActivityInput:
+    return ResolveGatewayCatalogByModelActivityInput(
+        role=service.role, model_provider=model_provider, model_name=model_name
+    )
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_binds_org_catalog_row_by_model_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An org-configured Ollama model without catalog id or workspace secret."""
+    catalog_id = uuid.uuid4()
+    service = _gateway_service(workspace_credentials=None)
+    resolver = _CatalogResolver(AsyncMock(return_value=catalog_id))
+    _patch_gateway_services(monkeypatch, service, resolver)
+
+    result = await resolve_gateway_catalog_by_model_activity(_lookup_input(service))
+
+    assert result.catalog_id == catalog_id
+    resolver.resolve.assert_awaited_once_with(
+        org_id=service.organization_id,
+        model_provider="ollama",
+        model_name="llama3",
+        workspace_id=service.role.workspace_id,
+    )
+    assert resolver.sessions == [service.session]
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_keeps_workspace_credentials_precedence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _gateway_service(
+        workspace_credentials={"OLLAMA_BASE_URL": "http://workspace-ollama/v1"}
+    )
+    resolver = _CatalogResolver(AsyncMock(return_value=uuid.uuid4()))
+    _patch_gateway_services(monkeypatch, service, resolver)
+
+    result = await resolve_gateway_catalog_by_model_activity(_lookup_input(service))
+
+    assert result.catalog_id is None
+    resolver.resolve.assert_not_awaited()
+    service.get_workspace_provider_credentials.assert_awaited_once_with("ollama")
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_returns_none_when_no_row_matches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No match leaves the config activity to raise its standard error."""
+    service = _gateway_service(workspace_credentials=None)
+    resolver = _CatalogResolver(AsyncMock(return_value=None))
+    _patch_gateway_services(monkeypatch, service, resolver)
+
+    result = await resolve_gateway_catalog_by_model_activity(_lookup_input(service))
+
+    assert result.catalog_id is None
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_rejects_ambiguous_model_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _gateway_service(workspace_credentials=None)
+    resolver = _CatalogResolver(
+        AsyncMock(
+            side_effect=AgentCatalogModelAmbiguousError(
+                model_provider="custom-model-provider", model_name="shared-model"
+            )
+        )
+    )
+    _patch_gateway_services(monkeypatch, service, resolver)
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await resolve_gateway_catalog_by_model_activity(
+            _lookup_input(
+                service,
+                model_provider="custom-model-provider",
+                model_name="shared-model",
+            )
+        )
+
+    classification = extract_error_classification(exc_info.value)
+    assert classification is not None
+    assert classification.owner is RuntimeErrorOwner.USER
+    assert classification.kind is RuntimeErrorKind.AGENT_CONFIGURATION_INVALID
+    assert exc_info.value.non_retryable is True
+    assert "matches several enabled models" in exc_info.value.message
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_rejects_direct_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _gateway_service(workspace_credentials=None)
+    resolver = _CatalogResolver(AsyncMock(return_value=uuid.uuid4()))
+    _patch_gateway_services(monkeypatch, service, resolver)
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await resolve_gateway_catalog_by_model_activity(
+            _lookup_input(service, model_provider="openai")
+        )
+
+    assert exc_info.value.non_retryable is True
+    resolver.resolve.assert_not_awaited()
+    service.get_workspace_provider_credentials.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_gateway_catalog_lookup_input_round_trips_temporal_converter() -> None:
+    """The single-model input keeps its types across the Temporal payload."""
+    role = _role()
+    activity_input = ResolveGatewayCatalogByModelActivityInput(
+        role=role, model_provider="ollama", model_name="llama3"
+    )
+    converter = get_data_converter()
+
+    payloads = await converter.encode([activity_input])
+    decoded = await converter.decode(
+        payloads, type_hints=[ResolveGatewayCatalogByModelActivityInput]
+    )
+
+    assert decoded == [activity_input]

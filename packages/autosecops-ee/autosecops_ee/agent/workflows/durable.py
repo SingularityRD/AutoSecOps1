@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 from temporalio import workflow
-from temporalio.common import TypedSearchAttributes
+from temporalio.common import RetryPolicy, TypedSearchAttributes
 from temporalio.exceptions import (
     ActivityError,
     ApplicationError,
@@ -70,9 +70,11 @@ with workflow.unsafe.imports_passed_through():
     from autosecops.agent.preset.activities import (
         ResolveAgentPresetConfigActivityInput,
         ResolveAgentsConfigActivityInput,
+        ResolveGatewayCatalogByModelActivityInput,
         resolve_agent_preset_config_activity,
         resolve_agents_config_activity,
         resolve_custom_model_provider_config_activity,
+        resolve_gateway_catalog_by_model_activity,
     )
     from autosecops.agent.preset.resolver import (
         ResolvedAgentsRuntimeConfig,
@@ -118,7 +120,7 @@ with workflow.unsafe.imports_passed_through():
     from autosecops.auth.types import Role
     from autosecops.chat.schemas import ChatMessage
     from autosecops.contexts import ctx_role
-    from autosecops.dsl.common import RETRY_POLICIES
+    from autosecops.dsl.common import NON_RETRYABLE_ERROR_TYPES, RETRY_POLICIES
     from autosecops.executor.activities import ExecutorActivities
     from autosecops.logger import logger
     from autosecops.registry.lock.types import RegistryLock
@@ -158,6 +160,20 @@ with workflow.unsafe.imports_passed_through():
 ROOT_AGENT_SCOPE = "root"
 AGENT_TOOL_DEFINITION_ERROR = "AgentToolDefinitionError"
 AGENT_RUNTIME_EXECUTION_ERROR = "AgentRuntimeExecutionError"
+# The gateway catalog lookup is a newer activity than the workflow code that
+# schedules it. During a rolling upgrade an agent worker on the previous
+# version can poll the task and fail it with Temporal's retryable
+# "NotFoundError" (activity not registered). Retry with backoff for a bounded
+# window so an upgraded worker picks it up instead of failing the agent run.
+# Classified AutoSecOps errors stay non-retryable.
+GATEWAY_CATALOG_LOOKUP_SCHEDULE_TO_CLOSE = timedelta(minutes=10)
+GATEWAY_CATALOG_LOOKUP_RETRY_POLICY = RetryPolicy(
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=2.0,
+    maximum_interval=timedelta(seconds=30),
+    maximum_attempts=25,
+    non_retryable_error_types=NON_RETRYABLE_ERROR_TYPES,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -624,6 +640,7 @@ class DurableAgentWorkflow:
     ) -> None:
         if not is_gateway_provider(cfg.model_provider):
             return
+        await self._bind_gateway_catalog_by_model(cfg)
         result = await workflow.execute_activity(
             resolve_custom_model_provider_config_activity,
             args=(self.role, cfg.catalog_id, False, cfg.model_provider),
@@ -641,6 +658,37 @@ class DurableAgentWorkflow:
             has_model_name_override=result.model_name is not None,
             has_base_url=bool(cfg.base_url),
         )
+
+    async def _bind_gateway_catalog_by_model(self, cfg: AgentConfig) -> None:
+        """Bind a gateway model named without a catalog id to its catalog row.
+
+        Only configs without a ``catalog_id`` take this step, so every other
+        config schedules exactly what earlier versions scheduled. The lookup
+        is a separate activity so the config activity keeps the four-argument
+        shape older workers accept. During a rolling upgrade an older agent
+        worker can still poll this task and fail it as not registered; the
+        retry policy retries that until an upgraded worker picks it up.
+        Histories recorded before the patch replay without this step.
+        """
+        if cfg.catalog_id is not None or not cfg.model_name:
+            return
+        if not workflow.patched(
+            DurableAgentWorkflowPatch.RESOLVE_GATEWAY_CATALOG_BY_MODEL
+        ):
+            return
+        result = await workflow.execute_activity(
+            resolve_gateway_catalog_by_model_activity,
+            ResolveGatewayCatalogByModelActivityInput(
+                role=self.role,
+                model_provider=cfg.model_provider,
+                model_name=cfg.model_name,
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            schedule_to_close_timeout=GATEWAY_CATALOG_LOOKUP_SCHEDULE_TO_CLOSE,
+            retry_policy=GATEWAY_CATALOG_LOOKUP_RETRY_POLICY,
+        )
+        if result.catalog_id is not None:
+            cfg.catalog_id = result.catalog_id
 
     async def _build_config(self, args: AgentWorkflowArgs) -> AgentConfig:
         if args.agent_args.preset_slug:
