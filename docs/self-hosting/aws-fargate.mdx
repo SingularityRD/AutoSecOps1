@@ -148,6 +148,14 @@ terraform apply
 
 The services connect to RDS as the non-owner `autosecops_app` role, so tenant row-level security applies to them. Terraform generates its password into Secrets Manager, and the API task's migrations container creates the role as the RDS master user before the API starts. `rls_mode` defaults to `enforce`. On the first apply after upgrading, worker tasks that start before the API migrations finish fail to authenticate and ECS restarts them. See [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation) to verify isolation.
 
+## Temporal payload encryption
+
+`temporal_payload_encryption_enabled` defaults to `true`, so the services encrypt workflow inputs, results, and failures before they reach the Temporal database. Unless you pass `temporal_payload_encryption_keyring_arn`, Terraform generates a keyring with a random root secret in Secrets Manager and grants the API, worker, executor, and MCP task roles `secretsmanager:GetSecretValue` on it. The `temporal_payload_encryption_keyring_arn` output names the secret; back it up with the other platform secrets.
+
+Terraform generates the root secret once and keeps it in state, so later applies never rotate it. To rotate, edit the secret in Secrets Manager as described in [Rotate the keyring](/self-hosting/security#rotate-the-keyring); Terraform ignores changes to its value. Terraform keeps the generated keyring even when you set `temporal_payload_encryption_enabled = false`, so existing encrypted history stays readable. Before you switch an existing stack to your own `temporal_payload_encryption_keyring_arn`, copy the generated keys into your keyring: Terraform deletes the generated secret on that apply.
+
+Stacks created before this default turn encryption on at their next `terraform apply`. Set `temporal_payload_encryption_enabled = false` first to keep storing payloads in plaintext. See [Updating](/self-hosting/updating#temporal-payload-encryption).
+
 ## Temporal DB SSL enforcement
 
 For the bundled Fargate `temporalio/auto-setup` deployment, `temporal_db_force_ssl` defaults to `false`:

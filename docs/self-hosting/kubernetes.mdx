@@ -84,14 +84,16 @@ Each credential comes from a Kubernetes Secret. Reference a Secret you manage wi
 
 | Values | Chart-created Secret | Keys |
 | :----- | :------------------- | :--- |
-| `secrets` | `autosecops-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret` |
+| `secrets` | `autosecops-secrets` | `dbEncryptionKey`, `serviceKey`, `signingSecret`, `userAuthSecret`, `temporalPayloadEncryptionKeyring` |
 | `externalPostgres.auth` | `autosecops-postgres-credentials` | `username`, `password` |
 | `externalRedis.auth` | `autosecops-redis-credentials` | `url` |
 | `externalS3.auth` | `autosecops-s3-credentials` | `accessKeyId`, `secretAccessKey` |
 | `externalTemporal.auth` | `autosecops-temporal-credentials` | `apiKey` |
 | `autosecops.pangolin` | `autosecops-pangolin-credentials` | `apiKey` |
 
-The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `dbEncryptionPreviousKeys`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, `otelExporterOtlpHeaders`, and `temporalPayloadEncryptionKeyring`.
+The names assume the release name `autosecops`. The core Secret also accepts these optional keys: `licenseKey`, `dbEncryptionPreviousKeys`, `oidcClientId`, `oidcClientSecret`, `oauthClientId`, `oauthClientSecret`, `samlIdpMetadataUrl`, `smtpPassword`, `sentryDsn`, `outboundProxyUrl`, and `otelExporterOtlpHeaders`.
+
+Temporal payload encryption (`autosecops.temporal.payloadEncryption.enabled`) is on by default, so `temporalPayloadEncryptionKeyring` is required unless you set `autosecops.temporal.payloadEncryption.keyringArn`. The chart never generates or rotates the keyring: a value generated at render time would change on every `helm upgrade` or GitOps sync and make encrypted workflow history unreadable. See [Temporal payload encryption](/self-hosting/security#temporal-payload-encryption).
 
 <Tabs>
   <Tab title="Existing Secret (recommended)">
@@ -104,7 +106,8 @@ The names assume the release name `autosecops`. The core Secret also accepts the
       --from-literal=dbEncryptionKey="$(openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_')" \
       --from-literal=serviceKey="$(openssl rand -hex 32)" \
       --from-literal=signingSecret="$(openssl rand -hex 32)" \
-      --from-literal=userAuthSecret="$(openssl rand -hex 32)"
+      --from-literal=userAuthSecret="$(openssl rand -hex 32)" \
+      --from-literal=temporalPayloadEncryptionKeyring="$(printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)")"
     ```
 
     Then reference it:
@@ -126,6 +129,7 @@ The names assume the release name `autosecops`. The core Secret also accepts the
       serviceKey: "${SERVICE_KEY}"
       signingSecret: "${SIGNING_SECRET}"
       userAuthSecret: "${USER_AUTH_SECRET}"
+      temporalPayloadEncryptionKeyring: "${TEMPORAL_PAYLOAD_ENCRYPTION_KEYRING}"
     ```
 
     The chart creates these Secrets as `pre-install,pre-upgrade` hooks so they exist before the migrations Job runs. Helm keeps hook resources on `helm uninstall`, so the keys survive an uninstall. Delete them by hand only when you discard the installation.

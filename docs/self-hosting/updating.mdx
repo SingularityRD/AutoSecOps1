@@ -32,7 +32,7 @@ You can upgrade across several versions at once. The migrations apply every inte
 4. Plan for downtime. On Docker Compose and Fargate, the API stays down until the migrations finish. Most migrations take seconds; release notes call out migrations that rewrite large tables.
 
 <Warning>
-  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, and `USER_AUTH_SECRET` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable.
+  Keep `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, `USER_AUTH_SECRET`, and `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING` unchanged across the upgrade. A different `AUTOSECOPS__DB_ENCRYPTION_KEY` makes every stored credential unrecoverable, and a keyring missing a key makes the workflow history encrypted under it unreadable.
 </Warning>
 
 ## Docker Compose
@@ -263,6 +263,32 @@ Upgrade with `helm upgrade` and the new chart version. See [Upgrade the Helm cha
 ## Terraform deployments
 
 AWS Fargate deployments of AutoSecOps are configured using Terraform. Take manual RDS snapshots first, as described in [Backup and restore](/self-hosting/backup-restore#aws-fargate). Then extract the Terraform stack from the new image version, set the Terraform variable `autosecops_image_tag` to that version, and run `terraform apply`. See [Updating AutoSecOps on Fargate](/self-hosting/aws-fargate#updating-autosecops) for the full steps.
+
+## Temporal payload encryption
+
+New installs encrypt Temporal payloads by default (see [Temporal payload encryption](/self-hosting/security#temporal-payload-encryption)). An upgrade changes nothing for an existing install on Docker Compose; Kubernetes and Fargate need a decision on the next upgrade:
+
+| Deployment | What happens on upgrade |
+| --- | --- |
+| Docker Compose | Nothing changes. An `.env` without `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED` keeps the `false` default, and `env-migration.sh` writes `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=false` with an empty keyring. `./env.sh --check` warns about plaintext payloads in production mode. |
+| Kubernetes | `autosecops.temporal.payloadEncryption.enabled` now defaults to `true`. With chart-created secrets, `helm upgrade` fails with `no keyring is configured` until you add a keyring, set `keyringArn`, or set `enabled: false` to stay on plaintext, and nothing is deployed until you choose. With `secrets.existingSecret`, the chart cannot see the Secret's keys: add `temporalPayloadEncryptionKeyring` to it before you upgrade, or new pods stay in `CreateContainerConfigError` while the previous pods keep serving. |
+| AWS Fargate | `temporal_payload_encryption_enabled` now defaults to `true`, and the next `terraform apply` generates a keyring in Secrets Manager and turns encryption on. Set `temporal_payload_encryption_enabled = false` before you apply to stay on plaintext. |
+
+To turn encryption on for an existing install:
+
+1. Generate a keyring:
+
+   ```bash
+   printf '{"current_key_id":"v1","keys":{"v1":"%s"}}' "$(openssl rand -hex 32)"
+   ```
+
+2. Store it with your other platform secrets and back it up:
+   - Docker Compose: add `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING='<keyring>'` (single-quoted) and `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true` to `.env`.
+   - Kubernetes: add the `temporalPayloadEncryptionKeyring` key to the core Secret, or set `secrets.temporalPayloadEncryptionKeyring`.
+   - Fargate: let Terraform generate it, or pass your own secret in `temporal_payload_encryption_keyring_arn`.
+3. Restart or roll out every service together: `docker compose up -d` on Compose. The API and workers refuse to start if encryption is on without a usable keyring, so a mistake shows up immediately rather than as failed workflows.
+
+Workflow history written before the change stays plaintext and stays readable; running workflows continue and replay normally. During a rolling deploy, a worker still on the old configuration cannot read payloads that an upgraded service encrypted; Temporal retries those tasks until an upgraded worker picks them up, so roll out in one window. To turn encryption off again, set it to `false` but keep the keyring configured until encrypted history expires.
 
 ## Update integrations
 
