@@ -1,7 +1,9 @@
-# Every service rotates its json-file logs so a busy or crash-looping container
-# cannot fill the Docker host's disk. Override the bounds in .env.
+# Every service rotates its logs so a busy or crash-looping container cannot
+# fill the Docker host's disk. Override the bounds in .env. The driver must
+# accept max-size and max-file (json-file or local); to use the Docker daemon's
+# own log driver instead, see the docker-compose page's log rotation section.
 x-logging: &default-logging
-  driver: json-file
+  driver: ${AUTOSECOPS__DOCKER_LOG_DRIVER:-json-file}
   options:
     max-size: ${AUTOSECOPS__DOCKER_LOG_MAX_SIZE:-50m}
     max-file: "${AUTOSECOPS__DOCKER_LOG_MAX_FILE:-5}"
@@ -11,9 +13,11 @@ services:
     image: caddy:2.10.2-alpine
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__CADDY_MEMORY_LIMIT:-256m}
-    memswap_limit: ${AUTOSECOPS__CADDY_MEMORY_LIMIT:-256m}
-    cpus: "${AUTOSECOPS__CADDY_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__CADDY_MEMORY_LIMIT:-256m}
+          cpus: "${AUTOSECOPS__CADDY_CPU_LIMIT:-0}"
     ports:
       - ${PUBLIC_APP_PORT}:${PUBLIC_APP_PORT}
     environment:
@@ -30,9 +34,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__API_MEMORY_LIMIT:-4g}
-    memswap_limit: ${AUTOSECOPS__API_MEMORY_LIMIT:-4g}
-    cpus: "${AUTOSECOPS__API_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__API_MEMORY_LIMIT:-4g}
+          cpus: "${AUTOSECOPS__API_CPU_LIMIT:-0}"
     ports:
       - ${API_PORT:-8000}:8000
     environment:
@@ -127,7 +133,7 @@ services:
       AUTOSECOPS__LOCAL_REPOSITORY_ENABLED: ${AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:-false}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
 
     volumes:
       - ./autosecops:/app/autosecops
@@ -157,9 +163,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__WORKER_MEMORY_LIMIT:-4g}
-    memswap_limit: ${AUTOSECOPS__WORKER_MEMORY_LIMIT:-4g}
-    cpus: "${AUTOSECOPS__WORKER_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__WORKER_MEMORY_LIMIT:-4g}
+          cpus: "${AUTOSECOPS__WORKER_CPU_LIMIT:-0}"
     environment:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
@@ -222,7 +230,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
       # Blob storage (for S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -252,9 +260,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__BACKGROUND_WORKER_MEMORY_LIMIT:-2g}
-    memswap_limit: ${AUTOSECOPS__BACKGROUND_WORKER_MEMORY_LIMIT:-2g}
-    cpus: "${AUTOSECOPS__BACKGROUND_WORKER_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__BACKGROUND_WORKER_MEMORY_LIMIT:-2g}
+          cpus: "${AUTOSECOPS__BACKGROUND_WORKER_CPU_LIMIT:-0}"
     environment:
       AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES: ${AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES:-4}
       AUTOSECOPS__AGENT_SANDBOX_TIMEOUT: ${AUTOSECOPS__AGENT_SANDBOX_TIMEOUT:-10800}
@@ -313,7 +323,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
       # Blob storage (for S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -343,9 +353,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__EXECUTOR_MEMORY_LIMIT:-8g}
-    memswap_limit: ${AUTOSECOPS__EXECUTOR_MEMORY_LIMIT:-8g}
-    cpus: "${AUTOSECOPS__EXECUTOR_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__EXECUTOR_MEMORY_LIMIT:-8g}
+          cpus: "${AUTOSECOPS__EXECUTOR_CPU_LIMIT:-0}"
     # Layer docker-compose.sandbox.yml when nsjail or SquashFS mount privileges
     # are needed locally.
     environment:
@@ -437,7 +449,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
       # Blob storage (for S3/MinIO wheel access)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -467,9 +479,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__AGENT_WORKER_MEMORY_LIMIT:-4g}
-    memswap_limit: ${AUTOSECOPS__AGENT_WORKER_MEMORY_LIMIT:-4g}
-    cpus: "${AUTOSECOPS__AGENT_WORKER_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__AGENT_WORKER_MEMORY_LIMIT:-4g}
+          cpus: "${AUTOSECOPS__AGENT_WORKER_CPU_LIMIT:-0}"
     environment:
       # Common
       LOG_LEVEL: ${LOG_LEVEL}
@@ -533,7 +547,7 @@ services:
       AUTOSECOPS__OUTBOUND_NO_PROXY: ${AUTOSECOPS__OUTBOUND_NO_PROXY:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
       # Blob storage (for S3/MinIO tarball access)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -563,9 +577,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__LITELLM_MEMORY_LIMIT:-8g}
-    memswap_limit: ${AUTOSECOPS__LITELLM_MEMORY_LIMIT:-8g}
-    cpus: "${AUTOSECOPS__LITELLM_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__LITELLM_MEMORY_LIMIT:-8g}
+          cpus: "${AUTOSECOPS__LITELLM_CPU_LIMIT:-0}"
     environment:
       LOG_LEVEL: ${LOG_LEVEL}
       AUTOSECOPS__LOG_FORMAT: ${AUTOSECOPS__LOG_FORMAT:-console}
@@ -611,9 +627,11 @@ services:
       target: development
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__AGENT_EXECUTOR_MEMORY_LIMIT:-16g}
-    memswap_limit: ${AUTOSECOPS__AGENT_EXECUTOR_MEMORY_LIMIT:-16g}
-    cpus: "${AUTOSECOPS__AGENT_EXECUTOR_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__AGENT_EXECUTOR_MEMORY_LIMIT:-16g}
+          cpus: "${AUTOSECOPS__AGENT_EXECUTOR_CPU_LIMIT:-0}"
     # Layer docker-compose.sandbox.yml when nsjail privileges are needed
     # locally.
     environment:
@@ -708,7 +726,7 @@ services:
       AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS: ${AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS:-30}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
       # Blob storage (for S3/MinIO tarball access)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -742,9 +760,11 @@ services:
       target: development
     restart: on-failure:3
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__MCP_MEMORY_LIMIT:-2g}
-    memswap_limit: ${AUTOSECOPS__MCP_MEMORY_LIMIT:-2g}
-    cpus: "${AUTOSECOPS__MCP_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__MCP_MEMORY_LIMIT:-2g}
+          cpus: "${AUTOSECOPS__MCP_CPU_LIMIT:-0}"
     environment:
       AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS: ${AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS:-}
       LOG_LEVEL: ${LOG_LEVEL}
@@ -770,7 +790,7 @@ services:
       AUTOSECOPS__EE_MULTI_TENANT: ${AUTOSECOPS__EE_MULTI_TENANT:-false}
       # Redis
       REDIS_URL: ${REDIS_URL}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive
       # Internal OIDC issuer (on the API server)
       USER_AUTH_SECRET: ${USER_AUTH_SECRET}
       AUTOSECOPS__API_URL: ${AUTOSECOPS__API_URL:-http://api:8000}
@@ -831,9 +851,11 @@ services:
       - ./frontend/node_modules:/app/node_modules
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__UI_MEMORY_LIMIT:-2g}
-    memswap_limit: ${AUTOSECOPS__UI_MEMORY_LIMIT:-2g}
-    cpus: "${AUTOSECOPS__UI_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__UI_MEMORY_LIMIT:-2g}
+          cpus: "${AUTOSECOPS__UI_CPU_LIMIT:-0}"
     ports:
       - ${UI_PORT:-3000}:3000
     environment:
@@ -853,9 +875,11 @@ services:
     command: ["postgres"]
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT:-8g}
-    memswap_limit: ${AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT:-8g}
-    cpus: "${AUTOSECOPS__POSTGRES_DB_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__POSTGRES_DB_MEMORY_LIMIT:-8g}
+          cpus: "${AUTOSECOPS__POSTGRES_DB_CPU_LIMIT:-0}"
     ports:
       - ${PG_PORT:-5432}:5432
     shm_size: 128mb
@@ -916,9 +940,11 @@ services:
         exec docker-entrypoint.sh postgres
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__TEMPORAL_POSTGRES_DB_MEMORY_LIMIT:-4g}
-    memswap_limit: ${AUTOSECOPS__TEMPORAL_POSTGRES_DB_MEMORY_LIMIT:-4g}
-    cpus: "${AUTOSECOPS__TEMPORAL_POSTGRES_DB_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__TEMPORAL_POSTGRES_DB_MEMORY_LIMIT:-4g}
+          cpus: "${AUTOSECOPS__TEMPORAL_POSTGRES_DB_CPU_LIMIT:-0}"
     environment:
       POSTGRES_USER: ${TEMPORAL__POSTGRES_USER}
       POSTGRES_PASSWORD: ${TEMPORAL__POSTGRES_PASSWORD}
@@ -929,9 +955,11 @@ services:
     image: temporalio/auto-setup:${TEMPORAL__VERSION:-1.29.1}
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__TEMPORAL_MEMORY_LIMIT:-8g}
-    memswap_limit: ${AUTOSECOPS__TEMPORAL_MEMORY_LIMIT:-8g}
-    cpus: "${AUTOSECOPS__TEMPORAL_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__TEMPORAL_MEMORY_LIMIT:-8g}
+          cpus: "${AUTOSECOPS__TEMPORAL_CPU_LIMIT:-0}"
     ports:
       - ${TEMPORAL_PORT:-7233}:7233
     environment:
@@ -956,9 +984,11 @@ services:
     image: temporalio/ui:${TEMPORAL__UI_VERSION:-2.43.3}
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__TEMPORAL_UI_MEMORY_LIMIT:-512m}
-    memswap_limit: ${AUTOSECOPS__TEMPORAL_UI_MEMORY_LIMIT:-512m}
-    cpus: "${AUTOSECOPS__TEMPORAL_UI_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__TEMPORAL_UI_MEMORY_LIMIT:-512m}
+          cpus: "${AUTOSECOPS__TEMPORAL_UI_CPU_LIMIT:-0}"
     ports:
       - ${TEMPORAL_UI_PORT:-8081}:8080
     environment:
@@ -983,9 +1013,11 @@ services:
     image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__MINIO_MEMORY_LIMIT:-2g}
-    memswap_limit: ${AUTOSECOPS__MINIO_MEMORY_LIMIT:-2g}
-    cpus: "${AUTOSECOPS__MINIO_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__MINIO_MEMORY_LIMIT:-2g}
+          cpus: "${AUTOSECOPS__MINIO_CPU_LIMIT:-0}"
     ports:
       - ${MINIO_PORT:-9000}:9000
       - ${MINIO_CONSOLE_PORT:-9001}:9001
@@ -1009,9 +1041,11 @@ services:
     image: valkey/valkey:8.1.10-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
     restart: unless-stopped
     logging: *default-logging
-    mem_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
-    memswap_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
-    cpus: "${AUTOSECOPS__REDIS_CPU_LIMIT:-0}"
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
+          cpus: "${AUTOSECOPS__REDIS_CPU_LIMIT:-0}"
     # Host tests connect on loopback only.
     ports:
       - 127.0.0.1:${REDIS_PORT_HOST:-6379}:6379
@@ -1022,10 +1056,24 @@ services:
     # does) and run without one for older development .env files.
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+      REDIS_MAXMEMORY: ${AUTOSECOPS__REDIS_MAXMEMORY:-}
     entrypoint:
       - /bin/sh
       - -c
       - |
+        # Cap the dataset below the container memory limit so Valkey answers
+        # writes with OOM errors instead of being OOM-killed (and crash-looping
+        # on AOF replay). Default: 75% of the cgroup limit, leaving room for
+        # the copy-on-write pages of an AOF rewrite. noeviction: dropping
+        # locks or stream entries silently would corrupt state.
+        maxmemory="$${REDIS_MAXMEMORY:-}"
+        if [ -z "$$maxmemory" ]; then
+          limit=$$(cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || echo max)
+          case "$$limit" in
+            "" | max | *[!0-9]*) maxmemory=0 ;;
+            *) if [ "$$limit" -lt 1125899906842624 ]; then maxmemory=$$((limit / 4 * 3)); else maxmemory=0; fi ;;
+          esac
+        fi
         case "$${REDIS_PASSWORD:-}" in
           change-me-*)
             echo "redis: set REDIS_PASSWORD in .env to a generated secret (./env.sh --upgrade)" >&2
@@ -1033,10 +1081,10 @@ services:
             ;;
           "")
             echo "redis: REDIS_PASSWORD is empty, so Valkey accepts unauthenticated clients. Development only." >&2
-            exec docker-entrypoint.sh --appendonly yes
+            exec docker-entrypoint.sh --appendonly yes --maxmemory "$$maxmemory" --maxmemory-policy noeviction
             ;;
         esac
-        exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        exec docker-entrypoint.sh --appendonly yes --maxmemory "$$maxmemory" --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
     healthcheck:
       test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" valkey-cli ping | grep -q PONG"]
       interval: 5s

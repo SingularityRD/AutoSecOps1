@@ -63,11 +63,42 @@ redis_url_password() {
     fi
 }
 
+# Set KEY=VALUE in a file, replacing an existing line or appending one with a
+# comment. awk, not sed: a password taken from REDIS_URL may hold sed
+# metacharacters.
+dotenv_set() {
+    local key=$1 value=$2 file_path=$3 comment=$4
+    if grep -qE "^${key}=" "$file_path"; then
+        local tmp_file
+        tmp_file=$(mktemp)
+        ENV_KEY="$key" ENV_VALUE="$value" awk '
+            index($0, ENVIRON["ENV_KEY"] "=") == 1 { print ENVIRON["ENV_KEY"] "=" ENVIRON["ENV_VALUE"]; next }
+            { print }
+        ' "$file_path" > "$tmp_file"
+        cat "$tmp_file" > "$file_path"
+        rm -f "$tmp_file"
+    else
+        printf '\n# %s Added by ./env.sh --upgrade.\n%s=%s\n' "$comment" "$key" "$value" >> "$file_path"
+    fi
+}
+
+# Print the host of a redis:// or rediss:// URL, after expanding ${REDIS_HOST}.
+redis_url_host() {
+    local url=$1 redis_host=${2:-redis}
+    url=${url//\$\{REDIS_HOST\}/$redis_host}
+    url=${url//\$REDIS_HOST/$redis_host}
+    sed -nE 's#^rediss?://([^@/]*@)?\[?([^]:/?]+).*$#\2#p' <<< "$url"
+}
+
 # Bring an existing env file up to date with settings that later releases
 # require. Idempotent; backs the file up before the first change.
+#   AUTOSECOPS__DB_RUNTIME_PASSWORD: generated when missing or a placeholder.
+#   An explicitly empty value is kept (the operator opted out of the role).
 #   REDIS_PASSWORD: the bundled Redis requires a password. Reuse the password
 #   from REDIS_URL when it has one (installs that followed the earlier Redis
-#   hardening steps), otherwise generate one.
+#   hardening steps), otherwise generate one. When REDIS_URL points to an
+#   external Redis without a password, also set REDIS_CLIENT_PASSWORD empty so
+#   the services keep connecting to it without AUTH, as before.
 upgrade_env_file() {
     local file_path=$1
     if [ ! -f "$file_path" ]; then
@@ -75,9 +106,16 @@ upgrade_env_file() {
         return 1
     fi
 
-    local redis_password
+    local runtime_password redis_password needs_runtime=false needs_redis=false
+    runtime_password=$(dotenv_get "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$file_path")
+    if ! grep -qE "^AUTOSECOPS__DB_RUNTIME_PASSWORD=" "$file_path" || [[ "$runtime_password" == change-me-* ]]; then
+        needs_runtime=true
+    fi
     redis_password=$(dotenv_get "REDIS_PASSWORD" "$file_path")
-    if [ -n "$redis_password" ] && [[ "$redis_password" != change-me-* ]]; then
+    if [ -z "$redis_password" ] || [[ "$redis_password" == change-me-* ]]; then
+        needs_redis=true
+    fi
+    if [ "$needs_runtime" = false ] && [ "$needs_redis" = false ]; then
         echo -e "${GREEN}${file_path} is up to date.${NC}"
         return 0
     fi
@@ -87,37 +125,46 @@ upgrade_env_file() {
     cp -p "$file_path" "$backup"
     echo -e "${YELLOW}Backed up ${file_path} to ${backup}.${NC}"
 
-    local source="generated"
-    local value
-    redis_password=$(redis_url_password "$(dotenv_get "REDIS_URL" "$file_path")")
-    if [[ "$redis_password" == *"'"* ]]; then
-        echo -e "${YELLOW}The REDIS_URL password contains a single quote, which .env cannot hold literally. Generating a new password; remove the credentials from REDIS_URL.${NC}"
-        redis_password=""
+    if [ "$needs_runtime" = true ]; then
+        dotenv_set "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$(openssl rand -hex 24)" "$file_path" \
+            "Password of the database runtime role, which enforces row-level security."
+        echo -e "${GREEN}Generated AUTOSECOPS__DB_RUNTIME_PASSWORD. The migrations service applies it on the next start.${NC}"
     fi
-    if [ -n "$redis_password" ]; then
-        source="taken from REDIS_URL"
-    else
-        redis_password=$(openssl rand -hex 24)
+
+    if [ "$needs_redis" = true ]; then
+        local source="generated"
+        local value redis_url url_host
+        redis_url=$(dotenv_get "REDIS_URL" "$file_path")
+        redis_password=$(redis_url_password "$redis_url")
+        if [[ "$redis_password" == *"'"* ]]; then
+            echo -e "${YELLOW}The REDIS_URL password contains a single quote, which .env cannot hold literally. Generating a new password; remove the credentials from REDIS_URL.${NC}"
+            redis_password=""
+        fi
+        if [ -n "$redis_password" ]; then
+            source="taken from REDIS_URL"
+        else
+            redis_password=$(openssl rand -hex 24)
+        fi
+        value=$redis_password
+        # Single quotes keep Docker Compose from interpolating `$` and the like.
+        if [[ ! "$value" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            value="'${value}'"
+        fi
+        dotenv_set "REDIS_PASSWORD" "$value" "$file_path" "Password the bundled Redis (Valkey) requires."
+        echo -e "${GREEN}Set REDIS_PASSWORD (${source}).${NC}"
+
+        url_host=$(redis_url_host "$redis_url" "$(dotenv_get "REDIS_HOST" "$file_path")")
+        if [ "$source" = "generated" ] && [ -n "$url_host" ] && [ "$url_host" != "redis" ] \
+            && ! grep -qE "^REDIS_CLIENT_PASSWORD=" "$file_path"; then
+            dotenv_set "REDIS_CLIENT_PASSWORD" "" "$file_path" \
+                "The services connect to the external Redis in REDIS_URL without AUTH."
+            echo -e "${YELLOW}Warning: REDIS_URL points to an external Redis (${url_host}) without a password.${NC}"
+            echo -e "${YELLOW}Set REDIS_CLIENT_PASSWORD= (empty) so the services keep connecting without AUTH, as before.${NC}"
+            echo -e "${YELLOW}Enable AUTH on that Redis, put its password in REDIS_URL, then remove REDIS_CLIENT_PASSWORD:${NC}"
+            echo -e "${YELLOW}https://docs.singularityrd.com/self-hosting/updating#redis-password${NC}"
+        fi
     fi
-    value=$redis_password
-    # Single quotes keep Docker Compose from interpolating `$` and the like.
-    if [[ ! "$value" =~ ^[A-Za-z0-9._-]+$ ]]; then
-        value="'${value}'"
-    fi
-    if grep -qE "^REDIS_PASSWORD=" "$file_path"; then
-        local tmp_file
-        tmp_file=$(mktemp)
-        # awk, not sed: a password taken from REDIS_URL may hold sed metacharacters.
-        REDIS_PASSWORD_VALUE="$value" awk '
-            /^REDIS_PASSWORD=/ { print "REDIS_PASSWORD=" ENVIRON["REDIS_PASSWORD_VALUE"]; next }
-            { print }
-        ' "$file_path" > "$tmp_file"
-        cat "$tmp_file" > "$file_path"
-        rm -f "$tmp_file"
-    else
-        printf '\n# Password the bundled Redis (Valkey) requires. Added by ./env.sh --upgrade.\nREDIS_PASSWORD=%s\n' "$value" >> "$file_path"
-    fi
-    echo -e "${GREEN}Set REDIS_PASSWORD (${source}). Recreate the stack with docker compose up -d.${NC}"
+    echo -e "${GREEN}Recreate the stack with docker compose up -d.${NC}"
 }
 
 # Validate an env file. Exits non-zero when placeholders remain; warns about

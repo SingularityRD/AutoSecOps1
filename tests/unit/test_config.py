@@ -1389,7 +1389,7 @@ def test_background_worker_shared_settings_match_other_services(
 # restart policy.
 COMPOSE_ONE_SHOT_SERVICES = {"migrations", "minio-init"}
 COMPOSE_LOGGING_ANCHOR = """x-logging: &default-logging
-  driver: json-file
+  driver: ${AUTOSECOPS__DOCKER_LOG_DRIVER:-json-file}
   options:
     max-size: ${AUTOSECOPS__DOCKER_LOG_MAX_SIZE:-50m}
     max-file: "${AUTOSECOPS__DOCKER_LOG_MAX_FILE:-5}"
@@ -1425,27 +1425,29 @@ def test_compose_services_rotate_logs(path: Path) -> None:
 )
 def test_compose_long_running_services_have_limits(path: Path) -> None:
     """A runaway container must not take the host's memory from the database."""
-    source = path.read_text()
     services = _compose_services(path)
     assert COMPOSE_ONE_SHOT_SERVICES <= set(services)
     for name, service in services.items():
-        body = _compose_service_body(source, name) or ""
         if name in COMPOSE_ONE_SHOT_SERVICES:
             assert service.get("restart") == "no", f"{path.name}: {name}"
             continue
         assert service.get("restart") in {"unless-stopped", "on-failure:3"}, (
             f"{path.name}: {name} needs a restart policy"
         )
+        # deploy.resources.limits, not mem_limit/cpus/pids_limit: Compose
+        # merges an operator's deploy.resources override over it, but refuses
+        # a service that sets both forms with different values.
+        for key in ("mem_limit", "memswap_limit", "cpus", "pids_limit"):
+            assert key not in service, f"{path.name}: {name} sets {key}"
+        limits = service.get("deploy", {}).get("resources", {}).get("limits", {})
         memory = _compose_limit_env(name, "MEMORY")
-        match = re.search(rf"(?m)^ +mem_limit: \$\{{{memory}:-(\d+[mg])\}}$", body)
-        assert match, f"{path.name}: {name} needs mem_limit from {memory}"
-        assert re.search(
-            rf"(?m)^ +memswap_limit: \$\{{{memory}:-{match.group(1)}\}}$", body
-        ), f"{path.name}: {name} memswap_limit must follow mem_limit"
+        assert re.fullmatch(rf"\$\{{{memory}:-\d+[mg]\}}", limits.get("memory", "")), (
+            f"{path.name}: {name} needs a deploy memory limit from {memory}"
+        )
         # A CPU limit above the host's core count stops `docker compose up`, so
         # CPU limits stay opt-in.
         cpus = _compose_limit_env(name, "CPU")
-        assert re.search(rf'(?m)^ +cpus: "\$\{{{cpus}:-0\}}"$', body), (
+        assert limits.get("cpus") == f"${{{cpus}:-0}}", (
             f"{path.name}: {name} needs an overridable cpus limit from {cpus}"
         )
 
@@ -1455,7 +1457,7 @@ def test_compose_limit_defaults_match_across_files() -> None:
     for path in SANDBOX_POLICY_COMPOSE_ENV_FILES:
         defaults[path.name] = dict(
             re.findall(
-                r"mem_limit: \$\{(AUTOSECOPS__[A-Z_]+_MEMORY_LIMIT):-(\w+)\}",
+                r"memory: \$\{(AUTOSECOPS__[A-Z_]+_MEMORY_LIMIT):-(\w+)\}",
                 path.read_text(),
             )
         )
@@ -1483,7 +1485,7 @@ def test_compose_redis_requires_password(path: Path) -> None:
     # The container refuses an empty value or the .env.example placeholder.
     assert '"" | change-me-*)' in body
     assert (
-        'exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+        'exec docker-entrypoint.sh --appendonly yes --maxmemory "$$maxmemory" --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"'
         in body
     )
     assert "command:" not in body
@@ -1497,7 +1499,7 @@ def test_dev_compose_redis_uses_password_when_set() -> None:
     assert "REDIS_PASSWORD: ${REDIS_PASSWORD:-}" in body
     assert "change-me-*)" in body
     assert (
-        'exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+        'exec docker-entrypoint.sh --appendonly yes --maxmemory "$$maxmemory" --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"'
         in body
     )
 
@@ -1515,9 +1517,10 @@ def test_compose_redis_clients_get_password(path: Path) -> None:
     assert clients
     for name in clients:
         body = _compose_service_body(source, name) or ""
-        assert "REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive" in body, (
-            f"{path.name}: {name}"
-        )
+        assert (
+            "REDIS_PASSWORD: ${REDIS_CLIENT_PASSWORD-${REDIS_PASSWORD:-}} # Sensitive"
+            in body
+        ), f"{path.name}: {name}"
 
 
 def test_compose_redis_is_not_published() -> None:
@@ -1634,6 +1637,196 @@ def test_redis_clients_send_redis_password() -> None:
         source = path.read_text()
         if re.search(r"Redis\w*\.from_url\(|redis\.from_url\(", source):
             assert "REDIS_PASSWORD" in source, path.relative_to(REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_redis_caps_memory_below_its_limit(path: Path) -> None:
+    """Valkey must refuse writes before the cgroup OOM-kills it.
+
+    An OOM-killed Valkey replays the same AOF into the same limit on restart and
+    crash-loops, taking every Redis client down with it.
+    """
+    body = _redis_service_body(path)
+    assert "REDIS_MAXMEMORY: ${AUTOSECOPS__REDIS_MAXMEMORY:-}" in body
+    assert "/sys/fs/cgroup/memory.max" in body
+    assert "maxmemory=$$((limit / 4 * 3))" in body
+    execs = re.findall(r"exec docker-entrypoint\.sh [^\n]*", body)
+    assert execs
+    for line in execs:
+        assert '--maxmemory "$$maxmemory" --maxmemory-policy noeviction' in line
+
+
+def _docs_yaml_blocks() -> list[tuple[Path, str]]:
+    blocks: list[tuple[Path, str]] = []
+    for path in sorted((REPO_ROOT / "docs").rglob("*.mdx")):
+        for block in re.findall(r"```ya?ml[^\n]*\n(.*?)```", path.read_text(), re.S):
+            blocks.append((path, block))
+    return blocks
+
+
+def test_docs_do_not_mix_compose_limit_forms() -> None:
+    """The Compose files set deploy.resources.limits. Compose refuses a service
+    that also sets mem_limit, cpus or pids_limit to a different value, so the
+    docs must only show deploy.resources overrides."""
+    for path, block in _docs_yaml_blocks():
+        for key in ("mem_limit", "memswap_limit", "pids_limit"):
+            assert not re.search(rf"(?m)^\s+{key}:", block), (
+                f"{path.relative_to(REPO_ROOT)} shows {key}"
+            )
+        assert not re.search(r"(?m)^ {4}cpus:", block), path.relative_to(REPO_ROOT)
+
+
+def test_docs_daemon_log_driver_override_covers_every_service() -> None:
+    """The override that hands logging back to the Docker daemon's driver must
+    list every service, or that service keeps writing local json-file logs."""
+    page = (REPO_ROOT / "docs/self-hosting/docker-compose.mdx").read_text()
+    reset = set(re.findall(r"(?m)^  ([\w-]+):\n    logging: !reset null$", page))
+    expected = set(_compose_services(REPO_ROOT / "docker-compose.yml"))
+    expected |= set(_compose_services(REPO_ROOT / "docker-compose.sandbox.yml"))
+    assert reset == expected
+
+
+def _env_from_env_sh(tmp_path: Path) -> str:
+    """A complete production .env as env.sh writes it."""
+    work = tmp_path / "env-sh"
+    work.mkdir()
+    for name in ("env.sh", ".env.example"):
+        (work / name).write_text((REPO_ROOT / name).read_text())
+    subprocess.run(
+        ["bash", "env.sh"],
+        cwd=work,
+        input="y\nautosecops.example.test\nn\nadmin@example.com\n",
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    return (work / ".env").read_text()
+
+
+def _run_env_migration_output(tmp_path: Path, old_env: str) -> tuple[str, str]:
+    for name in ("env-migration.sh", ".env.example"):
+        (tmp_path / name).write_text((REPO_ROOT / name).read_text())
+    (tmp_path / ".env").write_text(old_env)
+    result = subprocess.run(
+        ["bash", "env-migration.sh"],
+        cwd=tmp_path,
+        input="n\ny\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return (tmp_path / ".env").read_text(), result.stdout
+
+
+def _drop_keys(env: str, *keys: str) -> str:
+    return "".join(
+        line
+        for line in env.splitlines(keepends=True)
+        if not any(line.startswith(f"{key}=") for key in keys)
+    )
+
+
+def test_env_migration_output_passes_env_sh_check(tmp_path: Path) -> None:
+    """The documented upgrade runs env-migration.sh, then env.sh --check."""
+    old_env = _drop_keys(
+        _env_from_env_sh(tmp_path), "AUTOSECOPS__DB_RUNTIME_PASSWORD", "REDIS_PASSWORD"
+    )
+    migrated, out = _run_env_migration_output(tmp_path, old_env)
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=[0-9a-f]{48}$", migrated)
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", migrated)
+    assert "REDIS_CLIENT_PASSWORD" not in migrated
+    assert "WARNING" not in out
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--check", str(tmp_path / ".env")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+
+
+def test_env_migration_keeps_an_explicitly_empty_runtime_password(
+    tmp_path: Path,
+) -> None:
+    migrated, _ = _run_env_migration_output(
+        tmp_path, "AUTOSECOPS__DB_RUNTIME_PASSWORD=\n"
+    )
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=$", migrated)
+    kept, _ = _run_env_migration_output(
+        tmp_path, "AUTOSECOPS__DB_RUNTIME_PASSWORD=synthetic-runtime\n"
+    )
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=synthetic-runtime$", kept)
+
+
+@pytest.mark.parametrize(
+    "redis_env",
+    [
+        "REDIS_URL=redis://cache.internal.example.test:6379\n",
+        "REDIS_HOST=cache.internal.example.test\n"
+        "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+        "REDIS_URL=rediss://cache.internal.example.test:6380/0\n",
+    ],
+)
+def test_env_migration_keeps_external_unauthenticated_redis_working(
+    tmp_path: Path, redis_env: str
+) -> None:
+    migrated, out = _run_env_migration_output(tmp_path, redis_env)
+    # The bundled Redis still gets a password; the clients send none.
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", migrated)
+    assert re.search(r"(?m)^REDIS_CLIENT_PASSWORD=$", migrated)
+    assert "WARNING: REDIS_URL points to an external Redis" in out
+    assert "cache.internal.example.test" in out
+    # A later migration keeps the opt-out although .env.example omits it.
+    again, out = _run_env_migration_output(tmp_path, migrated)
+    assert re.search(r"(?m)^REDIS_CLIENT_PASSWORD=$", again)
+    assert "WARNING" not in out
+
+
+def test_env_migration_sends_bundled_or_url_passwords(tmp_path: Path) -> None:
+    for redis_env in (
+        "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+        "REDIS_HOST=redis\nREDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+        "REDIS_URL=rediss://:synthetic@cache.internal.example.test:6380\n",
+    ):
+        migrated, out = _run_env_migration_output(tmp_path, redis_env)
+        assert "REDIS_CLIENT_PASSWORD" not in migrated, redis_env
+        assert "WARNING" not in out, redis_env
+
+
+def test_env_sh_upgrade_generates_runtime_password(tmp_path: Path) -> None:
+    upgraded, _ = _run_env_sh_upgrade(
+        tmp_path,
+        "AUTOSECOPS__DB_RUNTIME_PASSWORD=change-me-runtime-password\n"
+        "REDIS_PASSWORD=synthetic\n",
+    )
+    assert re.search(r"(?m)^AUTOSECOPS__DB_RUNTIME_PASSWORD=[0-9a-f]{48}$", upgraded)
+    assert "REDIS_PASSWORD=synthetic\n" in upgraded
+    # An explicitly empty value is the operator's choice.
+    kept, out = _run_env_sh_upgrade(
+        tmp_path, "AUTOSECOPS__DB_RUNTIME_PASSWORD=\nREDIS_PASSWORD=synthetic\n"
+    )
+    assert "up to date" in out
+    assert "AUTOSECOPS__DB_RUNTIME_PASSWORD=\n" in kept
+
+
+def test_env_sh_upgrade_keeps_external_unauthenticated_redis_working(
+    tmp_path: Path,
+) -> None:
+    upgraded, out = _run_env_sh_upgrade(
+        tmp_path,
+        "AUTOSECOPS__DB_RUNTIME_PASSWORD=synthetic\n"
+        "REDIS_HOST=cache.internal.example.test\n"
+        "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n",
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", upgraded)
+    assert re.search(r"(?m)^REDIS_CLIENT_PASSWORD=$", upgraded)
+    assert "external Redis (cache.internal.example.test)" in out
+    again, out = _run_env_sh_upgrade(tmp_path, upgraded)
+    assert again == upgraded
+    assert "up to date" in out
 
 
 # === Fargate operations: log retention, Redis auth, HA profile === #
