@@ -110,7 +110,7 @@
     "lodash.throttle": "4.1.1",
     "lucide-react": "0.561.0",
     "mermaid": "11.16.1",
-    "motion": "12.23.22",
+    "motion": "14.6.0",
     "nanoid": "5.1.16",
     "next": "15.5.28",
     "next-runtime-env": "3.3.0",
