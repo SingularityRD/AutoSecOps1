@@ -902,6 +902,7 @@ const ToolOption = memo(function ToolOption({
   disabled?: boolean
 }) {
   return (
+    // biome-ignore lint/a11y/useFocusableInteractive: options stay unfocusable; the search input owns focus and points at the active option with aria-activedescendant.
     <div
       id={id}
       role="option"

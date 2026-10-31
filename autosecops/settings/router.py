@@ -28,6 +28,9 @@ from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.models import OrganizationDomain
 from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import OrganizationID
+from autosecops.service_accounts.constants import (
+    SERVICE_ACCOUNT_API_KEY_MAX_TTL_DAYS_KEY,
+)
 from autosecops.settings.schemas import (
     AgentOtelSettingsRead,
     AgentOtelSettingsUpdate,
@@ -276,7 +279,17 @@ async def _load_security_settings(service: SettingsService) -> SecuritySettingsR
     return SecuritySettingsRead(
         ip_allowlist_enabled=bool(settings_dict.get("ip_allowlist_enabled", False)),
         ip_allowlists=parse_stored_ip_allowlists(settings_dict.get("ip_allowlists")),
+        service_account_api_key_max_ttl_days=_stored_max_ttl_days(
+            settings_dict.get(SERVICE_ACCOUNT_API_KEY_MAX_TTL_DAYS_KEY)
+        ),
     )
+
+
+def _stored_max_ttl_days(value: object) -> int | None:
+    """Read back a stored maximum key lifetime; malformed values read as unset."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
 
 
 @router.get("/security/mfa", response_model=MfaPolicyRead)
@@ -347,7 +360,7 @@ async def update_security_settings(
     session: AsyncDBSession,
     params: SecuritySettingsUpdate,
 ) -> None:
-    """Update the organization IP allowlist.
+    """Update the organization IP allowlist and API key lifetime limit.
 
     Enabling a non-empty allowlist that excludes the caller's own IP is
     rejected so an admin cannot lock themselves out of the organization.

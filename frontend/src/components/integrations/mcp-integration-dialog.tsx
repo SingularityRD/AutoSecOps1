@@ -336,6 +336,7 @@ function MCPToolPolicyList({
                   aria-label={`Enable ${tool.name}`}
                 />
               </label>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: both branches render a Switch; the linter cannot see through the conditional. */}
               <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground sm:justify-start">
                 Approval
                 {approvalsSupported ? (

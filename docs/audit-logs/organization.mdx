@@ -57,7 +57,8 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 | `agent_preset` | `update` | An agent preset was updated or restored to an earlier version. |
 | `agent_session` | `delete` | An agent session and its history were deleted. |
 | `agent_session` | `update` | An agent session's title, preset, or MCP integrations changed. |
-| `auth` | `sign_in` | A user signed in. |
+| `auth` | `sign_in` | A user signed in (`SUCCESS`), started a sign-in that still needs a security key (`ATTEMPT`), or a sign-in was refused (`FAILURE`, with `data.failure_reason`). |
+| `auth` | `sign_out` | A user signed out. |
 | `case` | `create` | A case was created. |
 | `case` | `delete` | A case was deleted. |
 | `case` | `update` | A case was updated. |
@@ -108,6 +109,7 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 | `service_account` | `update` | A service account was renamed, re-scoped, disabled, or enabled. |
 | `service_account_api_key` | `create` | An API key was issued for a service account. |
 | `service_account_api_key` | `revoke` | A service account API key was revoked. |
+| `service_account_api_key` | `sign_in` | An expired API key was refused (`FAILURE`, `data.failure_reason` `expired`); recorded at most once per key per hour. |
 | `table` | `create` | A lookup table was created. |
 | `table` | `delete` | A lookup table was deleted. |
 | `table` | `update` | A lookup table was updated. |
@@ -117,6 +119,9 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 | `tag` | `create` | A workflow tag was created. |
 | `tag` | `delete` | A workflow tag was deleted. |
 | `tag` | `update` | A workflow tag was updated. |
+| `user` | `request` | A member requested a password reset. |
+| `user` | `reset` | A member reset their password with a reset token. |
+| `user` | `update` | A member changed their own password (`data.operation` `password_change`). |
 | `webhook` | `create` | A workflow webhook trigger was created. |
 | `webhook` | `update` | A workflow webhook trigger was updated. |
 | `webhook_api_key` | `create` | The first API key was issued for a webhook. |
@@ -142,7 +147,10 @@ Events can continue to reach the old endpoint for up to 30 seconds after the cha
 | `workspace_variable` | `update` | A workspace variable was updated. |
 
 An organization-scoped sign-in emits `auth` `sign_in` to this sink and to the platform sink.
-A superuser login that carries no organization context reaches the platform sink only.
+A sign-in without organization context reaches this sink when the account is a member of this organization only; superusers and members of several organizations reach the platform sink only.
+Sign-out, password, and refused sign-in events for a known account follow the same rule, and never carry the password, token, or submitted email.
+`data.failure_reason` on a refused sign-in is one of `invalid_credentials`, `inactive_account`, `auth_policy`, `ip_not_allowed`, or `mfa_failed`.
+When the account must use a security key, the password, OIDC, or SAML step records `auth` `sign_in` with status `ATTEMPT` and `data.mfa_state` (`challenge_required`, `enrollment_required`, or `unknown`). The sign-in completes, as `SUCCESS` with `data.auth_method` `security_key` or `recovery_code`, only once the key or a recovery code verifies; a key or code that does not verify records `FAILURE` with `mfa_failed`. A password alone never records a successful sign-in.
 
 ## Event payload
 

@@ -1,6 +1,38 @@
 name: Frontend Smoke
 
+# Runs the Playwright smoke suite (sign-in, workspace, workflow builder,
+# credentials, members, license status) against a full local stack built from
+# the checked-out commit.
+#
+# The pull_request job is unprivileged: it reads no repository secrets, uses a
+# read-only GITHUB_TOKEN, builds images locally (the gha cache is read-only
+# here), and only talks to services it starts on the runner. That keeps it
+# safe for fork PRs. Do not add secrets or write permissions to this workflow.
 on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - frontend/**
+      # Backend changes that shape what the UI renders or calls.
+      - autosecops/**
+      - packages/**
+      - alembic/**
+      - pyproject.toml
+      - uv.lock
+      # How the smoke stack is built and started.
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.local.yml
+      - .github/docker-compose.integration.yml
+      - Caddyfile
+      - env.sh
+      - .env.example
+      - scripts/postgres/**
+      - deployments/postgres/**
+      - docker/**
+      # The image bundles docs for Workspace Chat.
+      - docs/**
+      - .github/workflows/frontend-smoke.yml
   workflow_dispatch:
   schedule:
     # Runs at 08:00 EST, Monday through Friday.
@@ -8,6 +40,15 @@ on:
 
 permissions:
   contents: read
+
+# A new push to the same PR supersedes the previous smoke run. Scheduled and
+# manual runs each get their own group so they are never cancelled.
+concurrency:
+  group: >-
+    frontend-smoke-${{ github.event_name == 'pull_request'
+    && format('pr-{0}', github.event.pull_request.number)
+    || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   frontend-smoke:

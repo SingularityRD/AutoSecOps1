@@ -214,6 +214,7 @@ function useFileUpload(options: UploadOptions) {
 
 const CloudUploadIcon: React.FC = () => (
   <svg
+    aria-hidden="true"
     width="24"
     height="24"
     viewBox="0 0 24 24"
@@ -234,6 +235,7 @@ const CloudUploadIcon: React.FC = () => (
 
 const FileIcon: React.FC = () => (
   <svg
+    aria-hidden="true"
     width="43"
     height="57"
     viewBox="0 0 43 57"
@@ -253,6 +255,7 @@ const FileIcon: React.FC = () => (
 
 const FileCornerIcon: React.FC = () => (
   <svg
+    aria-hidden="true"
     width="10"
     height="10"
     className="tiptap-image-upload-dropzone-rect-secondary"

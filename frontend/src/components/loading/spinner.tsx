@@ -20,7 +20,7 @@ export function Spinner({
   segmentColor?: string
 }) {
   return (
-    <svg className={cn(className)} viewBox="0 0 50 50">
+    <svg aria-hidden="true" className={cn(className)} viewBox="0 0 50 50">
       {/* Darker, slightly translucent ring */}
       <circle
         cx="25"

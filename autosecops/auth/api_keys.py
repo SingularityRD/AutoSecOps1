@@ -4,6 +4,7 @@ import base64
 import hashlib
 import secrets
 from dataclasses import dataclass
+from datetime import datetime
 
 from autosecops.auth.crypto import generate_token
 
@@ -170,3 +171,12 @@ def verify_api_key(candidate: str, salt_b64: str, expected_hash: str) -> bool:
         return False
     computed = _hash_api_key(candidate, salt)
     return secrets.compare_digest(computed, expected_hash)
+
+
+def is_api_key_expired(expires_at: datetime | None, *, now: datetime) -> bool:
+    """Whether a key with this expiry no longer authenticates at ``now``.
+
+    A key without an expiry never expires, which is how keys issued before
+    expiry support keep working.
+    """
+    return expires_at is not None and expires_at <= now

@@ -35307,6 +35307,17 @@ export const $SecuritySettingsRead = {
       type: "array",
       title: "Ip Allowlists",
     },
+    service_account_api_key_max_ttl_days: {
+      anyOf: [
+        {
+          type: "integer",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Service Account Api Key Max Ttl Days",
+    },
   },
   type: "object",
   required: ["ip_allowlist_enabled", "ip_allowlists"],
@@ -35331,6 +35342,21 @@ export const $SecuritySettingsUpdate = {
       maxItems: 100,
       title: "Ip Allowlists",
       description: "Named groups of allowed IP addresses or CIDR ranges.",
+    },
+    service_account_api_key_max_ttl_days: {
+      anyOf: [
+        {
+          type: "integer",
+          maximum: 3650,
+          minimum: 1,
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Service Account Api Key Max Ttl Days",
+      description:
+        "Longest lifetime, in days, of a newly issued service account API key. Keys issued without an expiry get this lifetime. Keys issued before the limit was set keep their expiry. Null sets no limit.",
     },
   },
   type: "object",
@@ -35430,6 +35456,11 @@ export const $ServiceAccountApiKeyCounts = {
       title: "Active",
       default: 0,
     },
+    expired: {
+      type: "integer",
+      title: "Expired",
+      default: 0,
+    },
     revoked: {
       type: "integer",
       title: "Revoked",
@@ -35448,6 +35479,20 @@ export const $ServiceAccountApiKeyCreate = {
       minLength: 1,
       title: "Name",
       default: "Primary",
+    },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+      description:
+        "When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.",
     },
   },
   type: "object",
@@ -35555,6 +35600,19 @@ export const $ServiceAccountApiKeyRead = {
       ],
       title: "Revoked At",
     },
+    expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Expires At",
+      description: "When the key stops authenticating. Null: it never expires.",
+    },
     created_at: {
       type: "string",
       format: "date-time",
@@ -35605,6 +35663,20 @@ export const $ServiceAccountCreate = {
       minLength: 1,
       title: "Initial Key Name",
       default: "Primary",
+    },
+    initial_key_expires_at: {
+      anyOf: [
+        {
+          type: "string",
+          format: "date-time",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Initial Key Expires At",
+      description:
+        "When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.",
     },
   },
   type: "object",

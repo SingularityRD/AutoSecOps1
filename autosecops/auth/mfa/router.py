@@ -11,8 +11,10 @@ import uuid
 from fastapi import APIRouter, HTTPException, Response, status
 
 from autosecops import config
+from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
-from autosecops.audit.types import AuditAction, AuditMetadata
+from autosecops.audit.types import AuditAction, AuditMetadata, AuditMetadataValue
+from autosecops.auth.audit import AuthAuditFailureReason, emit_user_auth_event
 from autosecops.auth.mfa.dependencies import (
     AnyMfaSession,
     MfaSession,
@@ -44,7 +46,7 @@ from autosecops.auth.mfa.webauthn import (
     webauthn_unavailable_reason,
 )
 from autosecops.auth.types import Role
-from autosecops.auth.users import cookie_transport
+from autosecops.auth.users import audit_organization_for_user, cookie_transport
 from autosecops.db.models import User, WebAuthnCredential
 from autosecops.logger import logger
 
@@ -97,6 +99,35 @@ async def _audit(
         logger.warning(
             "Failed to emit security key audit event", action=action, error=str(exc)
         )
+
+
+async def _audit_mfa_sign_in(
+    user: User,
+    *,
+    auth_method: str,
+    failure_reason: AuthAuditFailureReason | None = None,
+) -> None:
+    """Record the end of an MFA-pending sign-in as an ``auth`` ``sign_in`` event.
+
+    The password, OIDC, or SAML step records only an ``ATTEMPT`` for a
+    session that still owes a security key; this is the event that says
+    whether the sign-in completed. Never raises.
+    """
+    data: dict[str, AuditMetadataValue] = {"auth_method": auth_method}
+    if failure_reason is not None:
+        data["failure_reason"] = failure_reason.value
+    await emit_user_auth_event(
+        user_id=user.id,
+        resource_type="auth",
+        action="sign_in",
+        status=(
+            AuditEventStatus.SUCCESS
+            if failure_reason is None
+            else AuditEventStatus.FAILURE
+        ),
+        data=data,
+        organization_id=await audit_organization_for_user(user),
+    )
 
 
 @router.get("/status", response_model=MfaStatusRead)
@@ -193,14 +224,19 @@ async def complete_authentication(
     mfa_session: AnyMfaSession, params: WebAuthnAuthenticationVerify
 ) -> MfaStatusRead:
     """Verify a security key. Satisfies both the sign-in challenge and step-up."""
-    purpose: AuthenticationPurpose = (
-        "sign_in" if mfa_session.state.is_pending else "step_up"
-    )
+    signing_in = mfa_session.state.is_pending
+    purpose: AuthenticationPurpose = "sign_in" if signing_in else "step_up"
     try:
         credential = await MfaService(mfa_session.db).complete_authentication(
             mfa_session.user, mfa_session.access_token, params.credential
         )
     except (MfaVerificationError, WebAuthnUnavailableError) as e:
+        if signing_in:
+            await _audit_mfa_sign_in(
+                mfa_session.user,
+                auth_method="security_key",
+                failure_reason=AuthAuditFailureReason.MFA_FAILED,
+            )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     await _audit(
         mfa_session.user,
@@ -208,6 +244,8 @@ async def complete_authentication(
         resource_id=credential.id,
         data={"operation": purpose, "auth_method": "security_key"},
     )
+    if signing_in:
+        await _audit_mfa_sign_in(mfa_session.user, auth_method="security_key")
     mfa_session.state = SessionMfaState.VERIFIED
     return await get_mfa_status(mfa_session)
 
@@ -220,17 +258,26 @@ async def verify_recovery_code(
     mfa_session: AnyMfaSession, params: RecoveryCodeVerify
 ) -> MfaStatusRead:
     """Sign in with a one-time recovery code instead of a security key."""
+    signing_in = mfa_session.state.is_pending
     try:
         await MfaService(mfa_session.db).verify_recovery_code(
             mfa_session.user, mfa_session.access_token, params.code
         )
     except MfaVerificationError as e:
+        if signing_in:
+            await _audit_mfa_sign_in(
+                mfa_session.user,
+                auth_method="recovery_code",
+                failure_reason=AuthAuditFailureReason.MFA_FAILED,
+            )
         raise _verification_failed(e) from e
     await _audit(
         mfa_session.user,
         "accept",
         data={"operation": "sign_in", "auth_method": "recovery_code"},
     )
+    if signing_in:
+        await _audit_mfa_sign_in(mfa_session.user, auth_method="recovery_code")
     mfa_session.state = SessionMfaState.VERIFIED
     return await get_mfa_status(mfa_session)
 

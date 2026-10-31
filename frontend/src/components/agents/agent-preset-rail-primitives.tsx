@@ -102,7 +102,11 @@ export function RailSectionHeader({
       {addDisabledReason ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={cn("inline-flex", RAIL_FOCUS)} tabIndex={0}>
+            <span
+              className={cn("inline-flex", RAIL_FOCUS)}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: a disabled button cannot take focus, so this wrapper keeps the reason tooltip reachable from the keyboard.
+              tabIndex={0}
+            >
               {button}
             </span>
           </TooltipTrigger>
