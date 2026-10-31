@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import timedelta
@@ -12,10 +13,10 @@ import pytest
 from temporalio import activity, workflow
 from temporalio.api.common.v1 import Payload
 from temporalio.api.enums.v1 import EventType
-from temporalio.client import WorkflowFailureError
+from temporalio.client import Client, WorkflowFailureError
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
-from temporalio.worker import Worker
+from temporalio.worker import Replayer, Worker
 
 from autosecops import config
 from autosecops.auth.types import Role
@@ -286,3 +287,133 @@ async def test_encrypted_temporal_failure_attributes_are_encoded(
     _assert_encrypted(payloads_by_source["workflow_input"])
     _assert_encrypted(payloads_by_source["activity_input"])
     _assert_encrypted(payloads_by_source["failure_attributes"])
+
+
+@workflow.defn
+class MixedHistoryWorkflow:
+    """Runs one activity, waits for a signal, then runs a second activity."""
+
+    def __init__(self) -> None:
+        self._proceed = False
+
+    @workflow.signal
+    def proceed(self) -> None:
+        self._proceed = True
+
+    @workflow.run
+    async def run(self, payload: dict[str, str]) -> dict[str, Any]:
+        first = await workflow.execute_activity(
+            encrypted_echo_activity,
+            payload,
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        await workflow.wait_condition(lambda: self._proceed)
+        second = await workflow.execute_activity(
+            encrypted_echo_activity,
+            {"message": "after", "secret": payload["secret"]},
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return {"first": first, "second": second}
+
+
+def _client_with_encryption(
+    env: WorkflowEnvironment, monkeypatch: pytest.MonkeyPatch, *, enabled: bool
+) -> Client:
+    monkeypatch.setattr(config, "TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED", enabled)
+    reset_temporal_payload_codec_cache()
+    return Client(
+        env.client.service_client,
+        namespace=env.client.namespace,
+        data_converter=get_data_converter(compression_enabled=False),
+    )
+
+
+@pytest.mark.anyio
+async def test_workflow_started_in_plaintext_continues_and_replays_encrypted(
+    encrypted_env: WorkflowEnvironment,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Turning encryption on mid-workflow keeps the history replayable.
+
+    The first half of the history is written by a worker with encryption off
+    (an existing install before the upgrade), the second half by a worker with
+    encryption on. The new worker must replay the plaintext events, and a full
+    replay of the mixed history must succeed.
+    """
+    task_queue = "test-mixed-plaintext-encrypted-history"
+    workflow_id = "test-mixed-plaintext-encrypted-history"
+    payload = {"message": "before", "secret": "sensitive-value"}
+    token = ctx_role.set(
+        Role(
+            type="service",
+            service_id="autosecops-service",
+            workspace_id=WORKSPACE_ID,
+        )
+    )
+    try:
+        plaintext_client = _client_with_encryption(
+            encrypted_env, monkeypatch, enabled=False
+        )
+        async with Worker(
+            plaintext_client,
+            task_queue=task_queue,
+            activities=[encrypted_echo_activity],
+            workflows=[MixedHistoryWorkflow],
+            workflow_runner=new_sandbox_runner(),
+            # No sticky cache, so the next worker replays from history.
+            max_cached_workflows=0,
+        ):
+            handle = await plaintext_client.start_workflow(
+                MixedHistoryWorkflow.run,
+                payload,
+                id=workflow_id,
+                task_queue=task_queue,
+                execution_timeout=timedelta(seconds=60),
+            )
+            await _wait_for_event(handle, EventType.EVENT_TYPE_ACTIVITY_TASK_COMPLETED)
+
+        encrypted_client = _client_with_encryption(
+            encrypted_env, monkeypatch, enabled=True
+        )
+        async with Worker(
+            encrypted_client,
+            task_queue=task_queue,
+            activities=[encrypted_echo_activity],
+            workflows=[MixedHistoryWorkflow],
+            workflow_runner=new_sandbox_runner(),
+        ):
+            encrypted_handle = encrypted_client.get_workflow_handle(workflow_id)
+            await encrypted_handle.signal(MixedHistoryWorkflow.proceed)
+            result = await encrypted_handle.result()
+    finally:
+        ctx_role.reset(token)
+
+    assert result == {
+        "first": {"activity_message": "before", "activity_secret": "sensitive-value"},
+        "second": {"activity_message": "after", "activity_secret": "sensitive-value"},
+    }
+
+    payloads_by_source = await _collect_payloads_by_source(encrypted_handle)
+    workflow_input = payloads_by_source["workflow_input"]
+    activity_inputs = payloads_by_source["activity_input"]
+    assert workflow_input[0].metadata["encoding"] == b"json/plain"
+    assert activity_inputs[0].metadata["encoding"] == b"json/plain"
+    _assert_encrypted(activity_inputs[1:])
+    _assert_encrypted(payloads_by_source["workflow_result"])
+
+    history = await encrypted_handle.fetch_history()
+    replay = await Replayer(
+        workflows=[MixedHistoryWorkflow],
+        data_converter=encrypted_client.data_converter,
+        workflow_runner=new_sandbox_runner(),
+    ).replay_workflow(history, raise_on_replay_failure=False)
+    assert replay.replay_failure is None
+
+
+async def _wait_for_event(handle: Any, event_type: EventType.ValueType) -> None:
+    for _ in range(200):
+        async for event in handle.fetch_history_events():
+            if event.event_type == event_type:
+                return
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"Timed out waiting for {event_type}")

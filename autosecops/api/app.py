@@ -248,6 +248,7 @@ from autosecops.storage.blob import (
 from autosecops.tables.exceptions import TableRowError
 from autosecops.tables.router import router as tables_router
 from autosecops.tags.router import router as tags_router
+from autosecops.temporal.codec import ensure_temporal_payload_encryption_ready
 from autosecops.tiers.defaults import log_license_startup
 from autosecops.variables.router import router as variables_router
 from autosecops.vcs.router import org_router as vcs_router
@@ -284,6 +285,9 @@ async def lifespan(app: FastAPI):
     # by tests and OpenAPI generation, before secrets are available.
     get_user_auth_secret()
     assert_soft_delete_listener_registered()
+    # Refuse to start with payload encryption enabled but no usable keyring,
+    # rather than failing the first workflow that touches Temporal.
+    await ensure_temporal_payload_encryption_ready()
 
     # Storage
     await ensure_bucket_exists(config.AUTOSECOPS__BLOB_STORAGE_BUCKET_ATTACHMENTS)
