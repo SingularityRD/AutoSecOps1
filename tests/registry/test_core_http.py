@@ -714,9 +714,7 @@ async def test_http_request_files_missing_content_base64_in_dict() -> None:
         await http_request(
             url="https://api.example.com",
             method="POST",
-            files={
-                "data_file": {"filename": "test.txt"}
-            },  # Missing required field  # type: ignore
+            files={"data_file": {"filename": "test.txt"}},  # Missing required field  # type: ignore
         )
 
 

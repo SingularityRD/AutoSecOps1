@@ -35,6 +35,7 @@ from autosecops.observability.otel import (
     shutdown_platform_tracing,
 )
 from autosecops.observability.sentry import initialize_worker_sentry_from_environment
+from autosecops.process_hardening import protect_process_from_inspection
 from autosecops.storage.blob import close_storage_client_cache
 from autosecops.temporal.worker_lifecycle import (
     run_worker_entrypoint,
@@ -92,6 +93,11 @@ async def _stop_runtime_services() -> None:
 async def main(shutdown_event: asyncio.Event | None = None) -> None:
     """Run the AgentExecutorWorker."""
     global runtime_failure_reason
+    # Direct-mode agent runtimes, their Bash tool and stdio MCP servers run as
+    # this process's user. Refuse them /proc access to the worker's environment
+    # and memory, which hold every platform credential. Idempotent; the
+    # entrypoint already did this before starting.
+    protect_process_from_inspection()
     with executor_lifecycle() as readiness:
         if shutdown_event is None:
             shutdown_event = asyncio.Event()
@@ -158,5 +164,6 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
 
 if __name__ == "__main__":
+    protect_process_from_inspection()
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     run_worker_entrypoint(main)

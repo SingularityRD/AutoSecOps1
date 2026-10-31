@@ -50,10 +50,10 @@ pretty_json(resp.json())
 
 #### Create a workflow
 ```python
-resp = session.post(f"{base_url}/workflows", json={
-    "title": "My Test Workflow",
-    "description": "Created from REPL"
-})
+resp = session.post(
+    f"{base_url}/workflows",
+    json={"title": "My Test Workflow", "description": "Created from REPL"},
+)
 workflow = resp.json()
 pretty_json(workflow)
 ```
@@ -73,12 +73,15 @@ pretty_json(resp.json())
 
 #### Create a secret
 ```python
-resp = session.post(f"{base_url}/organization/secrets", json={
-    "type": "custom",
-    "name": "my-api-key",
-    "keys": [{"key": "API_KEY", "value": "secret-value"}],
-    "description": "Test secret"
-})
+resp = session.post(
+    f"{base_url}/organization/secrets",
+    json={
+        "type": "custom",
+        "name": "my-api-key",
+        "keys": [{"key": "API_KEY", "value": "secret-value"}],
+        "description": "Test secret",
+    },
+)
 ```
 
 #### List registry repositories
@@ -94,11 +97,8 @@ from autosecops.auth.types import system_role
 role = system_role()
 resp = session.post(
     "http://localhost:8001/api/executor/run/core.transform.reshape",
-    headers={
-        "x-autosecops-service-key": service_key,
-        **role.to_headers()
-    },
-    json={...}
+    headers={"x-autosecops-service-key": service_key, **role.to_headers()},
+    json={...},
 )
 ```
 
