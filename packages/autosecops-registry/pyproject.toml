@@ -52,7 +52,7 @@ dependencies = [
     "pydantic==2.12.5",
     "pymongo==4.18.3",
     "pyyaml==6.0.3",
-    "redis[hiredis]==7.1.0",
+    "redis[hiredis]==8.1.0",
     "slack-sdk==3.42.0",
     "sqlalchemy==2.0.45",
     "tavily-python==0.7.6",
