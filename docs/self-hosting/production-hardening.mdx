@@ -1,0 +1,36 @@
+---
+title: Production hardening
+description: "Checklist for a production AutoSecOps deployment: TLS, SSO or WebAuthn for administrators, the database runtime role for row-level security, payload encryption, sandboxing, backups, network allowlists, and secret rotation."
+keywords: ["hardening", "production checklist", "security baseline", "go-live", "CIS", "compliance"]
+---
+
+Complete every item before a deployment handles production data, and re-check the list after each upgrade. Each item links to the page with the full steps.
+
+## Checklist
+
+| Area | Requirement | How to check |
+| --- | --- | --- |
+| Version | Run a release on a [supported train](/self-hosting/support-policy), pinned to an exact version such as `1.4.3`, never `latest` | `GET /api/info` returns the version you deployed |
+| Images | Pull images by digest, or verify signatures and digests before deploying. See [Image signatures](/self-hosting/security#image-signatures) | `docker compose images` or `kubectl get pods -o jsonpath='{..imageID}'` match the release |
+| TLS | Serve the UI and API only over HTTPS with a certificate your clients trust, and use TLS to PostgreSQL, Redis, and S3 where they leave the host. See [TLS and certificates](/self-hosting/tls) | `curl -I http://<host>` redirects to HTTPS |
+| Administrator sign-in | Sign administrators in through SSO ([OIDC](/authentication/oidc) or [SAML](/authentication/saml)) with MFA enforced at the identity provider, or with WebAuthn security keys or passkeys in releases that include them. Remove `basic` from `AUTOSECOPS__AUTH_TYPES` once SSO works | Superadmin and organization admin accounts cannot sign in with a password alone |
+| Sign-up scope | Set `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` to your email domains and `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` to the intended first administrator before first start | Sign-up with an outside domain fails |
+| Tenant isolation | Set `AUTOSECOPS__DB_RUNTIME_PASSWORD` so services connect as `autosecops_app`, with `AUTOSECOPS__RLS_MODE=enforce`. See [Database roles and tenant isolation](/self-hosting/security#database-roles-and-tenant-isolation) | [Verify isolation](/self-hosting/security#verify-isolation) reports `rls_isolation_active: True` |
+| Infrastructure credentials | Replace every default PostgreSQL, Temporal, MinIO, and Redis password. See [Infrastructure credentials](/self-hosting/security#infrastructure-credentials) | `./env.sh --check` exits 0 |
+| Platform secrets | Generate `AUTOSECOPS__DB_ENCRYPTION_KEY`, `AUTOSECOPS__SERVICE_KEY`, `AUTOSECOPS__SIGNING_SECRET`, and `USER_AUTH_SECRET` with `openssl rand`, and store them in a secret manager. See [Platform secrets](/self-hosting/security#platform-secrets) | No secret appears in a manifest, `.tfvars` file, or repository |
+| Payload encryption | Set `TEMPORAL__PAYLOAD_ENCRYPTION_ENABLED=true` with a `TEMPORAL__PAYLOAD_ENCRYPTION_KEYRING`, so workflow inputs and results are encrypted in Temporal. See [Temporal payload keyring](/self-hosting/security#temporal-payload-keyring) | Payloads in the Temporal UI show as encrypted |
+| Sandbox | Set `AUTOSECOPS__EXECUTOR_BACKEND=nsjail`. See [nsjail sandbox](/self-hosting/security#nsjail-sandbox-recommended-for-production) | The executor logs the nsjail backend at startup |
+| Network exposure | Keep the UI and API off the public internet. If third parties send webhooks, expose only `/api/webhooks` and limit it to their source addresses | A port scan from outside reaches nothing but the allowed paths |
+| IP allowlists | Restrict platform administration and each organization to your networks with [IP allowlists](/manage-platform/ip-allowlist) | Sign-in from an address outside the list is refused |
+| Egress | Limit outbound traffic from executors with the `AUTOSECOPS__SANDBOX_*_ALLOWED_EGRESS_CIDRS` settings and your firewall; list internal LLM or MCP endpoints in `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` only. See [Environment variables](/self-hosting/environment-variables) | A test workflow cannot reach an address outside the allowlist |
+| Backups | Schedule database, object storage, and secret backups, store them off-host and encrypted, and test a restore at least every quarter. See [Backup and restore](/self-hosting/backup-restore) | Your last restore test is less than 90 days old |
+| Secret rotation | Rotate infrastructure passwords, SSO client secrets, integration credentials, and the rotatable platform secrets on your schedule, and keep `AUTOSECOPS__DB_ENCRYPTION_KEY` unchanged. See [Rotation](/self-hosting/security#rotation) | Each secret has an owner and a last-rotated date |
+| Audit | Stream [audit logs](/audit-logs/platform) to your SIEM and alert on administrator changes | A test role change appears in the SIEM |
+| Patching | Subscribe the security contact to SingularityRD advisories and apply patches within the [security patch timelines](/self-hosting/security-patches#timelines) | Your runbook names who applies a patch and how fast |
+| Support | Know how to collect a [support bundle](/self-hosting/support-bundle) before you need one | The script runs, and a review of a test archive finds no secrets |
+
+## Related pages
+
+- See [Security](/self-hosting/security) for the detailed hardening steps behind most items.
+- See [Support policy](/self-hosting/support-policy) for supported versions and response timelines.
+- See [Uninstall and decommission](/self-hosting/uninstall) for removing a deployment and its data when you retire it.

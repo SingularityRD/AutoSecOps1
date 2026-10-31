@@ -6,6 +6,7 @@ import { CenteredSpinner } from "@/components/loading/spinner"
 import { SkillTagsView } from "@/components/skills/skill-tags-view"
 import { Button } from "@/components/ui/button"
 import { useEntitlements } from "@/hooks/use-entitlements"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 
 export default function SkillTagsPage() {
   const { hasEntitlement, isLoading } = useEntitlements()
@@ -18,8 +19,8 @@ export default function SkillTagsPage() {
       <div className="size-full overflow-auto">
         <div className="container flex h-full max-w-[1000px] items-center justify-center py-8">
           <EntitlementRequiredEmptyState
-            title="Enterprise only"
-            description="Skill tags are only available on enterprise plans."
+            title={planFeatureTitle("agent_addons")}
+            description={`Skill tags need the ${planLabel("agent_addons")} or higher.`}
           >
             <Button
               variant="link"

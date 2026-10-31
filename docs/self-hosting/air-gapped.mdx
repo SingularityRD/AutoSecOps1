@@ -58,7 +58,7 @@ The offline bundle is one archive, `autosecops-offline-<version>.tar.zst` (`.tar
 | --- | --- |
 | `images/` | Every image the Compose stack and Helm chart run, saved with `docker save` for one platform (`linux/amd64` by default) |
 | `images.txt` | Tab-separated manifest: name, tag, digest, loaded reference, archive, Compose variable, Helm value |
-| `install/` | `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `.env.example`, `env.sh`, `env-migration.sh`, `backup_compose.sh`, `restore_compose.sh` |
+| `install/` | `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `.env.example`, `env.sh`, `env-migration.sh`, `backup_compose.sh`, `restore_compose.sh`, `support_bundle.sh` |
 | `charts/autosecops-<version>.tgz` | The Helm chart |
 | `load-images.sh` | Verifies the bundle, loads the images, and pushes them to an internal registry |
 | `THIRD_PARTY_NOTICES/` | Licenses of AutoSecOps dependencies and of every bundled third-party image |
@@ -96,26 +96,57 @@ just offline-bundle <version>
 
 The bundle lands in `dist/`. Add `--platform linux/arm64` for arm64 hosts. The builder reads the image list from the checked-out `docker-compose.yml` and chart, so it refuses a version that differs from the checkout. Add `--dry-run` to list the images without pulling them.
 
-To sign the bundle, set one of these before you build. The builder signs `SHA256SUMS` and the archive checksum, and never copies the private key into the bundle:
+To sign the bundle, set one of these before you build. The builder signs `SHA256SUMS` and the archive checksum, and never copies the private key into the bundle. Add `--require-signature` to make the build fail when no key is set; SingularityRD release bundles are always built with it:
 
 | Variable | Value |
 | --- | --- |
-| `OFFLINE_BUNDLE_COSIGN_KEY` | cosign key reference, e.g. `cosign.key` or a KMS URI. Set `COSIGN_PASSWORD` for an encrypted key |
+| `OFFLINE_BUNDLE_COSIGN_KEY` | cosign key reference, e.g. `cosign.key` or a KMS URI. Set `COSIGN_PASSWORD` for an encrypted key. Requires cosign 3.0 or later |
 | `OFFLINE_BUNDLE_MINISIGN_KEY` | minisign secret key file. Set `MINISIGN_PASSWORD` for an encrypted key |
 | `OFFLINE_BUNDLE_COSIGN_PUBLIC_KEY` or `OFFLINE_BUNDLE_MINISIGN_PUBLIC_KEY` | Optional public key file to include as `cosign.pub` or `minisign.pub` |
 
+cosign signatures are detached and are not uploaded to a public transparency log, so a bundle build is never announced publicly and verification works without network access. Next to the archive, the builder also writes `autosecops-offline-<version>.SHA256SUMS` (a copy of the bundle's `SHA256SUMS`) and the signatures of both checksum files.
+
+### Release bundles from CI
+
+SingularityRD builds release bundles with the `Build offline bundle` workflow (`.github/workflows/build-offline-bundle.yml`). The bundle contains every AutoSecOps image, so the workflow never uploads it as a GitHub Actions artifact. It signs the bundle, verifies the signatures, and uploads it to a private S3 bucket; only the checksum files, their signatures, and the public key become a workflow artifact.
+
+The workflow refuses to start until the protected `offline-bundle` GitHub environment holds:
+
+| Setting | Kind | Value |
+| --- | --- | --- |
+| `OFFLINE_BUNDLE_S3_URI` | Variable | `s3://<bucket>/<prefix>`. Each release lands under `<prefix>/<version>/`; a version that already exists is never overwritten |
+| `OFFLINE_BUNDLE_AWS_ROLE_ARN` | Variable | IAM role the workflow assumes through GitHub OIDC |
+| `OFFLINE_BUNDLE_AWS_REGION` | Variable | Region of the bucket and KMS key |
+| `OFFLINE_BUNDLE_S3_KMS_KEY_ARN` | Variable | Optional. ARN of the customer-managed KMS key that encrypts the uploaded objects, such as `arn:aws:kms:eu-central-1:123456789012:key/<key-id>`. When unset, the workflow sends no encryption header and the bucket's default encryption applies |
+| `OFFLINE_BUNDLE_COSIGN_KMS_KEY` | Variable | `awskms://` URI of an asymmetric signing key (recommended: the private key never leaves KMS) |
+| `OFFLINE_BUNDLE_COSIGN_PRIVATE_KEY` and `OFFLINE_BUNDLE_COSIGN_PASSWORD` | Secrets | cosign-encrypted private key and its password, used only when no KMS key is set |
+
+Set up AWS once:
+
+1. Create a private bucket with Block Public Access on, default SSE-KMS encryption with a customer-managed key, versioning, and a lifecycle or Object Lock policy that matches your retention rules.
+2. Create an IAM role whose trust policy accepts `token.actions.githubusercontent.com` with audience `sts.amazonaws.com` and subject `repo:<owner>/<repository>:environment:offline-bundle`, so only this environment can assume it. Set its maximum session duration to at least 2 hours.
+3. Grant the role `s3:ListBucket` on the bucket (limited to the prefix), `s3:PutObject` on `<prefix>/*`, `kms:GenerateDataKey` and `kms:Decrypt` on the bucket's encryption key (multipart uploads of the multi-GB archive need both), and, for KMS signing, `kms:Sign` and `kms:GetPublicKey` on the signing key. Do not grant `s3:DeleteObject`.
+4. Give the `offline-bundle` environment required reviewers and restrict it to release tags.
+
+GitHub runs the workflow file from the tag you dispatch it on, so the workflow refuses a tag whose copy of it differs from the default branch. To get a signed, private bundle for a release tagged before the current workflow, cut a new patch release.
+
+Deliver bundles to customers from the bucket with short-lived presigned URLs or your secure file transfer service, and send the public key (`autosecops-offline-<version>.cosign.pub`) through a separate channel so customers can authenticate what they receive.
+
 ## Verify the bundle
 
-Check the archive before you extract it, then check every file and the signature:
+Authenticate the archive checksum with SingularityRD's public key, check the archive before you extract it, then check every file and the signature:
 
 ```bash
+cosign verify-blob --key /path/to/cosign.pub --insecure-ignore-tlog=true \
+  --signature autosecops-offline-<version>.tar.zst.sha256.sig \
+  autosecops-offline-<version>.tar.zst.sha256
 sha256sum -c autosecops-offline-<version>.tar.zst.sha256
 tar -xf autosecops-offline-<version>.tar.zst
 cd autosecops-offline-<version>
 ./load-images.sh verify --cosign-key /path/to/cosign.pub    # or --minisign-key
 ```
 
-Get the public key from SingularityRD through a channel other than the bundle: a `cosign.pub` inside the bundle only proves that the bundle matches the key it carries. `verify` without a key checks `SHA256SUMS` only.
+Get the public key from SingularityRD through a channel other than the bundle: a `cosign.pub` inside the bundle only proves that the bundle matches the key it carries. `verify` without a key checks `SHA256SUMS` only. `--insecure-ignore-tlog=true` is expected: the bundle is signed without a public transparency-log entry, and the public key is the trust root, so verification needs no network access.
 
 ## Load the images
 
@@ -294,7 +325,7 @@ Actions, agent skills, and integrations that call public SaaS APIs fail without 
     Verify the new bundle, then run `./load-images.sh load` or `./load-images.sh push <registry>/<prefix>` again. Pushing a new version adds tags beside the old ones, so you can roll back.
   </Step>
   <Step title="Update Docker Compose">
-    From the new `install/` directory, copy `env-migration.sh` and `.env.example` next to your `.env` and run `./env-migration.sh`. Replace `docker-compose.yml`, `docker-compose.sandbox.yml`, and `Caddyfile` with the new copies, set `AUTOSECOPS__IMAGE_TAG` to the new version if you pinned it, update the image lines `load` or `push` printed, and run `docker compose up -d`. See [Updating AutoSecOps](/self-hosting/docker-compose#updating-autosecops).
+    From the new `install/` directory, copy `env-migration.sh` and `.env.example` next to your `.env` and run `./env-migration.sh`. Replace `docker-compose.yml`, `docker-compose.sandbox.yml`, `Caddyfile`, `backup_compose.sh`, `restore_compose.sh`, and `support_bundle.sh` with the new copies, set `AUTOSECOPS__IMAGE_TAG` to the new version if you pinned it, update the image lines `load` or `push` printed, and run `docker compose up -d`. See [Updating AutoSecOps](/self-hosting/docker-compose#updating-autosecops).
   </Step>
   <Step title="Update Helm">
     Run `helm upgrade autosecops charts/autosecops-<version>.tgz --namespace autosecops -f values.yaml -f registry-values.yaml --wait --timeout 15m`. The migrations Job runs before the services roll.

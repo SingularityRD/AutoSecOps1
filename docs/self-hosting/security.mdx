@@ -205,7 +205,7 @@ Rotation support differs by secret. Check the differences before you plan a rota
 | `AUTOSECOPS__DB_ENCRYPTION_KEY` | Yes | Follow [Rotate the database key](#rotate-the-database-key). | MCP clients sign in again. Removing the old key before every service has restarted with the new key, and before re-encryption finishes, makes rows still encrypted under the old key unreadable. |
 | `AUTOSECOPS__SIGNING_SECRET` | No | Rotate, then reissue every affected URL. | Every webhook URL and agent channel endpoint URL. Breaks in-flight Slack OAuth installs, and pending Slack approval buttons for up to 24 hours. |
 | `AUTOSECOPS__SERVICE_KEY` | No | Restart every service that holds it in one window, including `ui`, which uses it for the SAML ACS proxy. | While services disagree, in-flight agent turns fail their next tool or LLM call, executor calls fail, and service-to-service requests return `401`. Miss `ui` and SSO login breaks. |
-| `USER_AUTH_SECRET` | No | Restart `api` and `mcp` together. | Active MCP access tokens (1-hour lifetime), and in-flight password reset and verification links. Sessions are database-backed, so users stay logged in. MCP refresh tokens are hashed and survive. |
+| `USER_AUTH_SECRET` | No | Restart `api` and `mcp` together. | Active MCP access tokens (1-hour lifetime), and in-flight password reset and verification links. Sessions are database-backed and stored as SHA-256 digests, so users stay logged in. MCP refresh tokens are hashed and survive. |
 
 ## Isolation
 
@@ -337,4 +337,5 @@ Log in to `ghcr.io` with your read token first. To list the SBOM and provenance,
 
 ## Related pages
 
+- See [Production hardening](/self-hosting/production-hardening) for the go-live checklist that ties these settings together.
 - See [Architecture](/security/architecture) for the platform and AI agent trust model.

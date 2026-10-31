@@ -94,7 +94,7 @@ from autosecops.db.models import (
 from autosecops.db.rls import set_rls_context
 from autosecops.identifiers import OrganizationID
 from autosecops.invitations.service import (
-    accept_invitation_for_user,
+    accept_invitation_by_id_for_user,
     get_pending_invitation_for_email,
 )
 from autosecops.logger import logger
@@ -881,10 +881,10 @@ async def sso_acs(
     # intended. An assignment the user already holds at a scope is left in place.
     if pending_invitation is not None:
         try:
-            await accept_invitation_for_user(
+            await accept_invitation_by_id_for_user(
                 db_session,
                 user_id=user.id,  # pyright: ignore[reportArgumentType]
-                token=pending_invitation.token,
+                invitation_id=pending_invitation.id,
                 via_sso=True,
             )
             logger.info(

@@ -2,6 +2,7 @@
 
     uv run python scripts/third_party_notices.py          # rewrite the file
     uv run python scripts/third_party_notices.py --check  # exit 1 if it is stale
+    python scripts/third_party_notices.py --check-lockfiles  # offline drift check
 
 Writes `THIRD_PARTY_NOTICES.md` (Python, for the API and tunnel-gateway
 images) and `frontend/THIRD_PARTY_NOTICES.md` (for the UI image), covering
@@ -69,6 +70,10 @@ UI_TARGET_OS = frozenset({"linux"})
 UI_TARGET_CPU = frozenset({"x64", "arm64"})
 UI_TARGET_LIBC = frozenset({"musl"})
 FRONTEND_LOCKFILE = FRONTEND / "pnpm-lock.yaml"
+# Optional packages whose package.json restricts `cpu` to WebAssembly. pnpm
+# never installs them for the UI image, but pnpm-lock.yaml does not record
+# their `cpu` field, so the offline lockfile walk names them here.
+WASM_ONLY_PACKAGES = frozenset({"@img/sharp-wasm32"})
 
 LICENSE_FILE_RE = re.compile(
     r"(^|/)(licen[cs]e|copying|notice|copyright|unlicense)([.\-_][^/]*)?$",
@@ -358,6 +363,95 @@ def _matches_ui_targets(constraints: dict[str, list[str]]) -> bool:
     )
 
 
+def frontend_requirements() -> list[tuple[str, str]]:
+    """Return (name, version) of every production package the UI image ships.
+
+    Read from `pnpm-lock.yaml` alone, so it needs neither `pnpm install` nor
+    the network: walk the production and optional dependencies of the frontend
+    importer, skipping native variants the UI targets never install and
+    everything reachable only through them.
+    """
+    lock = yaml.safe_load(FRONTEND_LOCKFILE.read_text())
+    importer = (lock.get("importers") or {}).get(".") or {}
+    snapshots: dict[str, dict] = lock.get("snapshots") or {}
+    platforms = _lockfile_platforms()
+    pending = [
+        f"{name}@{entry['version']}"
+        for section in ("dependencies", "optionalDependencies")
+        for name, entry in (importer.get(section) or {}).items()
+        if not str(entry["version"]).startswith("link:")
+    ]
+    seen: set[str] = set()
+    shipped: dict[tuple[str, str], tuple[str, str]] = {}
+    while pending:
+        key = pending.pop()
+        if key in seen:
+            continue
+        seen.add(key)
+        name, version = _split_package_key(key)
+        if name in WASM_ONLY_PACKAGES or not _matches_ui_targets(
+            platforms.get((name, version), {})
+        ):
+            continue
+        shipped[(_norm(name), version)] = (name, version)
+        snapshot = snapshots.get(key) or {}
+        for section in ("dependencies", "optionalDependencies"):
+            for dep, dep_version in (snapshot.get(section) or {}).items():
+                if not str(dep_version).startswith("link:"):
+                    pending.append(f"{dep}@{dep_version}")
+    return sorted(shipped.values(), key=lambda r: (_norm(r[0]), r[1]))
+
+
+_PACKAGE_ROW_RE = re.compile(r"^\| (\S+) \| (\S+) \| .* \|$")
+
+
+def notice_packages(path: Path) -> set[tuple[str, str]]:
+    """(normalized name, version) of each row in a notices file's package table."""
+    rows: set[tuple[str, str]] = set()
+    in_table = False
+    for line in path.read_text().splitlines():
+        if line == "| Package | Version | License |":
+            in_table = True
+            continue
+        if in_table:
+            if line.startswith("|---"):
+                continue
+            match = _PACKAGE_ROW_RE.match(line)
+            if match is None:
+                break
+            rows.add((_norm(match.group(1)), match.group(2)))
+    return rows
+
+
+def lockfile_drift() -> list[str]:
+    """Describe every difference between the notices and the lockfiles.
+
+    Compares package names and versions only, so it runs offline and without
+    installed packages. `--check` additionally compares license texts, which
+    needs `uv sync` and `pnpm install`.
+    """
+    problems: list[str] = []
+    for output, requirements in (
+        (PYTHON_OUTPUT, python_requirements()),
+        (FRONTEND_OUTPUT, frontend_requirements()),
+    ):
+        relative = output.relative_to(REPO)
+        if not output.exists():
+            problems.append(f"{relative} is missing")
+            continue
+        listed = notice_packages(output)
+        locked = {(_norm(name), version) for name, version in requirements}
+        problems.extend(
+            f"{relative} is missing {name} {version}"
+            for name, version in sorted(locked - listed)
+        )
+        problems.extend(
+            f"{relative} lists {name} {version}, which the lockfile no longer ships"
+            for name, version in sorted(listed - locked)
+        )
+    return problems
+
+
 _PLATFORM_TOKENS = frozenset(
     {
         "aix",
@@ -464,7 +558,9 @@ def api_programs() -> list[Program]:
     )
     npm = _dockerfile_value("Dockerfile", r"npm install --global [^\n]*npm@([0-9.]+)")
     nsjail = _dockerfile_value("Dockerfile", r"^ENV NSJAIL_COMMIT=([0-9a-f]+)")
-    uv = _dockerfile_value("Dockerfile", r"ghcr\.io/astral-sh/uv:([0-9.]+) /uv")
+    uv = _dockerfile_value(
+        "Dockerfile", r"ghcr\.io/astral-sh/uv:([0-9.]+)(?:@sha256:[0-9a-f]{64})? /uv"
+    )
     duckdb = _dockerfile_value("Dockerfile", r"^ARG DUCKDB_VERSION=([0-9.]+)")
     pangolin = _dockerfile_value(
         "Dockerfile.tunnel-gateway", r"^ARG PANGOLIN_CLI_VERSION=([0-9.]+)"
@@ -653,7 +749,30 @@ def main() -> int:
     parser.add_argument(
         "--check", action="store_true", help="exit 1 if a notices file is stale"
     )
+    parser.add_argument(
+        "--check-lockfiles",
+        action="store_true",
+        help=(
+            "exit 1 if the package lists differ from uv.lock or pnpm-lock.yaml "
+            "(offline; needs no installed packages)"
+        ),
+    )
     args = parser.parse_args()
+
+    if args.check_lockfiles:
+        problems = lockfile_drift()
+        for problem in problems:
+            print(problem, file=sys.stderr)
+        if problems:
+            print(
+                "run `just gen-notices` and commit the regenerated notices; "
+                "for a Dependabot pull request, see Dependencies in "
+                "CONTRIBUTING.md",
+                file=sys.stderr,
+            )
+            return 1
+        print("third-party notices match the lockfiles")
+        return 0
 
     python, missing = python_components()
     if missing:

@@ -4236,6 +4236,7 @@ function AgentPresetCapabilityIcons({
   return (
     <span
       className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground"
+      role="img"
       aria-label={label}
       title={label}
     >

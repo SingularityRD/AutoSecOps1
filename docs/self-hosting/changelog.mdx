@@ -1,0 +1,27 @@
+---
+title: Changelog
+description: "Operator-facing changes in each AutoSecOps release: upgrade notes, security fixes, new required settings, and the end-of-life dates of release trains."
+keywords: ["changelog", "release notes", "upgrade notes", "what's new", "end of life"]
+---
+
+This page lists what changes for the people who run AutoSecOps: upgrade steps, new or changed settings, security fixes, and support dates. The full list of changes in each release is in its release notes, which your SingularityRD contact also sends with every release.
+
+Read every entry between your version and the one you upgrade to, then follow [Updating AutoSecOps](/self-hosting/updating). Release trains and their end-of-life rules are in the [support policy](/self-hosting/support-policy).
+
+Each entry has the same sections:
+
+- Upgrade notes: steps or settings you must change during the upgrade.
+- Security: fixed advisories and their severity.
+- Support: trains that enter or leave support with this release.
+
+<Update label="Next release" description="Not yet released">
+  ## Upgrade notes
+
+  - The `latest` image tag only moves forward. A patch on an older train publishes its own version tag and leaves `latest` on the newer train. Deploy exact versions such as `1.4.3`.
+  - Offline bundles are always signed. Verify the archive checksum's signature before you extract it, as described in [Verify the bundle](/self-hosting/air-gapped#verify-the-bundle).
+  - The install files include `support_bundle.sh`. Copy it next to `docker-compose.yml` with the other install files; see [Support bundle](/self-hosting/support-bundle).
+
+  ## Support
+
+  - SingularityRD publishes its [support policy](/self-hosting/support-policy): the latest two minor trains receive security fixes, and each minor is supported for 12 months after release.
+</Update>

@@ -43,6 +43,8 @@ from autosecops.db.models import Role as DBRole
 from autosecops.exceptions import AutoSecOpsValidationError
 from autosecops.identifiers import OrganizationID
 from autosecops.licensing.enforcement import enforce_organization_limit
+from autosecops.licensing.multi_tenant import ensure_new_organizations_allowed
+from autosecops.licensing.service import ensure_license_deployment_loaded
 from autosecops.logger import logger
 from autosecops.settings.service import SettingsService
 from autosecops.tiers.exceptions import DefaultTierNotConfiguredError
@@ -126,7 +128,12 @@ async def create_organization(
         ValueError: If an organization with the given slug already exists.
         LicenseLimitExceeded: If a multi-tenant install already has the
             license's ``max_organizations`` organizations.
+        MultiTenantLicenseLapsed: If the license that grants multi-tenant
+            mode expired past its grace period.
     """
+    if config.AUTOSECOPS__EE_MULTI_TENANT:
+        await ensure_license_deployment_loaded()
+        ensure_new_organizations_allowed()
     await enforce_organization_limit(session)
     org = Organization(
         id=org_id or uuid.uuid4(),

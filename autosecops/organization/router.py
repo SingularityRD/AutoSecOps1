@@ -30,6 +30,7 @@ from autosecops.identifiers import SessionID, UserID
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationGrant
 from autosecops.invitations.service import InvitationService
+from autosecops.licensing.clock import effective_now
 from autosecops.licensing.schemas import LicenseNoticeRead
 from autosecops.licensing.service import (
     ensure_license_deployment_loaded,
@@ -222,8 +223,8 @@ async def get_organization_license_notice(*, role: OrgActorRole) -> LicenseNotic
     if config.AUTOSECOPS__EE_MULTI_TENANT:
         return LicenseNoticeRead()
     await ensure_license_deployment_loaded()
-    state = get_license_state(log=False)
-    now = datetime.now(UTC)
+    now = effective_now()
+    state = get_license_state(now, log=False)
     if (level := license_notice_level(state, now)) is None:
         return LicenseNoticeRead()
     claims = state.claims

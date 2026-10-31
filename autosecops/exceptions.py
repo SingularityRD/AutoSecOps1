@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from autosecops.licensing.types import MultiTenantLapsedAction
 from autosecops.runtime.errors import RuntimeErrorOwner
 
 if TYPE_CHECKING:
@@ -35,6 +36,23 @@ class AutoSecOpsException(Exception):
 
 class AutoSecOpsValidationError(AutoSecOpsException):
     """AutoSecOps user-facing validation error"""
+
+
+class AgentCatalogModelAmbiguousError(AutoSecOpsValidationError):
+    """Raised when a model name matches several enabled catalog rows.
+
+    A runtime lookup by ``(model_provider, model_name)`` must not pick one of
+    several endpoints on the caller's behalf, because each row can route
+    prompts to a different model server with different credentials.
+    """
+
+    def __init__(self, *, model_provider: str, model_name: str) -> None:
+        super().__init__(
+            "Several enabled catalog models match provider "
+            f"{model_provider!r} and model {model_name!r}"
+        )
+        self.model_provider = model_provider
+        self.model_name = model_name
 
 
 class AutoSecOpsConflictError(AutoSecOpsException):
@@ -367,6 +385,36 @@ class LicenseLimitExceeded(AutoSecOpsException):
         super().__init__(
             message,
             detail={"limit": limit.value, "current": current, "maximum": maximum},
+        )
+
+
+class MultiTenantLicenseLapsed(AutoSecOpsException):
+    """Raised for a change that a lapsed multi-tenant license blocks.
+
+    The deployment keeps serving its existing organizations with their current
+    tiers; creating organizations and changing tiers are blocked until a
+    renewed license that grants ``multi_tenant`` is installed.
+    """
+
+    def __init__(
+        self,
+        *,
+        contact: str,
+        action: MultiTenantLapsedAction = MultiTenantLapsedAction.CREATE_ORGANIZATION,
+    ) -> None:
+        blocked = {
+            MultiTenantLapsedAction.CREATE_ORGANIZATION: "new organizations cannot"
+            " be created",
+            MultiTenantLapsedAction.MANAGE_TIERS: "tiers and tier assignments"
+            " cannot be changed",
+        }[action]
+        message = (
+            "The license that grants multi-tenant mode has expired and its grace"
+            f" period ended. Existing organizations keep working, but {blocked}."
+            f" Contact {contact} to renew."
+        )
+        super().__init__(
+            message, detail={"grant": "multi_tenant", "action": action.value}
         )
 
 

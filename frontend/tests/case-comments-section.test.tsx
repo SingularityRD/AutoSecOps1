@@ -1995,7 +1995,7 @@ describe("CommentSection", () => {
     })
 
     it.each(["case_addons", "agent_addons"])(
-      "shows the Enterprise lock row when only the %s entitlement is present",
+      "shows the plan lock row when only the %s entitlement is present",
       (entitlement) => {
         mockEntitlements([entitlement])
 
@@ -2003,7 +2003,7 @@ describe("CommentSection", () => {
         typeInto(getRootComposer(), "@")
 
         expect(
-          screen.getByText("Agent mentions are an Enterprise feature")
+          screen.getByText("Agent mentions need the Team plan")
         ).toBeInTheDocument()
         expect(screen.queryByText("Triage agent")).not.toBeInTheDocument()
         expect(mockUseAgentPresets).toHaveBeenCalledWith(
@@ -2027,7 +2027,7 @@ describe("CommentSection", () => {
       typeInto(composer, "Ping @")
 
       expect(
-        screen.getByText("Agent mentions are an Enterprise feature")
+        screen.getByText("Agent mentions need the Team plan")
       ).toBeInTheDocument()
 
       fireEvent.keyDown(composer, { key: "Enter", metaKey: true })
@@ -2047,13 +2047,13 @@ describe("CommentSection", () => {
       typeInto(composer, "@")
 
       expect(
-        screen.getByText("Agent mentions are an Enterprise feature")
+        screen.getByText("Agent mentions need the Team plan")
       ).toBeInTheDocument()
 
       fireEvent.keyDown(composer, { key: "Escape" })
 
       expect(
-        screen.queryByText("Agent mentions are an Enterprise feature")
+        screen.queryByText("Agent mentions need the Team plan")
       ).not.toBeInTheDocument()
     })
 

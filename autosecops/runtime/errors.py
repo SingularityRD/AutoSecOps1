@@ -86,6 +86,7 @@ class RuntimeErrorKind(StrEnum):
     AGENT_CONFIGURATION_INVALID = "agent.configuration.invalid"
     AGENT_PREPARATION_FAILED = "agent.preparation.failed"
     AGENT_SESSION_INITIALIZATION_FAILED = "agent.session.initialization_failed"
+    AGENT_APPROVAL_PERSISTENCE_FAILED = "agent.approval.persistence_failed"
     AGENT_LLM_GATEWAY_AUTH_FAILED = "agent.llm.gateway_auth_failed"
     AGENT_LLM_PROVIDER_AUTH_FAILED = "agent.llm.provider_auth_failed"
     AGENT_LLM_BUDGET_EXCEEDED = "agent.llm.budget_exceeded"

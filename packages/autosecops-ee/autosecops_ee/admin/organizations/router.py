@@ -13,6 +13,8 @@ from autosecops.db.dependencies import AsyncDBSessionBypass
 from autosecops.db.errors import is_unique_violation
 from autosecops.exceptions import AutoSecOpsConflictError, AutoSecOpsValidationError
 from autosecops.invitations.enums import InvitationStatus
+from autosecops.invitations.service import InvitationTokenUnrecoverableError
+from autosecops.logger import logger
 from autosecops.pagination import CursorPaginatedResponse, CursorPaginationParams
 from autosecops_ee.admin.organizations.schemas import (
     AdminOrgInvitationCreate,
@@ -219,6 +221,17 @@ async def get_organization_invitation_token(
     service = AdminOrgService(session, role)
     try:
         return await service.get_organization_invitation_token(org_id, invitation_id)
+    except InvitationTokenUnrecoverableError as e:
+        logger.exception(
+            "Invitation token cannot be decrypted", invitation_id=str(invitation_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This invitation's link cannot be recovered. Revoke it and invite "
+                "the user again."
+            ),
+        ) from e
     except (NoResultFound, ValueError) as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

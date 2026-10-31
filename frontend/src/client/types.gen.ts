@@ -7295,6 +7295,16 @@ export type LibrarySkillSourceRead = {
 export type kind = "upstream" | "local"
 
 /**
+ * Result of resetting the license clock high-water mark.
+ */
+export type LicenseClockResetRead = {
+  /**
+   * The new high-water mark: this API replica's current time
+   */
+  clock_high_water: string
+}
+
+/**
  * Why a license key failed verification.
  */
 export type LicenseErrorCode =
@@ -7436,6 +7446,30 @@ export type LicenseRead = {
    */
   license_deployment_id?: string | null
   error?: LicenseErrorCode | null
+  /**
+   * Whether AUTOSECOPS__EE_MULTI_TENANT=true is set
+   */
+  multi_tenant_requested?: boolean
+  /**
+   * Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed
+   */
+  multi_tenant_mode?: MultiTenantMode
+  /**
+   * Latest trusted time this deployment has recorded. License expiry is evaluated against the later of this and the system clock
+   */
+  clock_high_water?: string | null
+  /**
+   * When an AutoSecOps process first saw the system clock behind the high-water mark by more than the tolerance. Null once the clock has caught up
+   */
+  clock_rollback_detected_at?: string | null
+  /**
+   * How many seconds the system clock of the answering API replica is behind the high-water mark now. Null when it is not
+   */
+  clock_rollback_seconds?: number | null
+  /**
+   * When a superuser last reset the high-water mark through POST /admin/license/clock/reset
+   */
+  clock_last_reset_at?: string | null
 }
 
 /**
@@ -8292,6 +8326,11 @@ export type ModelUsage = {
   canonicalModel?: string
   provider?: string
 }
+
+/**
+ * Whether this deployment runs multi-tenant, and under what license.
+ */
+export type MultiTenantMode = "off" | "active" | "lapsed"
 
 /**
  * The negation of one filter.
@@ -9961,6 +10000,7 @@ export type RuntimeErrorKind =
   | "agent.configuration.invalid"
   | "agent.preparation.failed"
   | "agent.session.initialization_failed"
+  | "agent.approval.persistence_failed"
   | "agent.llm.gateway_auth_failed"
   | "agent.llm.provider_auth_failed"
   | "agent.llm.budget_exceeded"
@@ -10738,6 +10778,7 @@ export type SecretValidationResult = {
 export type SecuritySettingsRead = {
   ip_allowlist_enabled: boolean
   ip_allowlists: Array<IPAllowlist>
+  service_account_api_key_max_ttl_days?: number | null
 }
 
 /**
@@ -10752,6 +10793,10 @@ export type SecuritySettingsUpdate = {
    * Named groups of allowed IP addresses or CIDR ranges.
    */
   ip_allowlists?: Array<IPAllowlist>
+  /**
+   * Longest lifetime, in days, of a newly issued service account API key. Keys issued without an expiry get this lifetime. Keys issued before the limit was set keep their expiry. Null sets no limit.
+   */
+  service_account_api_key_max_ttl_days?: number | null
 }
 
 export type Select = {
@@ -10796,11 +10841,16 @@ export type name =
 export type ServiceAccountApiKeyCounts = {
   total?: number
   active?: number
+  expired?: number
   revoked?: number
 }
 
 export type ServiceAccountApiKeyCreate = {
   name?: string
+  /**
+   * When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.
+   */
+  expires_at?: string | null
 }
 
 export type ServiceAccountApiKeyIssueResponse = {
@@ -10819,6 +10869,10 @@ export type ServiceAccountApiKeyRead = {
   revoked_by_user?: UserReadMinimal | null
   last_used_at?: string | null
   revoked_at?: string | null
+  /**
+   * When the key stops authenticating. Null: it never expires.
+   */
+  expires_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -10828,6 +10882,10 @@ export type ServiceAccountCreate = {
   description?: string | null
   scope_ids?: Array<string>
   initial_key_name?: string
+  /**
+   * When the key stops authenticating, with a time zone. Must be in the future and within the organization's maximum key lifetime. Omit it for the maximum lifetime, or for a key that never expires when the organization sets no maximum.
+   */
+  initial_key_expires_at?: string | null
 }
 
 export type ServiceAccountRead = {
@@ -17598,6 +17656,8 @@ export type AdminAgentListPlatformCatalogResponse = AgentCatalogListResponse
 
 export type AdminLicenseGetLicenseResponse = LicenseRead
 
+export type AdminLicenseResetLicenseClockResponse = LicenseClockResetRead
+
 export type AdminMaintenanceStartCaseAgentSessionInteractionBackfillResponse =
   CaseAgentSessionInteractionBackfillStartResponse
 
@@ -17736,12 +17796,6 @@ export type EditorValidateExpressionData = {
 }
 
 export type EditorValidateExpressionResponse = ExpressionValidationResponse
-
-export type EditorFieldSchemaData = {
-  workspaceId: string
-}
-
-export type EditorFieldSchemaResponse = EditorComponent
 
 export type RegistryRepositoriesSyncRegistryRepositoryData = {
   repositoryId: string
@@ -25988,6 +26042,16 @@ export type $OpenApiTs = {
       }
     }
   }
+  "/admin/license/clock/reset": {
+    post: {
+      res: {
+        /**
+         * Successful Response
+         */
+        200: LicenseClockResetRead
+      }
+    }
+  }
   "/admin/maintenance/case-agent-session-interactions/backfill": {
     post: {
       res: {
@@ -26206,21 +26270,6 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: ExpressionValidationResponse
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/editor/field-schema": {
-    get: {
-      req: EditorFieldSchemaData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: EditorComponent
         /**
          * Validation Error
          */

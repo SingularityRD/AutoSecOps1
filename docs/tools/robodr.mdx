@@ -174,7 +174,7 @@ Action ID: `tools.robodr.download_evidence_export`
 
 Download an evidence export chunk by chunk (resuming after transient faults), verify it as robodr.control-plane §11.6 requires (answer signatures, manifest signature, chunk and bundle SHA-256, every black-box record's hash, signature and chain under the robot's black-box keyring, and the result against the manifest) and store the verified bundle for the case. Nothing that fails verification is stored. Read-only for the robot unless delete_after_download; audit-logged.
 
-<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise plan</Badge>
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 
@@ -704,7 +704,7 @@ Action ID: `tools.robodr.request_action`
 
 Send one signed-off catalog action request to a robot's control plane over mutual TLS. Refuses unless platform form submissions prove the requester and one approver (two for safe_pause, request_safe_state and rollback_config), all different platform users, signed off this exact request; two-person actions name their approvers to the robot (approved_by). The robot judges it against its safety state and may refuse it. recorded_not_executed, refused and failed are not applied; pending is not yet in force; applied is final and not reversible; in_force is the robot's own word. A quarantine in force reports containment: full, partial, guid_only or unknown; only full is contained. Recorded by the platform before it is sent and refused if the audit sink does not confirm it; audit_log says written or no_sink.
 
-<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+<Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 
@@ -866,7 +866,7 @@ Action ID: `tools.robodr.revert_action`
 
 Ask a robot to revert a signed-off action request. Needs the same platform sign-off as a request (two approvers to revert a two-person action such as robot_safe_pause; their names are sent as approved_by). Reverting a safe_pause releases the pause and never resumes a mission. request_safe_state, rollback_config and record_evidence are not reversible (refused, not_reversible); a request that never took effect answers not_applied; an executed one answers pending, then reverted. Recorded by the platform before it is sent; refused if the configured audit sink does not confirm it. audit_log says written (sink confirmed) or no_sink (no audit sink configured: platform log only).
 
-<Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+<Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
 
 Reference: [https://docs.singularityrd.com/integrations/robodr-tools](https://docs.singularityrd.com/integrations/robodr-tools)
 

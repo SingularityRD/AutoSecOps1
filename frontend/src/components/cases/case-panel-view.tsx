@@ -68,6 +68,7 @@ import {
   useSetCaseDropdownValue,
   useUpdateCase,
 } from "@/lib/hooks"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 import { cn } from "@/lib/utils"
 import { useWorkspaceId } from "@/providers/workspace-id"
 
@@ -792,11 +793,11 @@ export function CasePanelView({
       <LockedFeatureModal
         open={lockedFeatureDialogOpen}
         onOpenChange={setLockedFeatureDialogOpen}
-        title="Enterprise only"
+        title={planFeatureTitle("case_addons")}
         description={
           lockedPanel === "sub-cases"
-            ? "Sub-cases are only available on enterprise plans."
-            : "Case tasks are only available on enterprise plans."
+            ? `Sub-cases need the ${planLabel("case_addons")} or higher.`
+            : `Case tasks need the ${planLabel("case_addons")} or higher.`
         }
         bullets={[]}
       />

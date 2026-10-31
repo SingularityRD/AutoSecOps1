@@ -172,7 +172,13 @@ export const FileTreeFolder = ({
   return (
     <FileTreeFolderContext.Provider value={folderContextValue}>
       <Collapsible onOpenChange={handleOpenChange} open={isExpanded}>
-        <div className={cn("", className)} role="treeitem" {...props}>
+        {/* biome-ignore lint/a11y/useFocusableInteractive: the folder row inside is the focusable control; moving focus onto the treeitem needs roving tabindex across the tree. */}
+        <div
+          className={cn("", className)}
+          role="treeitem"
+          aria-expanded={isExpanded}
+          {...props}
+        >
           <div
             className={cn(
               "group flex w-full items-center gap-1.5 rounded-sm px-1 py-1.5 text-left transition-colors",

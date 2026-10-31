@@ -20,6 +20,10 @@ from autosecops.auth.ip_allowlist import (
 )
 from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.identifiers import WorkspaceID
+from autosecops.service_accounts.constants import (
+    API_KEY_MAX_TTL_DAYS_MAX,
+    API_KEY_MAX_TTL_DAYS_MIN,
+)
 
 
 class BaseSettingsGroup(BaseModel):
@@ -283,15 +287,15 @@ def ip_allowlist_cidrs(allowlists: list[IPAllowlist]) -> list[str]:
     return [cidr for allowlist in allowlists for cidr in allowlist.cidrs]
 
 
-class SecuritySettingsRead(BaseSettingsGroup):
-    """Organization security settings."""
+class IPAllowlistSettingsRead(BaseSettingsGroup):
+    """IP allowlist settings, shared by organizations and the platform admin API."""
 
     ip_allowlist_enabled: bool
     ip_allowlists: list[IPAllowlist]
 
 
-class SecuritySettingsUpdate(BaseSettingsGroup):
-    """Organization security settings."""
+class IPAllowlistSettingsUpdate(BaseSettingsGroup):
+    """IP allowlist settings, shared by organizations and the platform admin API."""
 
     ip_allowlist_enabled: bool = Field(
         default=False,
@@ -317,6 +321,27 @@ class SecuritySettingsUpdate(BaseSettingsGroup):
     @property
     def cidrs(self) -> list[str]:
         return ip_allowlist_cidrs(self.ip_allowlists)
+
+
+class SecuritySettingsRead(IPAllowlistSettingsRead):
+    """Organization security settings."""
+
+    service_account_api_key_max_ttl_days: int | None = None
+
+
+class SecuritySettingsUpdate(IPAllowlistSettingsUpdate):
+    """Organization security settings."""
+
+    service_account_api_key_max_ttl_days: int | None = Field(
+        default=None,
+        ge=API_KEY_MAX_TTL_DAYS_MIN,
+        le=API_KEY_MAX_TTL_DAYS_MAX,
+        description=(
+            "Longest lifetime, in days, of a newly issued service account API "
+            "key. Keys issued without an expiry get this lifetime. Keys issued "
+            "before the limit was set keep their expiry. Null sets no limit."
+        ),
+    )
 
 
 class IPAllowlistCheckRequest(BaseModel):

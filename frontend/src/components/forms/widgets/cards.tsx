@@ -78,6 +78,7 @@ export function CardsWidget(props: FormWidgetProps) {
     // The columns follow the form's own width, not the viewport's, so the
     // cards stack in a narrow preview pane instead of squeezing their text.
     <div className="@container">
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role is always group or radiogroup, which support aria-labelledby; the linter cannot resolve the conditional. */}
       <div
         {...control}
         role={field.multiple ? "group" : "radiogroup"}
@@ -90,6 +91,7 @@ export function CardsWidget(props: FormWidgetProps) {
           const checked = selected.has(option.value)
           const image = images[index]
           return (
+            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role is always checkbox or radio, which support aria-checked; the linter cannot resolve the conditional.
             <button
               key={option.value}
               ref={(element) => {

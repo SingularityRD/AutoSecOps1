@@ -5,8 +5,10 @@ organizations are never deactivated or deleted, even after a license with a
 lower limit is installed.
 
 ``max_users`` and ``max_workspaces`` apply to single-tenant installs, where
-the license controls the product. ``max_organizations`` applies to
-multi-tenant installs. Each check takes a transaction-scoped advisory lock
+the license controls the product, and to multi-tenant installs whose license
+lapsed, where the expired license's own (signed) limits stay in force because
+nothing else bounds them. ``max_organizations`` applies to multi-tenant
+installs. Each check takes a transaction-scoped advisory lock
 before counting, so concurrent creations cannot both pass the last free slot;
 the lock is released when the caller's transaction ends.
 """
@@ -31,7 +33,7 @@ from autosecops.licensing.service import (
     ensure_license_deployment_loaded,
     get_license_state,
 )
-from autosecops.licensing.types import LicenseLimitName
+from autosecops.licensing.types import LicenseGrant, LicenseLimitName, LicenseLimits
 
 type _Counter = Callable[[SupportsExecute], Awaitable[int]]
 
@@ -65,9 +67,29 @@ async def _lock_limit(session: AsyncSession, limit: LicenseLimitName) -> None:
     await pg_advisory_xact_lock(session, _advisory_lock_key(limit))
 
 
+def _multi_tenant_lapsed_limits() -> LicenseLimits | None:
+    """The expired license's limits while multi-tenant mode runs lapsed.
+
+    Returns ``None`` unless multi-tenant mode is on and its license no longer
+    grants it. Mirrors ``multi_tenant.get_multi_tenant_mode``, which imports
+    this module.
+    """
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
+        return None
+    state = get_license_state(log=False)
+    if LicenseGrant.MULTI_TENANT in state.grants:
+        return None
+    claims = state.claims
+    return (claims.limits if claims else None) or LicenseLimits()
+
+
 async def _licensed_maximum(limit: LicenseLimitName) -> int | None:
     await ensure_license_deployment_loaded()
     limits = get_license_state(log=False).limits
+    if limit is not LicenseLimitName.MAX_ORGANIZATIONS and (
+        lapsed := _multi_tenant_lapsed_limits()
+    ):
+        limits = lapsed
     match limit:
         case LicenseLimitName.MAX_USERS:
             return limits.max_users
@@ -77,6 +99,14 @@ async def _licensed_maximum(limit: LicenseLimitName) -> int | None:
             return limits.max_organizations
         case _:
             raise ValueError(f"{limit.value} is not a creation limit")
+
+
+async def _license_limits_apply() -> bool:
+    """Whether license user and workspace limits apply to this install."""
+    if not config.AUTOSECOPS__EE_MULTI_TENANT:
+        return True
+    await ensure_license_deployment_loaded()
+    return _multi_tenant_lapsed_limits() is not None
 
 
 async def _enforce(
@@ -100,13 +130,14 @@ async def enforce_user_limit(session: AsyncSession) -> None:
     """Block a new active user beyond the license's ``max_users``.
 
     Call before inserting the user, in the transaction that inserts it.
-    Single-tenant only; multi-tenant installs size users through tiers.
+    Single-tenant, or multi-tenant on a lapsed license; an active multi-tenant
+    install sizes users through tiers.
 
     Raises:
         LicenseLimitExceeded: If the install already has ``max_users`` active
             users.
     """
-    if config.AUTOSECOPS__EE_MULTI_TENANT:
+    if not await _license_limits_apply():
         return
     await _enforce(
         session, LicenseLimitName.MAX_USERS, count_current=count_active_users
@@ -116,13 +147,13 @@ async def enforce_user_limit(session: AsyncSession) -> None:
 async def enforce_workspace_limit(session: AsyncSession) -> None:
     """Block a new workspace beyond the license's ``max_workspaces``.
 
-    Single-tenant only.
+    Single-tenant, or multi-tenant on a lapsed license.
 
     Raises:
         LicenseLimitExceeded: If the install already has ``max_workspaces``
             workspaces.
     """
-    if config.AUTOSECOPS__EE_MULTI_TENANT:
+    if not await _license_limits_apply():
         return
     await _enforce(
         session, LicenseLimitName.MAX_WORKSPACES, count_current=count_workspaces

@@ -869,7 +869,7 @@ function SkillDeleteFolderDialog({
 }
 
 /**
- * Workspace skills dashboard with optional enterprise folder organization.
+ * Workspace skills dashboard with optional folder organization on the Team plan.
  *
  * @param props Workspace identifier.
  * @returns The skills catalog.

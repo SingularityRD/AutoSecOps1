@@ -19,7 +19,6 @@ from autosecops.expressions.functions import FUNCTION_MAPPING
 from autosecops.expressions.parser.grammar import grammar
 from autosecops.identifiers.workflow import AnyWorkflowIDQuery
 from autosecops.logger import logger
-from autosecops.registry.fields import EditorComponent
 from autosecops.workflow.management.management import WorkflowsManagementService
 
 router = APIRouter(prefix="/editor", tags=["editor"])
@@ -293,11 +292,3 @@ async def validate_expression(
             ],
             tokens=[],
         )
-
-
-@router.get("/field-schema", response_model=EditorComponent)
-def field_schema():
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Not implemented",
-    )

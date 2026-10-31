@@ -201,7 +201,11 @@ function CreateAgentDialogContent({
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
-          <div className="flex justify-center py-4" aria-label="Loading models">
+          <div
+            className="flex justify-center py-4"
+            role="status"
+            aria-label="Loading models"
+          >
             <Spinner className="size-6" />
           </div>
         </DialogBody>

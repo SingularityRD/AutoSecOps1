@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from sqlalchemy import select
 from temporalio import activity
 
+from autosecops.agent.catalog.service import AgentCatalogService
 from autosecops.agent.error_policy import (
     agent_preparation_failed,
+    ambiguous_agent_model,
     invalid_agent_configuration,
 )
 from autosecops.agent.gateway_providers import (
@@ -29,6 +31,7 @@ from autosecops.agent.workflow_schemas import AgentConfigPayload
 from autosecops.auth.types import Role
 from autosecops.db.models import AgentCatalog
 from autosecops.exceptions import (
+    AgentCatalogModelAmbiguousError,
     AutoSecOpsAuthorizationError,
     AutoSecOpsNotFoundError,
     AutoSecOpsValidationError,
@@ -231,6 +234,89 @@ async def resolve_custom_model_provider_config_activity(
         model_name=runtime.model_name,
         passthrough=runtime.passthrough,
     )
+
+
+class ResolveGatewayCatalogByModelActivityInput(BaseModel):
+    """Input for ``resolve_gateway_catalog_by_model_activity``.
+
+    A single model keeps the activity's scheduled argument count fixed, so
+    fields can be added later without breaking workers on another version.
+    """
+
+    role: Role
+    model_provider: str
+    model_name: str
+
+
+class ResolveGatewayCatalogByModelActivityResult(BaseModel):
+    """Catalog row a gateway model name binds to, if any."""
+
+    catalog_id: uuid.UUID | None = Field(default=None)
+
+
+@activity.defn
+async def resolve_gateway_catalog_by_model_activity(
+    args: ResolveGatewayCatalogByModelActivityInput,
+) -> ResolveGatewayCatalogByModelActivityResult:
+    """Bind a gateway model named without a catalog id to its catalog row.
+
+    Agent configs, such as an ``ai.agent`` action, can name a gateway model by
+    ``(model_provider, model_name)`` without a ``catalog_id``. Workspace-scoped
+    ``agent-{model_provider}-credentials`` keep precedence: when they exist,
+    no row is bound and ``resolve_custom_model_provider_config_activity``
+    loads them as before. Otherwise the single catalog row enabled for the
+    workspace that matches the model is returned, so the workflow passes its
+    id to the config activity and binds the LLM gateway to the same row's
+    credentials.
+
+    This is a separate activity, not an extra argument on
+    ``resolve_custom_model_provider_config_activity``, so that activity keeps
+    the call shape every worker version accepts during a rolling upgrade.
+
+    Args:
+        args: Role, gateway provider slug, and model name.
+
+    Returns:
+        The bound catalog id, or ``None`` when workspace credentials win or no
+        enabled row matches.
+
+    Raises:
+        ApplicationError: Non-retryable, when the provider is not a gateway
+            provider or several enabled org-owned rows match the model.
+    """
+    model_provider = args.model_provider
+    if not is_gateway_provider(model_provider):
+        activity.logger.error(
+            "Provider does not support passthrough configuration",
+            extra={"provider": model_provider},
+        )
+        raise_application_error_from_classification(invalid_agent_configuration())
+
+    async with AgentManagementService.with_session(args.role) as svc:
+        workspace_creds = await svc.get_workspace_provider_credentials(model_provider)
+        if workspace_creds is not None:
+            return ResolveGatewayCatalogByModelActivityResult()
+        try:
+            catalog_id = await AgentCatalogService(
+                session=svc.session
+            ).resolve_runtime_catalog_id_by_model(
+                org_id=svc.organization_id,
+                model_provider=model_provider,
+                model_name=args.model_name,
+                workspace_id=svc.role.workspace_id,
+            )
+        except AgentCatalogModelAmbiguousError as exc:
+            activity.logger.error(
+                "Several enabled catalog models match the gateway provider model",
+                extra={"provider": model_provider},
+            )
+            raise_application_error_from_classification(ambiguous_agent_model(exc))
+
+    activity.logger.info(
+        "Resolved gateway provider catalog model by name",
+        extra={"provider": model_provider, "matched": catalog_id is not None},
+    )
+    return ResolveGatewayCatalogByModelActivityResult(catalog_id=catalog_id)
 
 
 async def _load_custom_model_provider_creds(

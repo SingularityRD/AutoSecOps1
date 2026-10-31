@@ -1,0 +1,154 @@
+---
+title: Uninstall and decommission
+description: "Remove an AutoSecOps deployment and delete its data on Docker Compose, Kubernetes, and AWS Fargate: final backup, service removal, database, object storage, secrets, backups, and verification."
+keywords: ["uninstall", "decommission", "delete data", "teardown", "data deletion", "retire", "destroy"]
+---
+
+Decommissioning deletes every case, workflow, credential, and log AutoSecOps stored. It cannot be undone. Follow your organization's data retention and destruction policy, and have the data owner approve the deletion before you start.
+
+<Warning>
+  Every command on this page deletes data permanently. Run them against the right host, cluster, namespace, or AWS account, and keep the final backup until your retention policy allows you to destroy it.
+</Warning>
+
+## Before you start
+
+1. Export what you must keep: case data, audit logs from your SIEM, and workflow definitions you want to reuse elsewhere.
+2. Take a final backup as described in [Backup and restore](/self-hosting/backup-restore), and record where it is stored and when it must be destroyed. Without `AUTOSECOPS__DB_ENCRYPTION_KEY` the stored credentials in that backup cannot be decrypted, so keep or destroy the key together with the backup.
+3. Revoke what AutoSecOps holds outside the deployment: API keys and OAuth apps created for integrations, SSO applications in your identity provider, webhook URLs registered with third parties, and the GHCR read token SingularityRD issued for the deployment.
+4. Tell SingularityRD at [info@singularityrd.com](mailto:info@singularityrd.com) that the license for this deployment is retired.
+
+## Docker Compose
+
+Run these commands from the directory that holds `docker-compose.yml` and `.env`. Add `-f docker-compose.sandbox.yml` if you run the nsjail backend.
+
+<Steps>
+  <Step title="Stop and remove the services and their data">
+    ```bash
+    docker compose down --volumes --remove-orphans
+    ```
+
+    `--volumes` deletes the named volumes of this project: `core-db` (AutoSecOps database), `temporal-db` (Temporal database), `minio-data` (attachments and workflow artifacts), `valkey-data`, and `sandbox-cache`.
+  </Step>
+  <Step title="Confirm no volume remains">
+    Compose prefixes volume names with the project name, which defaults to the directory name:
+
+    ```bash
+    docker volume ls --filter label=com.docker.compose.project=<project>
+    ```
+
+    Remove any volume it still lists with `docker volume rm`, including rollback copies such as `<project>_temporal-db-pg13` from a Temporal database upgrade.
+  </Step>
+  <Step title="Remove images, install files, and secrets">
+    ```bash
+    docker image ls 'ghcr.io/singularityrd/*' --format '{{.Repository}}:{{.Tag}}' | xargs -r docker image rm
+    docker logout ghcr.io
+    shred -u .env            # contains every platform secret
+    cd .. && rm -rf <deployment-directory>
+    ```
+
+    Also delete backups made with `backup_compose.sh` and support bundles once your retention policy allows. Volumes on encrypted disks are destroyed with the disk key; otherwise follow your media sanitization policy for the host.
+  </Step>
+</Steps>
+
+## Kubernetes
+
+The chart keeps PostgreSQL, Redis, object storage, and Temporal outside the cluster, so `helm uninstall` removes only the AutoSecOps workloads. Delete each external store separately.
+
+<Steps>
+  <Step title="Remove the release">
+    ```bash
+    helm uninstall autosecops --namespace autosecops --wait
+    kubectl -n autosecops get all,secrets,configmaps,pvc
+    ```
+
+    Delete the Secrets you created yourself, such as `autosecops-secrets` and the `*-credentials` Secrets, and the External Secrets resources that synced them. Then delete the namespace if nothing else runs in it:
+
+    ```bash
+    kubectl delete namespace autosecops
+    ```
+  </Step>
+  <Step title="Delete the database">
+    Drop the AutoSecOps database and its runtime role, or delete the database instance if it served only AutoSecOps:
+
+    ```sql
+    DROP DATABASE <database> WITH (FORCE);
+    DROP ROLE IF EXISTS autosecops_app;
+    ```
+
+    Delete its snapshots and point-in-time recovery backups, e.g. RDS snapshots or CloudNativePG backups in object storage.
+  </Step>
+  <Step title="Delete object storage, Redis, and Temporal data">
+    Empty and delete the buckets set in `externalS3.buckets` (by default `autosecops-workflow`, `autosecops-attachments`, `autosecops-registry`, `autosecops-agent`, and `autosecops-skills`), including every object version and replicated copy. Flush or delete the Redis database. Delete the Temporal namespace AutoSecOps used, or the Temporal Cloud namespace.
+  </Step>
+  <Step title="Delete secrets in your secret manager">
+    Delete the platform secrets, database and S3 credentials, and the GHCR pull Secret from your secret manager, after the final backup's retention period if you keep that backup.
+  </Step>
+</Steps>
+
+## AWS Fargate
+
+The Terraform stack protects both RDS instances with deletion protection and takes a final snapshot when Terraform deletes them. The S3 buckets are versioned and must be empty before Terraform can delete them. Run the commands from the Terraform stack directory, with the same `TF_VAR_*` values and AWS account as your last `terraform apply`.
+
+<Steps>
+  <Step title="Turn off deletion protection">
+    ```bash
+    for db in core-database temporal-database; do
+      aws rds modify-db-instance --db-instance-identifier "$db" \
+        --no-deletion-protection --apply-immediately
+    done
+    ```
+
+    Use your `core_db_identifier` and `temporal_db_identifier` values if you changed them.
+  </Step>
+  <Step title="Empty the buckets">
+    List the buckets from the Terraform outputs, then delete every object version and delete marker in each:
+
+    ```bash
+    terraform output | grep bucket_name
+    empty_bucket() {
+      while :; do
+        batch=$(aws s3api list-object-versions --bucket "$1" --no-paginate --max-keys 1000 \
+          --query '{Objects: [Versions[].{Key: Key, VersionId: VersionId}, DeleteMarkers[].{Key: Key, VersionId: VersionId}][] }' --output json)
+        [[ "$(jq '.Objects | length' <<<"$batch")" -eq 0 ]] && break
+        aws s3api delete-objects --bucket "$1" --delete "$batch" >/dev/null
+      done
+    }
+    empty_bucket <bucket-name>   # repeat for every bucket
+    ```
+  </Step>
+  <Step title="Destroy the stack">
+    ```bash
+    terraform destroy
+    ```
+
+    Terraform deletes the ECS services, load balancer, network, ElastiCache, RDS instances, buckets, and the `/ecs/<name_prefix>` log group. It leaves a final snapshot of each RDS instance named `final-<name_prefix>-core-db-...` and `final-<name_prefix>-temporal-db-...`.
+  </Step>
+  <Step title="Delete snapshots and secrets">
+    After the retention period of your final backup, delete the RDS snapshots and the Secrets Manager secrets you created for the stack:
+
+    ```bash
+    aws rds describe-db-snapshots --snapshot-type manual \
+      --query "DBSnapshots[?starts_with(DBSnapshotIdentifier, 'final-<name_prefix>') || starts_with(DBSnapshotIdentifier, 'autosecops-')].DBSnapshotIdentifier" --output text
+    aws rds delete-db-snapshot --db-snapshot-identifier <snapshot>
+
+    aws secretsmanager delete-secret --secret-id <secret-arn> --force-delete-without-recovery
+    ```
+
+    Also delete AWS Backup recovery points and replicated buckets in other accounts, if you set them up.
+  </Step>
+</Steps>
+
+## Air-gapped deployments
+
+Follow the steps for your deployment target, then delete the AutoSecOps images from your internal registry (the repositories under the prefix you passed to `load-images.sh push`) and every copy of the offline bundle.
+
+## Verify the deletion
+
+1. No AutoSecOps container, pod, task, volume, bucket, database, or secret remains: check with `docker volume ls`, `kubectl get all -A -l app.kubernetes.io/part-of=autosecops`, and `aws resourcegroupstaggingapi get-resources`.
+2. The DNS name of the deployment no longer resolves to a live service.
+3. Record what you deleted, when, and who approved it, and keep the record with your data destruction evidence.
+
+## Related pages
+
+- See [Backup and restore](/self-hosting/backup-restore) for the final backup to take before you decommission.
+- See [Production hardening](/self-hosting/production-hardening) for the settings to apply on a replacement deployment.

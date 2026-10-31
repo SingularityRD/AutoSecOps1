@@ -13,13 +13,14 @@ database once per process, and only when the configured license is bound.
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import lru_cache
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from autosecops import config
 from autosecops.licensing import keys
+from autosecops.licensing.clock import effective_now, ensure_license_clock_fresh
 from autosecops.licensing.deployment import (
     ensure_deployment_id,
     get_cached_deployment_id,
@@ -79,7 +80,9 @@ def get_configured_claims() -> LicenseClaims | None:
 def get_license_state(now: datetime | None = None, *, log: bool = True) -> LicenseState:
     """Evaluate ``AUTOSECOPS__LICENSE_KEY`` against the embedded public key.
 
-    With ``log``, logs the state when it changes and re-logs grace, expired,
+    Without ``now``, expiry is evaluated against ``effective_now()``: the later
+    of the wall clock and the latest time this deployment has observed, so
+    turning the clock back cannot revive an expired license. With ``log``, logs the state when it changes and re-logs grace, expired,
     and invalid states at most once per hour.
     """
     token = config.AUTOSECOPS__LICENSE_KEY
@@ -92,7 +95,7 @@ def get_license_state(now: datetime | None = None, *, log: bool = True) -> Licen
             case LicenseClaims() as claims:
                 state = state_from_claims(
                     claims,
-                    now=now or datetime.now(UTC),
+                    now=now or effective_now(),
                     deployment_id=get_cached_deployment_id(),
                 )
     if log:
@@ -131,15 +134,18 @@ def license_notice_level(
 
 
 async def ensure_license_deployment_loaded() -> None:
-    """Load the deployment ID if the configured license is bound to one.
+    """Load the license state that lives in the database for this process.
 
-    A no-op once the ID is cached, and for licenses without a
-    ``deployment_id`` claim, so unbound installs never query for it here.
+    Loads the deployment ID if the configured license is bound to one, and
+    refreshes the license clock high-water mark at most once an hour (see
+    ``autosecops.licensing.clock``). Both are no-ops without a license key, so
+    unlicensed installs never query for them here.
     """
-    if get_cached_deployment_id() is not None:
-        return
     claims = get_configured_claims()
-    if claims is None or claims.deployment_id is None:
+    if claims is None:
+        return
+    await ensure_license_clock_fresh()
+    if get_cached_deployment_id() is not None or claims.deployment_id is None:
         return
     await ensure_deployment_id()
 

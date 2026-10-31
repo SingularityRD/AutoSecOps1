@@ -75,6 +75,36 @@ Use these rules for work in `frontend/`.
 - For shortcut UI, render keys with `Kbd` and prefer
   `parseShortcutKeys` from `frontend/src/lib/tiptap-utils.ts`.
 
+## Accessibility
+
+Biome's recommended `a11y` rules run as errors on all source files
+(`frontend/biome.json`). Keep them passing; do not turn a rule off globally.
+
+- Decorative SVGs and icons take `aria-hidden="true"`. Give a meaningful
+  standalone icon `role="img"` and an `aria-label`.
+- Icon components in `src/components/icons.tsx` are hidden by default and
+  exposed when named: keep the literal `aria-hidden="true"` on the `<svg>` and
+  spread the caller's props through `iconA11yProps(...)` after it. A caller
+  that passes `aria-label` or `aria-labelledby` then gets an image with that
+  name (`role="img"`, no `aria-hidden`); an unlabelled icon stays hidden.
+- `aria-label` is ignored on a plain `div` or `span`. Give the element a role
+  that accepts a name (`status` for loading regions, `group`, `img`) or use a
+  semantic element.
+- Associate every `<label>` with its control: wrap it, or use `htmlFor` with an
+  `id` from `useId()`. Radix `SelectTrigger` accepts the `id`.
+- Every `<button>` has an explicit `type`.
+- Clickable elements are real `<button>` or `<a>` elements, not `div`s with
+  `onClick`.
+- Use `// biome-ignore lint/a11y/<rule>: <reason>` only for a linter false
+  positive (for example a role chosen by a conditional, or options in an
+  `aria-activedescendant` listbox) and state the reason.
+
+Backlog: one override in `biome.json` lists the files that still have
+`noStaticElementInteractions`, `useKeyWithClickEvents`, or
+`useSemanticElements` findings, and downgrades only those three rules to
+warnings for only those files. New files get errors. When you touch a listed
+file, fix its warnings and remove it from the list; never add a file to it.
+
 ## Dialogs
 
 New dialogs follow the flat panel convention in

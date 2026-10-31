@@ -1,5 +1,7 @@
 "use client"
 
+import { useId } from "react"
+
 import type {
   autosecops__registry__repositories__schemas__RegistryVersionRead,
   VersionDiff,
@@ -36,16 +38,22 @@ export function DiffView({
   onBaseChange,
   onCompareChange,
 }: DiffViewProps) {
+  const fieldId = useId()
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium">Base version</label>
+          <label
+            htmlFor={`${fieldId}-base`}
+            className="mb-1 block text-sm font-medium"
+          >
+            Base version
+          </label>
           <Select
             value={compareBaseId ?? undefined}
             onValueChange={onBaseChange}
           >
-            <SelectTrigger>
+            <SelectTrigger id={`${fieldId}-base`}>
               <SelectValue placeholder="Select version" />
             </SelectTrigger>
             <SelectContent>
@@ -58,14 +66,17 @@ export function DiffView({
           </Select>
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium">
+          <label
+            htmlFor={`${fieldId}-compare`}
+            className="mb-1 block text-sm font-medium"
+          >
             Compare to version
           </label>
           <Select
             value={compareToId ?? undefined}
             onValueChange={onCompareChange}
           >
-            <SelectTrigger>
+            <SelectTrigger id={`${fieldId}-compare`}>
               <SelectValue placeholder="Select version" />
             </SelectTrigger>
             <SelectContent>

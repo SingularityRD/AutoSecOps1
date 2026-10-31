@@ -1,7 +1,9 @@
-import { render } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import type { ReactElement } from "react"
 import {
+  AwsIcon,
   DatabricksIcon,
+  GmailIcon,
   getIcon,
   getIconSource,
   getModelProviderIconId,
@@ -424,5 +426,50 @@ describe("Icons.logo", () => {
       "d",
       orbit?.getAttribute("d")
     )
+  })
+})
+
+describe("icon accessibility", () => {
+  it("hides unlabelled icons from assistive technology", () => {
+    const { container } = render(
+      <div>
+        <AwsIcon data-testid="aws" />
+        <GmailIcon data-testid="gmail" />
+        <Icons.gitHub data-testid="github" />
+      </div>
+    )
+
+    for (const id of ["aws", "gmail", "github"]) {
+      expect(screen.getByTestId(id)).toHaveAttribute("aria-hidden", "true")
+    }
+    expect(screen.queryAllByRole("img")).toHaveLength(0)
+    expect(container.querySelectorAll("svg")).toHaveLength(3)
+  })
+
+  it("exposes a labelled icon as an image with that name", () => {
+    render(<AwsIcon aria-label="AWS Secrets Manager" />)
+
+    const icon = screen.getByRole("img", { name: "AWS Secrets Manager" })
+    expect(icon).not.toHaveAttribute("aria-hidden")
+  })
+
+  it("adds role img when a labelled icon has no role of its own", () => {
+    render(
+      <div>
+        <span id="gmail-label">Gmail</span>
+        <GmailIcon aria-labelledby="gmail-label" />
+        <Icons.gitHub aria-label="GitHub" />
+      </div>
+    )
+
+    expect(screen.getByRole("img", { name: "Gmail" })).toBeInTheDocument()
+    expect(screen.getByRole("img", { name: "GitHub" })).toBeInTheDocument()
+  })
+
+  it("keeps an explicit aria-hidden from the caller", () => {
+    render(<AwsIcon aria-label="AWS" aria-hidden="true" data-testid="aws" />)
+
+    expect(screen.getByTestId("aws")).toHaveAttribute("aria-hidden", "true")
+    expect(screen.queryByRole("img")).not.toBeInTheDocument()
   })
 })

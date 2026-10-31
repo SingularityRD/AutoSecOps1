@@ -19,7 +19,9 @@ def test_unconfigured_selection_upgrade_and_guarded_downgrade() -> None:
     try:
         with admin.connect() as conn:
             conn.execute(text(f'CREATE DATABASE "{name}"'))
-        upgraded = run_alembic(url, "upgrade", "head")
+        # Stop at the guarded revision: later roll-forward-only revisions would
+        # refuse the downgrade before this one is reached.
+        upgraded = run_alembic(url, "upgrade", "8c0e18190001")
         assert upgraded.returncode == 0, upgraded.stderr
         with engine.begin() as conn:
             conn.execute(

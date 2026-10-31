@@ -244,6 +244,12 @@ def test_downgrade_restores_current_direct_memberships(
                        true, false, true, 'BASIC'
                 FROM unnest(ARRAY['org-only', 'workspace-only', 'both',
                                   'revoked', 'existing', 'group-only']) AS label;
+                -- Since fa922accd060 the org membership row is the aggregate
+                -- root: assignments and group members require it.
+                INSERT INTO organization_membership (user_id, organization_id)
+                SELECT md5(label)::uuid, md5('rollback-org')::uuid
+                FROM unnest(ARRAY['org-only', 'workspace-only', 'both',
+                                  'revoked', 'existing', 'group-only']) AS label;
                 INSERT INTO role (id, organization_id, name, slug)
                 VALUES (md5('rollback-role')::uuid, md5('rollback-org')::uuid,
                         'Rollback role', 'rollback-role');
@@ -258,8 +264,6 @@ def test_downgrade_restores_current_direct_memberships(
                        md5(label)::uuid, md5('rollback-workspace')::uuid,
                        md5('rollback-role')::uuid
                 FROM unnest(ARRAY['workspace-only', 'both', 'existing', 'revoked']) AS label;
-                INSERT INTO organization_membership (user_id, organization_id)
-                VALUES (md5('existing')::uuid, md5('rollback-org')::uuid);
                 INSERT INTO membership (user_id, workspace_id)
                 VALUES (md5('existing')::uuid, md5('rollback-workspace')::uuid);
                 INSERT INTO "group" (id, organization_id, name)
@@ -290,8 +294,14 @@ def test_downgrade_restores_current_direct_memberships(
             assert conn.scalar(sa.text("SELECT count(*) FROM membership")) == 1
             assert (
                 conn.scalar(sa.text("SELECT count(*) FROM organization_membership"))
-                == 1
+                == 6
             )
+            org_memberships_before = conn.execute(
+                sa.text(
+                    "SELECT user_id, organization_id FROM organization_membership"
+                    " ORDER BY user_id, organization_id"
+                )
+            ).all()
             assignments_before = conn.execute(
                 sa.text(
                     "SELECT id, user_id, workspace_id, role_id FROM user_role_assignment ORDER BY id"
@@ -302,10 +312,41 @@ def test_downgrade_restores_current_direct_memberships(
         for _ in range(2):
             _migrate(migration_db_url, "downgrade", PREVIOUS_REVISION)
             with engine.connect() as conn:
+                # Since fa922accd060 every assignment and group member needs an
+                # org membership row, so a workspace-only, group-only or
+                # revoked user already holds one before the downgrade. The row
+                # records presence in the organization, not an org-level role:
+                # org access comes only from org-scoped assignments, which are
+                # checked unchanged below. The e847d14eeb86 downgrade must
+                # leave exactly the pre-seeded rows: none added, none removed.
+                assert (
+                    conn.execute(
+                        sa.text(
+                            "SELECT user_id, organization_id FROM organization_membership"
+                            " ORDER BY user_id, organization_id"
+                        )
+                    ).all()
+                    == org_memberships_before
+                )
                 assert conn.execute(
                     sa.text("""
                     SELECT u.email FROM organization_membership m
                     JOIN "user" u ON u.id = m.user_id ORDER BY u.email
+                """)
+                ).scalars().all() == [
+                    "both@example.com",
+                    "existing@example.com",
+                    "group-only@example.com",
+                    "org-only@example.com",
+                    "revoked@example.com",
+                    "workspace-only@example.com",
+                ]
+                # Only the org-scoped assignments carry org-level access.
+                assert conn.execute(
+                    sa.text("""
+                    SELECT DISTINCT u.email FROM user_role_assignment a
+                    JOIN "user" u ON u.id = a.user_id
+                    WHERE a.workspace_id IS NULL ORDER BY u.email
                 """)
                 ).scalars().all() == [
                     "both@example.com",

@@ -50,6 +50,8 @@ Requests for that subagent go directly to `https://child-litellm.example`. Reque
 
 AutoSecOps resolves passthrough credentials from the custom provider selected by the agent's model configuration. If a root agent and subagent use different passthrough providers, each route uses its own provider credentials.
 
+An agent configuration can name a model by `model_provider` and `model_name` without a `catalog_id`, for example in an `ai.agent` action. AutoSecOps then uses the workspace's `agent-<provider>-credentials` secret when it exists. Otherwise AutoSecOps uses the model enabled for the workspace that matches `model_provider` and `model_name`, preferring your organization's models over AutoSecOps catalog models, and binds the run to that model's credentials. Before you roll out or roll back a release that changes this lookup, read [Agent workers during a rolling upgrade](/self-hosting/updating#agent-workers-during-a-rolling-upgrade).
+
 Managed LiteLLM requests keep the sandbox's managed gateway token.
 
 ## Add a custom source
@@ -102,6 +104,8 @@ Edit the source when you rotate credentials, change the base URL, or update stat
 ## Troubleshooting
 
 Test connection or Refresh that fails with `Host is not allowed` means the base URL resolves to a private, loopback, or link-local address. AutoSecOps blocks these by default. Add the gateway's IP or CIDR to `AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS` on the AutoSecOps services and restart them. See [Private endpoints](/agents/llm-providers#private-endpoints) for the Docker Compose, Kubernetes, and Fargate settings.
+
+A run that fails with `Model '<name>' from provider '<provider>' matches several enabled models` names a model that more than one enabled custom source serves. AutoSecOps fails the run instead of choosing an endpoint for your prompts. Select the specific model in the agent configuration, which sets its `catalog_id`, or disable the duplicate model for the workspace.
 
 A run that fails with `Model response timed out after <duration> without receiving data` (or `Gateway timeout` on a non-streaming request) hit `AUTOSECOPS__LLM_PROXY_READ_TIMEOUT`, the read timeout between the sandbox LLM proxy and the gateway. The variable takes seconds, defaults to `600`, and applies to both passthrough and managed routes.
 

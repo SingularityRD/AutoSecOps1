@@ -26,6 +26,12 @@
 # scopes so new titles converge; the autolabeler also understands every
 # historical spelling so the already-merged backlog still categorizes.
 
+# $RESOLVED_VERSION is never left to Release Drafter's resolver, which starts
+# from 0.0.0 when no release exists and from the most recently created release
+# otherwise, so it drafted 0.1.0 for a 1.0.0 product and would draft an
+# existing version after an older-train hotfix. The draft job passes
+# `version:` from scripts/release_draft_version.py: the larger of
+# autosecops.__version__ and the minor after the newest stable release.
 name-template: AutoSecOps $RESOLVED_VERSION
 tag-template: $RESOLVED_VERSION
 
