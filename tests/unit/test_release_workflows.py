@@ -1,15 +1,20 @@
 """Exercise release guards without publishing tags, images, or releases."""
 
+import importlib.util
 import json
 import os
 import subprocess
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 import yaml
 
+from autosecops import __version__
+
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE_WORKFLOW = ROOT / ".github/workflows/build-push-images.yml"
+DRAFT_WORKFLOW = ROOT / ".github/workflows/release-drafter.yml"
 
 
 def run_image_guard(
@@ -319,3 +324,114 @@ def test_promotion_updates_all_images_from_the_same_stable_tag(
             f"ghcr.io/singularityrd/{image}:{version}",
         )
     ]
+
+
+def _promotion_guard(
+    tmp_path: Path, version: str, tags: list[str]
+) -> tuple[subprocess.CompletedProcess[str], str]:
+    workflow = yaml.safe_load(IMAGE_WORKFLOW.read_text())
+    steps = workflow["jobs"]["promote-latest"]["steps"]
+    guard = next(step for step in steps if step.get("id") == "forward")
+    promote = steps[-1]
+    assert promote["if"] == "steps.forward.outputs.promote == 'true'"
+    assert guard["env"]["VERSION"] == "${{ needs.validate.outputs.tag }}"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    gh = bin_dir / "gh"
+    gh.write_text('#!/bin/bash\nprintf "%s\\n" $FAKE_TAGS\n')
+    gh.chmod(0o755)
+    output = tmp_path / "output"
+    output.write_text("")
+    result = subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", guard["run"]],
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FAKE_TAGS": " ".join(tags),
+            "VERSION": version,
+            "REPO": "example/repo",
+            "GITHUB_OUTPUT": str(output),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result, output.read_text()
+
+
+@pytest.mark.parametrize(
+    ("version", "tags", "promote"),
+    [
+        ("1.2.0", ["1.0.0", "1.1.0", "1.2.0"], "true"),
+        ("1.10.0", ["1.9.3", "1.10.0", "1.11.0-rc.1", "nightly-20260901"], "true"),
+        # An older train's hotfix keeps its own tag but never moves latest.
+        ("1.1.5", ["1.1.4", "1.1.5", "1.2.0"], "false"),
+        ("1.2.1", ["1.2.1", "1.3.0"], "false"),
+        ("2.0.0", ["1.99.9", "2.0.0"], "true"),
+    ],
+)
+def test_latest_never_moves_backwards(
+    tmp_path: Path, version: str, tags: list[str], promote: str
+) -> None:
+    result, output = _promotion_guard(tmp_path, version, tags)
+    assert result.returncode == 0, result.stderr
+    assert output == f"promote={promote}\n"
+
+
+@pytest.mark.parametrize(
+    ("version", "tags"),
+    [("1.2.0-rc.1", ["1.2.0-rc.1"]), ("1.2.0", []), ("1.2.0", ["nightly-1"])],
+)
+def test_latest_guard_fails_closed(
+    tmp_path: Path, version: str, tags: list[str]
+) -> None:
+    result, output = _promotion_guard(tmp_path, version, tags)
+    assert result.returncode != 0
+    assert output == ""
+
+
+def _load_draft_versioner() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "release_draft_version", ROOT / "scripts" / "release_draft_version.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("current", "released", "expected"),
+    [
+        # No release yet: the product version, never Release Drafter's 0.1.0.
+        ("1.0.0", [], "1.0.0"),
+        ("1.0.0", ["1.0.0"], "1.1.0"),
+        ("1.0.0", ["1.0.0", "1.1.0", "1.0.3"], "1.2.0"),
+        # An older-train hotfix created last does not pull the draft back.
+        ("1.0.0", ["1.2.0", "1.1.5"], "1.3.0"),
+        # A deliberate major bump on main wins over the next minor.
+        ("2.0.0", ["1.4.2"], "2.0.0"),
+        ("1.3.0-rc.1", ["1.2.0"], "1.3.0"),
+        # Prereleases, nightlies, and v-prefixed tags are not stable releases.
+        ("1.0.0", ["1.1.0-rc.1", "nightly-1", "v9.9.9"], "1.0.0"),
+    ],
+)
+def test_release_draft_tracks_the_real_version(
+    current: str, released: list[str], expected: str
+) -> None:
+    versioner = _load_draft_versioner()
+    assert versioner.draft_version(current, released) == expected
+
+
+def test_release_draft_starts_at_the_checkout_version() -> None:
+    versioner = _load_draft_versioner()
+    assert versioner.current_version() == __version__
+    workflow = yaml.safe_load(DRAFT_WORKFLOW.read_text())
+    steps = workflow["jobs"]["draft"]["steps"]
+    draft = next(step for step in steps if step.get("id") == "draft")
+    assert draft["with"]["version"] == "${{ steps.version.outputs.version }}"
+    resolve = next(step for step in steps if step.get("id") == "version")
+    assert "scripts/release_draft_version.py" in resolve["run"]
+    assert "select(.prerelease | not)" in resolve["run"]
+    config = yaml.safe_load((ROOT / ".github" / "release-drafter.yml").read_text())
+    assert config["tag-template"] == "$RESOLVED_VERSION"

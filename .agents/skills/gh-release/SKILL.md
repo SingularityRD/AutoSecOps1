@@ -127,8 +127,9 @@ Before mutation, show:
 - For a patch, the pinned baseline and evidence that the migration gate passed.
 - Public tag and whether the GitHub release is stable or a prerelease.
 - Version-bump, branch-push, tag-push, and release-publication commands.
-- Stable image tags update `latest`; prereleases leave `latest` unchanged.
-  This policy permits an older train's stable hotfix to become `latest`.
+- Stable image tags update `latest` only when they are the newest stable
+  release tag; prereleases and older-train hotfixes leave `latest` unchanged,
+  so `latest` never moves backwards.
 
 Wait for explicit confirmation unless the user already approved this exact
 release plan. Approval to merge or fix a PR is not release authorization.
