@@ -23,19 +23,31 @@ function apiError(status: number, detail: unknown): ApiError {
   )
 }
 
+const PASSWORD = "a-long-enough-password"
+
+function fillPasswords(password = PASSWORD, confirm = password) {
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: password },
+  })
+  fireEvent.change(screen.getByLabelText("Confirm password"), {
+    target: { value: confirm },
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Verify email" }))
+}
+
 describe("VerifyEmail", () => {
   beforeEach(() => verify.mockReset())
 
-  it("waits for a click before submitting the token", async () => {
+  it("submits the token only with the password the user sets", async () => {
     verify.mockResolvedValue({} as Awaited<ReturnType<typeof authVerifyVerify>>)
     render(<VerifyEmail token="signed-token" />)
 
     expect(verify).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole("button", { name: "Verify email" }))
+    fillPasswords()
 
     await screen.findByText("Email verified")
     expect(verify).toHaveBeenCalledWith({
-      requestBody: { token: "signed-token" },
+      requestBody: { token: "signed-token", password: PASSWORD },
     })
     expect(screen.getByRole("link", { name: "Go to sign in" })).toHaveAttribute(
       "href",
@@ -43,11 +55,37 @@ describe("VerifyEmail", () => {
     )
   })
 
+  it("does not submit mismatched passwords", async () => {
+    render(<VerifyEmail token="signed-token" />)
+
+    fillPasswords(PASSWORD, "something-else-entirely")
+
+    await screen.findByText("Passwords do not match")
+    expect(verify).not.toHaveBeenCalled()
+  })
+
+  it("shows a refused password on the field and keeps the form", async () => {
+    verify.mockRejectedValue(
+      apiError(400, {
+        code: "VERIFY_USER_INVALID_PASSWORD",
+        reason: "Password is too common",
+      })
+    )
+    render(<VerifyEmail token="signed-token" />)
+
+    fillPasswords()
+
+    await screen.findByText("Password is too common")
+    expect(
+      screen.getByRole("button", { name: "Verify email" })
+    ).toBeInTheDocument()
+  })
+
   it("explains an invalid or used link", async () => {
     verify.mockRejectedValue(apiError(400, "VERIFY_USER_BAD_TOKEN"))
     render(<VerifyEmail token="stale" />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Verify email" }))
+    fillPasswords()
 
     await screen.findByText("Link invalid or expired")
   })
@@ -56,7 +94,7 @@ describe("VerifyEmail", () => {
     verify.mockRejectedValue(apiError(400, "VERIFY_USER_ALREADY_VERIFIED"))
     render(<VerifyEmail token="used" />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Verify email" }))
+    fillPasswords()
 
     await waitFor(() =>
       expect(screen.getByText("Already verified")).toBeInTheDocument()

@@ -6,6 +6,8 @@ export const LOGIN_USER_NOT_VERIFIED = "LOGIN_USER_NOT_VERIFIED"
 export const VERIFY_USER_BAD_TOKEN = "VERIFY_USER_BAD_TOKEN"
 /** Error detail for a verification link whose account is already verified. */
 export const VERIFY_USER_ALREADY_VERIFIED = "VERIFY_USER_ALREADY_VERIFIED"
+/** Error code for a verification whose new password fails the policy. */
+export const VERIFY_USER_INVALID_PASSWORD = "VERIFY_USER_INVALID_PASSWORD"
 /** Error code for self-registration refused because SMTP is not configured. */
 export const SELF_REGISTRATION_UNAVAILABLE = "self_registration_unavailable"
 
@@ -81,4 +83,27 @@ export function getVerifyEmailFailure(
     return "invalid"
   }
   return null
+}
+
+/**
+ * Return the reason a `POST /auth/verify` refused the new password, or null
+ * when the failure was something else.
+ */
+export function getVerifyEmailPasswordError(error: unknown): string | null {
+  if (!(error instanceof ApiError) || error.status !== 400) {
+    return null
+  }
+  const detail = getDetail(error)
+  if (
+    typeof detail !== "object" ||
+    detail === null ||
+    !("code" in detail) ||
+    detail.code !== VERIFY_USER_INVALID_PASSWORD
+  ) {
+    return null
+  }
+  if ("reason" in detail && typeof detail.reason === "string") {
+    return detail.reason
+  }
+  return "Choose a stronger password."
 }

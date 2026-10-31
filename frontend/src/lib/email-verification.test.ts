@@ -2,6 +2,7 @@ import { ApiError } from "@/client"
 import {
   getSelfRegistrationUnavailableMessage,
   getVerifyEmailFailure,
+  getVerifyEmailPasswordError,
   isEmailNotVerifiedError,
 } from "@/lib/email-verification"
 
@@ -61,5 +62,22 @@ describe("getVerifyEmailFailure", () => {
     )
     expect(getVerifyEmailFailure(apiError(500, "boom"))).toBeNull()
     expect(getVerifyEmailFailure(new Error("x"))).toBeNull()
+  })
+})
+
+describe("getVerifyEmailPasswordError", () => {
+  it("returns the policy reason for a refused password only", () => {
+    expect(
+      getVerifyEmailPasswordError(
+        apiError(400, {
+          code: "VERIFY_USER_INVALID_PASSWORD",
+          reason: "Too short",
+        })
+      )
+    ).toBe("Too short")
+    expect(
+      getVerifyEmailPasswordError(apiError(400, "VERIFY_USER_BAD_TOKEN"))
+    ).toBeNull()
+    expect(getVerifyEmailPasswordError(new Error("boom"))).toBeNull()
   })
 })
