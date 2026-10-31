@@ -300,3 +300,128 @@ def test_chart_managed_postgres_secret_holds_the_runtime_password() -> None:
         if doc and doc["metadata"]["name"] == "autosecops-postgres-credentials"
     )
     assert secret["stringData"]["runtime-password"] == "placeholder-runtime-password"
+
+
+WORKER_COMPONENTS = (
+    "worker",
+    "background-worker",
+    "executor",
+    "agent-worker",
+    "agent-executor",
+)
+
+
+def _rendered_documents(*args: str) -> list[dict[str, Any]]:
+    rendered = _helm_template("autosecops", *args)
+    return [doc for doc in yaml.safe_load_all(rendered) if doc]
+
+
+def _deployment(documents: list[dict[str, Any]], component: str) -> dict[str, Any]:
+    return next(
+        doc
+        for doc in documents
+        if doc["kind"] == "Deployment"
+        and doc["metadata"]["labels"]["app.kubernetes.io/component"] == component
+    )
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+@pytest.mark.parametrize("values_file", CI_VALUES, ids=lambda path: path.name)
+def test_temporal_workers_have_exec_health_probes(values_file: Path) -> None:
+    documents = _rendered_documents("-f", str(values_file))
+    probe = ["python", "-m", "autosecops.temporal.healthcheck"]
+    for component in WORKER_COMPONENTS:
+        container = _deployment(documents, component)["spec"]["template"]["spec"][
+            "containers"
+        ][0]
+        assert container["startupProbe"]["exec"]["command"] == [*probe, "live"]
+        assert container["livenessProbe"]["exec"]["command"] == [*probe, "live"]
+        assert container["readinessProbe"]["exec"]["command"] == [*probe, "ready"]
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_metrics_are_off_by_default() -> None:
+    documents = _rendered_documents("-f", str(CHART_DIR / "ci/minimal-values.yaml"))
+    for doc in documents:
+        assert doc["kind"] not in ("PodMonitor", "ServiceMonitor")
+        if doc["kind"] != "Deployment":
+            continue
+        pod = doc["spec"]["template"]
+        assert "prometheus.io/scrape" not in pod["metadata"].get("annotations", {})
+        for container in pod["spec"]["containers"]:
+            ports = {port["name"] for port in container.get("ports", [])}
+            env = {item["name"] for item in container.get("env", [])}
+            assert "metrics" not in ports
+            assert not env & {
+                "AUTOSECOPS__API_METRICS_ENABLED",
+                "TEMPORAL__METRICS_PORT",
+            }
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_api_metrics_port_is_never_exposed_by_service_or_ingress() -> None:
+    documents = _rendered_documents(
+        "-f",
+        str(CHART_DIR / "ci/full-values.yaml"),
+        "--set",
+        "metrics.podMonitor.enabled=true",
+        "--set",
+        "metrics.serviceMonitor.enabled=true",
+    )
+    api = _deployment(documents, "api")
+    container = api["spec"]["template"]["spec"]["containers"][0]
+    assert {"name": "metrics", "containerPort": 9100, "protocol": "TCP"} in container[
+        "ports"
+    ]
+    env = {item["name"]: item.get("value") for item in container["env"]}
+    assert env["AUTOSECOPS__API_METRICS_ENABLED"] == "true"
+    assert env["AUTOSECOPS__API_METRICS_PORT"] == "9100"
+
+    api_service = next(
+        doc
+        for doc in documents
+        if doc["kind"] == "Service" and doc["metadata"]["name"] == "autosecops-api"
+    )
+    assert [port["targetPort"] for port in api_service["spec"]["ports"]] == ["http"]
+    for ingress in (doc for doc in documents if doc["kind"] == "Ingress"):
+        for rule in ingress["spec"]["rules"]:
+            for path in rule["http"]["paths"]:
+                assert not path["backend"]["service"]["name"].endswith("-metrics")
+                assert path["backend"]["service"]["port"] == {"name": "http"}
+
+    metrics_services = {
+        doc["metadata"]["name"]: doc
+        for doc in documents
+        if doc["kind"] == "Service" and doc["metadata"]["name"].endswith("-metrics")
+    }
+    assert set(metrics_services) == {
+        f"autosecops-{component}-metrics" for component in ("api", *WORKER_COMPONENTS)
+    }
+    for service in metrics_services.values():
+        assert service["spec"]["clusterIP"] == "None"
+        assert service["spec"]["ports"][0]["targetPort"] == "metrics"
+
+    pod_monitor = next(doc for doc in documents if doc["kind"] == "PodMonitor")
+    selected = pod_monitor["spec"]["selector"]["matchExpressions"][0]["values"]
+    assert selected == ["api", *WORKER_COMPONENTS]
+    assert any(doc["kind"] == "ServiceMonitor" for doc in documents)
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm is not installed")
+def test_monitors_require_a_metrics_source() -> None:
+    result = subprocess.run(
+        [
+            "helm",
+            "template",
+            "autosecops",
+            str(CHART_DIR),
+            "-f",
+            str(CHART_DIR / "ci/minimal-values.yaml"),
+            "--set",
+            "metrics.podMonitor.enabled=true",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "metrics.podMonitor/serviceMonitor need" in result.stderr

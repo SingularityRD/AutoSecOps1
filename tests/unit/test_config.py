@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 import autosecops.config as autosecops_config
 from autosecops.config import (
@@ -1456,11 +1457,57 @@ def test_metrics_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
         importlib.reload(autosecops_config)
 
 
-def test_metrics_ports_are_never_published_by_compose() -> None:
-    """Metrics listeners stay on the container network, never on the host."""
-    for path in COMPOSE_ENV_FILES:
-        source = path.read_text()
-        for match in re.finditer(
-            r"^\s+- [\"']?[^\n]*:(9100|9090)[\"']?$", source, re.M
-        ):
-            pytest.fail(f"{path.name} publishes a metrics port: {match.group(0)}")
+TEMPORAL_WORKER_COMPOSE_SERVICES = (
+    "worker",
+    "background-worker",
+    "executor",
+    "agent-worker",
+    "agent-executor",
+)
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_temporal_workers_have_readiness_healthchecks(path: Path) -> None:
+    services = yaml.safe_load(path.read_text())["services"]
+    for name in TEMPORAL_WORKER_COMPOSE_SERVICES:
+        service = services[name]
+        assert service["healthcheck"]["test"] == [
+            "CMD",
+            "python",
+            "-m",
+            "autosecops.temporal.healthcheck",
+            "ready",
+        ], name
+        assert service["environment"]["TEMPORAL__METRICS_PORT"] == (
+            "${TEMPORAL__METRICS_PORT:-}"
+        ), name
+        assert "9090" not in str(service.get("ports", [])), name
+    api = services["api"]
+    assert api["environment"]["AUTOSECOPS__API_METRICS_ENABLED"] == (
+        "${AUTOSECOPS__API_METRICS_ENABLED:-false}"
+    )
+    assert "9100" not in str(api.get("ports", []))
+
+
+@pytest.mark.parametrize(
+    "task_file",
+    [
+        "ecs-worker.tf",
+        "ecs-background-worker.tf",
+        "ecs-executor.tf",
+        "ecs-agent-worker.tf",
+        "ecs-agent-executor.tf",
+    ],
+)
+def test_fargate_temporal_workers_have_health_checks(task_file: str) -> None:
+    ecs_dir = REPO_ROOT / "deployments" / "fargate" / "modules" / "ecs"
+    assert (
+        "healthCheck = local.worker_health_check" in (ecs_dir / task_file).read_text()
+    )
+    locals_source = (ecs_dir / "locals.tf").read_text()
+    assert (
+        'command     = ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "live"]'
+        in locals_source
+    )

@@ -151,9 +151,10 @@ autosecops:
 
   temporal:
     metrics:
-      # -- Expose Temporal SDK Prometheus metrics on worker, executor,
-      # agent-worker, and agent-executor pods, with `prometheus.io/*` scrape
-      # annotations.
+      # -- Expose Temporal SDK Prometheus metrics on worker,
+      # background-worker, executor, agent-worker, and agent-executor pods
+      # (`TEMPORAL__METRICS_PORT`). See `metrics` for scrape annotations and
+      # Prometheus Operator monitors.
       enabled: false
       port: 9090
     payloadEncryption:
@@ -463,6 +464,27 @@ worker:
   threadpoolMaxWorkers: 100
   maxConcurrentActivities: 100
   maxConcurrentWorkflowTasks: 100
+  # -- Exec probes on the marker files the worker keeps fresh (see
+  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
+  # event loop; readiness tracks Temporal polling and gates rollouts.
+  startupProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 2
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -505,6 +527,27 @@ backgroundWorker:
       memory: 1Gi
     limits:
       memory: 2Gi
+  # -- Exec probes on the marker files the worker keeps fresh (see
+  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
+  # event loop; readiness tracks Temporal polling and gates rollouts.
+  startupProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 2
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -548,6 +591,27 @@ executor:
   forEachMaxConcurrency: 4
   registryCacheMaxEntries: 64
   registryCacheMaxBytes: 10737418240
+  # -- Exec probes on the marker files the worker keeps fresh (see
+  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
+  # event loop; readiness tracks Temporal polling and gates rollouts.
+  startupProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 2
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -585,6 +649,27 @@ agentWorker:
       memory: 4Gi
   maxConcurrentActivities: 100
   threadpoolMaxWorkers: 100
+  # -- Exec probes on the marker files the worker keeps fresh (see
+  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
+  # event loop; readiness tracks Temporal polling and gates rollouts.
+  startupProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 2
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -631,6 +716,27 @@ agentExecutor:
   gracefulShutdownTimeout: null
   # -- Pod grace period. Defaults to `gracefulShutdownTimeout + 60`.
   terminationGracePeriodSeconds: null
+  # -- Exec probes on the marker files the worker keeps fresh (see
+  # `python -m autosecops.temporal.healthcheck`). Liveness restarts a wedged
+  # event loop; readiness tracks Temporal polling and gates rollouts.
+  startupProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "ready"]
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 2
+  livenessProbe:
+    exec:
+      command: ["python", "-m", "autosecops.temporal.healthcheck", "live"]
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -841,6 +947,33 @@ ui:
 #   /api        -> api   (FastAPI serves under the /api root path)
 #   /mcp and MCP OAuth/discovery routes -> mcp (when mcp.enabled)
 #   /           -> ui
+metrics:
+  # -- Add `prometheus.io/scrape`, `port`, and `path` annotations to pods that
+  # serve metrics (the API with `metrics.api.enabled`, workers with
+  # `autosecops.temporal.metrics.enabled`).
+  scrapeAnnotations: true
+  api:
+    # -- Serve API Prometheus metrics on a separate container port. The API
+    # Service and ingress never expose it; scrape it from inside the cluster.
+    enabled: false
+    port: 9100
+  podMonitor:
+    # -- Create a Prometheus Operator PodMonitor for every pod that serves
+    # metrics. Needs the monitoring.coreos.com CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    # -- Extra labels, for example the Prometheus `podMonitorSelector`.
+    labels: {}
+  serviceMonitor:
+    # -- Create headless metrics Services and a Prometheus Operator
+    # ServiceMonitor. Needs the monitoring.coreos.com CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    # -- Extra labels, for example the Prometheus `serviceMonitorSelector`.
+    labels: {}
+
 ingress:
   enabled: false
   # -- IngressClass name, e.g. `nginx`, `alb`, `traefik`.

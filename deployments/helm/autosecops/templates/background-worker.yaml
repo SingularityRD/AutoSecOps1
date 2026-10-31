@@ -1,12 +1,17 @@
 {{- define "autosecops.backgroundWorker.container" -}}
 {{- $v := .Values.backgroundWorker -}}
 command: ["python", "-m", "autosecops.background.worker"]
+{{- with include "autosecops.metricsPort" . }}
+ports:
+  {{- . | nindent 2 }}
+{{- end }}
 {{ include "autosecops.backendEnvFrom" . }}
 env:
   - name: AUTOSECOPS__SERVICE_NAME
     value: background-worker
   - name: AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES
     value: {{ $v.maxConcurrentActivities | toString | quote }}
+  {{- include "autosecops.env.metrics" . | nindent 2 }}
   {{- include "autosecops.env.backendSecrets" (dict "root" . "component" "background-worker") | nindent 2 }}
   {{- include "autosecops.env.extra" (dict "root" . "values" $v) | nindent 2 }}
 {{ include "autosecops.probes" $v }}
@@ -19,6 +24,7 @@ env:
     "pullPolicy" .Values.image.pullPolicy
     "container" (include "autosecops.backgroundWorker.container" .)
     "backend" true
+    "extraPodAnnotations" (include "autosecops.metricsPodAnnotations" .)
   ) $ctx) }}
 {{ include "autosecops.componentExtras" $ctx }}
 {{- end }}

@@ -14,6 +14,19 @@ locals {
     }
   } : {}
 
+  # Container health check for the Temporal workers, which serve no HTTP. It
+  # checks the liveness marker the worker's event loop refreshes every 10s
+  # (autosecops/temporal/healthcheck.py). ECS replaces unhealthy tasks, so this
+  # uses liveness rather than readiness: a Temporal outage must not restart
+  # every worker. startPeriod covers image start and registry warm-up.
+  worker_health_check = {
+    command     = ["CMD", "python", "-m", "autosecops.temporal.healthcheck", "live"]
+    interval    = 30
+    timeout     = 10
+    retries     = 3
+    startPeriod = 300
+  }
+
   # WAF regex pattern set names. Default to "${name_prefix}-..." so each stack
   # gets uniquely-named pattern sets within a shared AWS account; explicit
   # variable values override (e.g. legacy stacks that already own bare names).
