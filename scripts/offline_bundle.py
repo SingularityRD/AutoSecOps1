@@ -24,6 +24,12 @@ Image pulls use the Docker credentials already configured on this machine
 (`docker login ghcr.io` for private images); the script never reads or prints
 them. When `OFFLINE_BUNDLE_COSIGN_KEY` or `OFFLINE_BUNDLE_MINISIGN_KEY` names a
 signing key, the script signs `SHA256SUMS` and the archive checksum with it.
+`--require-signature` refuses to build without one; release builds use it.
+
+Next to the archive the script writes `<archive>.sha256`, a copy of the
+bundle's `SHA256SUMS` as `autosecops-offline-<version>.SHA256SUMS`, and their
+signatures. These small files identify the bundle without carrying any image,
+so they can be published where the bundle itself cannot.
 
 `--dry-run` resolves the image list and stages every file except the image
 archives, without calling Docker or writing the archive.
@@ -471,7 +477,11 @@ docs (`/self-hosting/air-gapped`).
 ## 1. Verify
 
 ```bash
-sha256sum -c {archive_name}.sha256    # before extracting
+# Authenticate the checksum file with SingularityRD's public key, obtained
+# outside the bundle, then check the archive against it before extracting.
+cosign verify-blob --key /path/to/cosign.pub --insecure-ignore-tlog=true \\
+  --signature {archive_name}.sha256.sig {archive_name}.sha256
+sha256sum -c {archive_name}.sha256
 tar -xf {archive_name}                 # zstd archives need tar with zstd support
 cd autosecops-offline-{version}
 ./load-images.sh verify                # checks SHA256SUMS
@@ -539,6 +549,11 @@ def sign_file(path: Path) -> Path | None:
     """
     if cosign_key := os.environ.get("OFFLINE_BUNDLE_COSIGN_KEY"):
         signature = path.with_name(f"{path.name}.sig")
+        # cosign 3 defaults to the Sigstore bundle format, ignores
+        # `--output-signature`, and uploads to the public Rekor log. Ask for a
+        # detached signature and no log entry explicitly: the bundle is
+        # verified offline against SingularityRD's public key, and a public
+        # log entry would announce every private build.
         _run(
             [
                 "cosign",
@@ -546,11 +561,15 @@ def sign_file(path: Path) -> Path | None:
                 "--yes",
                 "--key",
                 cosign_key,
+                "--new-bundle-format=false",
+                "--use-signing-config=false",
+                "--tlog-upload=false",
                 "--output-signature",
                 str(signature),
                 str(path),
             ]
         )
+        _require_signature_file(signature, "cosign")
         return signature
     if minisign_key := os.environ.get("OFFLINE_BUNDLE_MINISIGN_KEY"):
         signature = path.with_name(f"{path.name}.minisig")
@@ -574,8 +593,39 @@ def sign_file(path: Path) -> Path | None:
         )
         if result.returncode != 0:
             raise BundleError("minisign failed to sign the bundle")
+        _require_signature_file(signature, "minisign")
         return signature
     return None
+
+
+def signing_configured() -> bool:
+    """Whether the environment names a signing key."""
+    return bool(
+        os.environ.get("OFFLINE_BUNDLE_COSIGN_KEY")
+        or os.environ.get("OFFLINE_BUNDLE_MINISIGN_KEY")
+    )
+
+
+def _require_signature_file(signature: Path, tool: str) -> None:
+    """Fail loudly when a signer exits 0 without writing its signature."""
+    if not signature.is_file() or signature.stat().st_size == 0:
+        raise BundleError(f"{tool} reported success but wrote no {signature.name}")
+
+
+def export_checksums(
+    sums: Path, signature: Path | None, output_dir: Path, version: str
+) -> list[Path]:
+    """Copy `SHA256SUMS` and its signature next to the archive."""
+    exported: list[Path] = []
+    target = output_dir / f"autosecops-offline-{version}.SHA256SUMS"
+    shutil.copyfile(sums, target)
+    exported.append(target)
+    if signature is not None:
+        suffix = signature.name.removeprefix(sums.name)
+        signed = output_dir / f"{target.name}{suffix}"
+        shutil.copyfile(signature, signed)
+        exported.append(signed)
+    return exported
 
 
 def copy_public_key(staging: Path) -> None:
@@ -659,6 +709,12 @@ def build(args: argparse.Namespace) -> int:
             "release tag, or pass --allow-version-mismatch."
         )
 
+    if args.require_signature and not args.dry_run and not signing_configured():
+        raise BundleError(
+            "--require-signature is set but neither OFFLINE_BUNDLE_COSIGN_KEY nor "
+            "OFFLINE_BUNDLE_MINISIGN_KEY names a signing key"
+        )
+
     images = bundle_images(version, env=os.environ)
     if args.image:
         wanted = set(args.image)
@@ -692,11 +748,14 @@ def build(args: argparse.Namespace) -> int:
             print((staging / "images.txt").read_text(), end="")
             print(f"Dry run: staged {staging}", file=sys.stderr)
             return 0
-        sign_file(sums)
+        sums_signature = sign_file(sums)
+        if args.require_signature and sums_signature is None:
+            raise BundleError("the bundle was not signed")
         archive = create_archive(staging, output_dir, version)
         checksum = archive.with_name(f"{archive.name}.sha256")
         checksum.write_text(f"{sha256_file(archive)}  {archive.name}\n")
         sign_file(checksum)
+        export_checksums(sums, sums_signature, output_dir, version)
         print(
             f"Wrote {archive} ({archive.stat().st_size / 1e9:.2f} GB)", file=sys.stderr
         )
@@ -730,6 +789,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--keep-staging", action="store_true", help="Keep the staging directory"
+    )
+    parser.add_argument(
+        "--require-signature",
+        action="store_true",
+        help="Fail unless OFFLINE_BUNDLE_COSIGN_KEY or OFFLINE_BUNDLE_MINISIGN_KEY is set",
     )
     parser.add_argument(
         "--allow-version-mismatch",

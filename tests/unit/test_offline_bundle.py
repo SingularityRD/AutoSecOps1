@@ -370,7 +370,11 @@ def test_bundle_workflow_only_builds_the_dispatched_release_tag(
     job = workflow["jobs"]["bundle"]
     assert "TRUSTED_CI_ACTORS_JSON" in job["if"]
     assert workflow["permissions"] == {"contents": "read"}
-    assert job["permissions"] == {"contents": "read", "packages": "read"}
+    assert job["permissions"] == {
+        "contents": "read",
+        "packages": "read",
+        "id-token": "write",
+    }
     script = job["steps"][0]["run"]
     output = tmp_path / "output"
     output.write_text("")
@@ -389,3 +393,171 @@ def test_bundle_workflow_only_builds_the_dispatched_release_tag(
     )
     assert (result.returncode == 0) is accepted, result.stdout
     assert (output.read_text() == f"version={tag}\n") is accepted
+
+
+def _bundle_step(name: str) -> dict[str, Any]:
+    workflow = yaml.safe_load(BUNDLE_WORKFLOW.read_text())
+    return next(s for s in workflow["jobs"]["bundle"]["steps"] if s["name"] == name)
+
+
+def test_bundle_workflow_never_uploads_images_as_an_artifact() -> None:
+    workflow = yaml.safe_load(BUNDLE_WORKFLOW.read_text())
+    job = workflow["jobs"]["bundle"]
+    # Secrets and the OIDC role are scoped to a protected environment.
+    assert job["environment"] == "offline-bundle"
+    uploads = [
+        step
+        for step in job["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact@")
+    ]
+    assert len(uploads) == 1
+    paths = uploads[0]["with"]["path"].splitlines()
+    assert paths, "no artifact paths"
+    for path in paths:
+        assert path.endswith((".sha256", ".sig", ".SHA256SUMS", ".cosign.pub")), path
+    build = _bundle_step("Build and sign bundle")
+    assert "--require-signature" in build["run"]
+    for step in job["steps"]:
+        if uses := step.get("uses"):
+            action, _, ref = uses.partition("@")
+            assert len(ref) == 40 and all(c in "0123456789abcdef" for c in ref), action
+        # Signing material and secrets are never echoed or uploaded.
+        assert "set -x" not in step.get("run", "")
+
+
+VALID_BUNDLE_CONFIG = {
+    "S3_URI": "s3://example-bundles/autosecops",
+    "AWS_ROLE_ARN": "arn:aws:iam::123456789012:role/offline-bundle",
+    "AWS_REGION": "eu-central-1",
+    "KMS_KEY": "",
+    "HAS_PRIVATE_KEY": "true",
+    "HAS_PASSWORD": "true",
+}
+
+
+@pytest.mark.parametrize(
+    ("overrides", "signer"),
+    [
+        ({}, "key"),
+        ({"KMS_KEY": "awskms:///alias/autosecops-bundle"}, "kms"),
+        ({"S3_URI": "s3://example-bundles/"}, "key"),
+        ({"S3_URI": ""}, None),
+        ({"S3_URI": "https://example-bundles.s3.amazonaws.com"}, None),
+        ({"S3_URI": "s3://example-bundles/$(id)"}, None),
+        ({"AWS_ROLE_ARN": ""}, None),
+        ({"AWS_REGION": ""}, None),
+        ({"HAS_PRIVATE_KEY": "false"}, None),
+        ({"HAS_PASSWORD": "false"}, None),
+        ({"KMS_KEY": "gcpkms://projects/x"}, None),
+    ],
+)
+def test_bundle_workflow_requires_signing_and_a_private_destination(
+    tmp_path: Path, overrides: dict[str, str], signer: str | None
+) -> None:
+    step = _bundle_step("Require signing and a private destination")
+    output = tmp_path / "output"
+    output.write_text("")
+    result = subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", step["run"]],
+        env={
+            **os.environ,
+            **VALID_BUNDLE_CONFIG,
+            **overrides,
+            "GITHUB_OUTPUT": str(output),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (result.returncode == 0) is (signer is not None), result.stdout
+    if signer is not None:
+        assert output.read_text() == f"signer={signer}\n"
+
+
+def test_require_signature_refuses_an_unsigned_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("OFFLINE_BUNDLE_COSIGN_KEY", raising=False)
+    monkeypatch.delenv("OFFLINE_BUNDLE_MINISIGN_KEY", raising=False)
+    monkeypatch.setattr(
+        bundler,
+        "bundle_images",
+        lambda *_a, **_k: pytest.fail("checked the key after resolving images"),
+    )
+    code = bundler.main(
+        [
+            "--version",
+            __version__,
+            "--require-signature",
+            "--output-dir",
+            str(tmp_path),
+        ]
+    )
+    assert code == 1
+
+
+def _fake_tool(directory: Path, name: str, body: str) -> None:
+    directory.mkdir(exist_ok=True)
+    tool = directory / name
+    tool.write_text(f"#!/bin/bash\n{body}\n")
+    tool.chmod(0o755)
+
+
+def test_cosign_signs_detached_without_a_transparency_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bin_dir = tmp_path / "bin"
+    args_file = tmp_path / "args"
+    # Write the file named after --output-signature, as cosign does.
+    _fake_tool(
+        bin_dir,
+        "cosign",
+        f'printf "%s\\n" "$@" > {args_file}\n'
+        "while [[ $# -gt 0 ]]; do\n"
+        '  if [[ $1 == --output-signature ]]; then echo sig > "$2"; fi\n'
+        "  shift\n"
+        "done",
+    )
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("OFFLINE_BUNDLE_COSIGN_KEY", "awskms:///alias/example")
+    monkeypatch.delenv("OFFLINE_BUNDLE_MINISIGN_KEY", raising=False)
+    sums = tmp_path / "SHA256SUMS"
+    sums.write_text("x\n")
+
+    signature = bundler.sign_file(sums)
+
+    assert signature == tmp_path / "SHA256SUMS.sig"
+    args = args_file.read_text().splitlines()
+    for flag in (
+        "--new-bundle-format=false",
+        "--use-signing-config=false",
+        "--tlog-upload=false",
+    ):
+        assert flag in args
+
+    (tmp_path / "out").mkdir()
+    exported = bundler.export_checksums(sums, signature, tmp_path / "out", "1.2.3")
+    assert [p.name for p in exported] == [
+        "autosecops-offline-1.2.3.SHA256SUMS",
+        "autosecops-offline-1.2.3.SHA256SUMS.sig",
+    ]
+
+
+def test_signer_that_writes_no_signature_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bin_dir = tmp_path / "bin"
+    # cosign 3 exits 0 and ignores --output-signature in its default mode.
+    _fake_tool(bin_dir, "cosign", "exit 0")
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("OFFLINE_BUNDLE_COSIGN_KEY", "cosign.key")
+    sums = tmp_path / "SHA256SUMS"
+    sums.write_text("x\n")
+    with pytest.raises(bundler.BundleError, match="wrote no SHA256SUMS.sig"):
+        bundler.sign_file(sums)
+
+
+def test_load_helper_verifies_cosign_signatures_offline() -> None:
+    helper = (ROOT / "scripts" / "offline_bundle_load.sh").read_text()
+    verify = helper[helper.index("cosign verify-blob") :].split("||", 1)[0]
+    assert "--insecure-ignore-tlog=true" in verify
