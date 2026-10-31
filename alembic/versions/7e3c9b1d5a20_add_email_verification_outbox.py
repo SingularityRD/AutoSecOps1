@@ -6,8 +6,10 @@ Create Date: 2026-10-31 12:00:00.000000
 
 Password sign-in now requires a verified email. Accounts that exist before this
 release were admitted under the old policy, so they are marked verified here
-and nobody is locked out on upgrade. The new table is additive; the previous
-app version never reads it.
+and nobody is locked out on upgrade. ``user.email_verified_via`` records how a
+later verification happened; it stays NULL for the grandfathered accounts. The
+new table and nullable column are additive; the previous app version never
+reads them.
 """
 
 from collections.abc import Sequence
@@ -40,6 +42,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["user.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id"),
     )
+    op.add_column(
+        "user", sa.Column("email_verified_via", sa.String(length=32), nullable=True)
+    )
     # Grandfather every existing account: before this release no flow could
     # verify an address, so is_verified=false carried no meaning.
     op.execute(sa.text('UPDATE "user" SET is_verified = true WHERE NOT is_verified'))
@@ -48,4 +53,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     # The is_verified backfill is intentionally kept: earlier versions do not
     # gate sign-in on it, and the pre-upgrade values are not recoverable.
+    op.drop_column("user", "email_verified_via")
     op.drop_table("email_verification_outbox")

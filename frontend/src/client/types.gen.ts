@@ -2084,6 +2084,7 @@ export type Body_auth_verify_request_token = {
 
 export type Body_auth_verify_verify = {
   token: string
+  password: string
 }
 
 export type Body_case_attachments_create_attachment = {

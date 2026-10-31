@@ -39479,6 +39479,15 @@
                     "value": {
                       "detail": "VERIFY_USER_ALREADY_VERIFIED"
                     }
+                  },
+                  "VERIFY_USER_INVALID_PASSWORD": {
+                    "summary": "Password validation failed.",
+                    "value": {
+                      "detail": {
+                        "code": "VERIFY_USER_INVALID_PASSWORD",
+                        "reason": "Password should be at least 12 characters"
+                      }
+                    }
                   }
                 }
               }
@@ -52484,11 +52493,16 @@
           "token": {
             "type": "string",
             "title": "Token"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
           }
         },
         "type": "object",
         "required": [
-          "token"
+          "token",
+          "password"
         ],
         "title": "Body_auth-verify:verify"
       },

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped
 from autosecops import config
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
+from autosecops.auth.enums import EmailVerificationMethod
 from autosecops.auth.schemas import UserRole
 from autosecops.auth.types import PlatformRole
 from autosecops.db.models import (
@@ -393,6 +394,8 @@ async def test_verify_user_email_marks_verified_and_clears_outbox(
     result = await service.verify_user_email(user.id)
 
     assert result.is_verified is True
+    await session.refresh(user)
+    assert user.email_verified_via == EmailVerificationMethod.ADMIN
     remaining = await session.execute(
         select(func.count())
         .select_from(EmailVerificationOutbox)

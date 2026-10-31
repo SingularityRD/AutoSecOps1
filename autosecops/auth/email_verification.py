@@ -4,7 +4,8 @@ A request writes one ``email_verification_outbox`` row per account. No token
 is stored: the poller mints a signed, short-lived token when it claims the row,
 so neither the database nor a backup holds a usable verification link. The
 token is a JWT signed with the user auth secret, bound to the account ID and
-its current email, and spent once the account is verified.
+its current email, and spent once the account is verified. Redeeming it also
+sets the account password (see ``UserManager.verify_with_password``).
 """
 
 from __future__ import annotations
@@ -98,12 +99,12 @@ def verification_email(*, to: str, token: str) -> OutboundEmail:
     )
     subject = "Verify your email for AutoSecOps"
     body = (
-        "Confirm this email address to finish creating your AutoSecOps account. "
-        f"The link expires in {minutes} minutes and works once."
+        "Confirm this email address and set the password for your AutoSecOps "
+        f"account. The link expires in {minutes} minutes and works once."
     )
     footer = (
-        "If you didn't create an AutoSecOps account, ignore this email and do "
-        "not open the link: opening it confirms the account."
+        "If you didn't create an AutoSecOps account, you can ignore this email. "
+        "Nobody can sign in to the account until a password is set from this link."
     )
     html = f"""\
 <!doctype html>

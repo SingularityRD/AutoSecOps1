@@ -90,6 +90,11 @@ def test_existing_accounts_are_verified_and_outbox_round_trips(
                 sa.text('SELECT count(*) FROM "user" WHERE NOT is_verified')
             ).scalar_one()
             assert unverified == 0
+            # Grandfathered accounts carry no verification method.
+            methods = conn.execute(
+                sa.text('SELECT DISTINCT email_verified_via FROM "user"')
+            ).all()
+            assert methods == [(None,)]
             conn.execute(
                 sa.text(
                     "INSERT INTO email_verification_outbox (user_id) "
@@ -116,6 +121,13 @@ def test_existing_accounts_are_verified_and_outbox_round_trips(
                 sa.text("SELECT to_regclass('public.email_verification_outbox')")
             ).scalar_one()
             assert table is None
+            column = conn.execute(
+                sa.text(
+                    "SELECT count(*) FROM information_schema.columns "
+                    "WHERE table_name = 'user' AND column_name = 'email_verified_via'"
+                )
+            ).scalar_one()
+            assert column == 0
             # The backfill is kept on downgrade by design.
             still_verified = conn.execute(
                 sa.text(

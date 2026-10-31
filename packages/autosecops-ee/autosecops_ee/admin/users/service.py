@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped
 
 from autosecops.audit.logger import audit_log
 from autosecops.auth.email_verification import clear_verification_email
+from autosecops.auth.enums import EmailVerificationMethod
 from autosecops.auth.schemas import UserCreate, UserRole
 from autosecops.auth.users import get_user_db_context, get_user_manager_context
 from autosecops.db.errors import is_unique_violation
@@ -130,6 +131,7 @@ class AdminUserService(BasePlatformService):
             raise AutoSecOpsNotFoundError(f"User {user_id} not found")
         if not user.is_verified:
             user.is_verified = True
+            user.email_verified_via = EmailVerificationMethod.ADMIN.value
             await clear_verification_email(self.session, user.id)
             await self.session.commit()
             await self.session.refresh(user)

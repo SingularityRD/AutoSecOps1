@@ -136,6 +136,7 @@ from autosecops.auth.users import (
     auth_backend,
     fastapi_users,
 )
+from autosecops.auth.verify_router import get_verify_router
 from autosecops.authz.rbac.router import roles_router as rbac_roles_read_router
 from autosecops.authz.rbac.router import (
     user_assignments_router as rbac_user_assignments_router,
@@ -1007,7 +1008,8 @@ def create_app(**kwargs) -> FastAPI:
         )
         app.include_router(
             _rate_limited(
-                fastapi_users.get_verify_router(UserRead),
+                # Verification also sets the password: see verify_router.
+                get_verify_router(),
                 {
                     "verify:request-token": limit_request_verify_token,
                     "verify:verify": limit_verify,

@@ -766,6 +766,14 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    email_verified_via: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        doc=(
+            "How the email was verified (see EmailVerificationMethod); NULL for "
+            "accounts created verified or that predate email verification"
+        ),
+    )
 
     # Relationships
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship(

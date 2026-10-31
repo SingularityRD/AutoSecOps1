@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import secrets
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi import HTTPException
+from fastapi_users import InvalidPasswordException
 from fastapi_users.exceptions import (
     InvalidVerifyToken,
     UserAlreadyVerified,
@@ -25,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops import config
 from autosecops.auth import email_verification as ev
 from autosecops.auth import users as users_module
+from autosecops.auth.crypto import hash_bearer_token
 from autosecops.auth.email_verification import (
     MAX_EMAIL_ATTEMPTS,
     create_verification_token,
@@ -32,7 +35,7 @@ from autosecops.auth.email_verification import (
     run_verification_email_tick,
     verification_email,
 )
-from autosecops.auth.enums import AuthErrorCode
+from autosecops.auth.enums import AuthErrorCode, EmailVerificationMethod
 from autosecops.auth.schemas import UserCreate
 from autosecops.auth.users import (
     LicensedUserDatabase,
@@ -42,12 +45,17 @@ from autosecops.auth.users import (
 from autosecops.db.models import (
     AccessToken,
     EmailVerificationOutbox,
+    Invitation,
     OAuthAccount,
+    Organization,
     User,
 )
 from autosecops.email.transport import EmailDeliveryError, OutboundEmail, SMTPTransport
+from autosecops.invitations.enums import InvitationStatus
 
 PASSWORD = "registrant-password-1234"
+NEW_PASSWORD = "mailbox-owner-password-5678"
+SUPERADMIN_EMAIL = "superadmin@example.com"
 
 
 class FakeTransport:
@@ -73,6 +81,11 @@ def isolate_side_effects(session: AsyncSession, monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(
         ev, "get_async_session_bypass_rls_context_manager", fake_session_context
+    )
+    monkeypatch.setattr(
+        users_module,
+        "get_async_session_bypass_rls_context_manager",
+        fake_session_context,
     )
     defaults = AsyncMock(return_value=None)
     monkeypatch.setattr(users_module, "ensure_single_tenant_user_defaults", defaults)
@@ -100,13 +113,19 @@ def manager(session: AsyncSession) -> UserManager:
 
 
 async def _add_user(
-    session: AsyncSession, *, verified: bool = False, active: bool = True
+    session: AsyncSession,
+    *,
+    verified: bool = False,
+    active: bool = True,
+    email: str | None = None,
+    verified_via: EmailVerificationMethod | None = None,
 ) -> User:
     user = User(
-        email=f"user-{uuid.uuid4().hex[:8]}@example.com",
+        email=email or f"user-{uuid.uuid4().hex[:8]}@example.com",
         hashed_password=PasswordHelper().hash(PASSWORD),
         is_active=active,
         is_verified=verified,
+        email_verified_via=verified_via.value if verified_via else None,
     )
     session.add(user)
     await session.commit()
@@ -130,11 +149,73 @@ async def test_minted_token_verifies_the_account_exactly_once(
     user = await _add_user(session)
     token = create_verification_token(user_id=user.id, email=user.email)
 
-    verified = await manager.verify(token)
+    verified = await manager.verify_with_password(token, NEW_PASSWORD)
 
     assert verified.is_verified is True
+    assert verified.email_verified_via == EmailVerificationMethod.EMAIL
     with pytest.raises(UserAlreadyVerified):
+        await manager.verify_with_password(token, NEW_PASSWORD)
+
+
+@pytest.mark.anyio
+async def test_verification_hands_the_account_to_the_mailbox_owner(
+    session: AsyncSession, manager: UserManager
+) -> None:
+    """Whoever registered someone else's address loses it once the owner verifies."""
+    user = await _add_user(session)
+    session.add(AccessToken(token=uuid.uuid4().hex, user_id=user.id))
+    await session.commit()
+    token = create_verification_token(user_id=user.id, email=user.email)
+
+    verified = await manager.verify_with_password(token, NEW_PASSWORD)
+
+    helper = PasswordHelper()
+    assert helper.verify_and_update(NEW_PASSWORD, verified.hashed_password)[0]
+    assert not helper.verify_and_update(PASSWORD, verified.hashed_password)[0]
+    tokens = await session.execute(
+        select(AccessToken).where(AccessToken.user_id == user.id)  # pyright: ignore[reportArgumentType]
+    )
+    assert tokens.scalars().all() == []
+
+
+@pytest.mark.anyio
+async def test_verification_with_a_weak_password_changes_nothing(
+    session: AsyncSession, manager: UserManager
+) -> None:
+    user = await _add_user(session)
+    token = create_verification_token(user_id=user.id, email=user.email)
+
+    with pytest.raises(InvalidPasswordException):
+        await manager.verify_with_password(token, "short")
+
+    await session.refresh(user)
+    assert user.is_verified is False
+    assert PasswordHelper().verify_and_update(PASSWORD, user.hashed_password)[0]
+
+
+@pytest.mark.anyio
+async def test_token_only_verification_is_refused(
+    session: AsyncSession, manager: UserManager
+) -> None:
+    user = await _add_user(session)
+    token = create_verification_token(user_id=user.id, email=user.email)
+
+    with pytest.raises(NotImplementedError):
         await manager.verify(token)
+
+    await session.refresh(user)
+    assert user.is_verified is False
+
+
+@pytest.mark.anyio
+async def test_token_for_a_deactivated_account_is_rejected(
+    session: AsyncSession, manager: UserManager
+) -> None:
+    user = await _add_user(session, active=False)
+    token = create_verification_token(user_id=user.id, email=user.email)
+
+    with pytest.raises(InvalidVerifyToken):
+        await manager.verify_with_password(token, NEW_PASSWORD)
 
 
 @pytest.mark.anyio
@@ -147,7 +228,7 @@ async def test_token_is_void_after_an_email_change(
     await session.commit()
 
     with pytest.raises(InvalidVerifyToken):
-        await manager.verify(token)
+        await manager.verify_with_password(token, NEW_PASSWORD)
 
 
 @pytest.mark.anyio
@@ -161,7 +242,7 @@ async def test_expired_token_is_rejected(
     token = create_verification_token(user_id=user.id, email=user.email)
 
     with pytest.raises(InvalidVerifyToken):
-        await manager.verify(token)
+        await manager.verify_with_password(token, NEW_PASSWORD)
 
 
 @pytest.mark.anyio
@@ -173,7 +254,7 @@ async def test_token_for_another_account_is_rejected(
     token = create_verification_token(user_id=attacker.id, email=victim.email)
 
     with pytest.raises(InvalidVerifyToken):
-        await manager.verify(token)
+        await manager.verify_with_password(token, NEW_PASSWORD)
 
 
 def test_verification_email_links_to_the_app_and_escapes() -> None:
@@ -250,7 +331,7 @@ async def test_tick_sends_a_working_link_and_stores_no_token(
     assert row.attempts == 1
     link = next(word for word in message.text.split() if word.startswith("http"))
     token = parse_qs(urlsplit(link).query)["token"][0]
-    verified = await manager.verify(token)
+    verified = await manager.verify_with_password(token, NEW_PASSWORD)
     assert verified.is_verified is True
 
 
@@ -350,7 +431,9 @@ async def test_verify_clears_the_outbox_and_applies_defaults(
     await enqueue_verification_email(session, user.id)
     await session.commit()
 
-    await manager.verify(create_verification_token(user_id=user.id, email=user.email))
+    await manager.verify_with_password(
+        create_verification_token(user_id=user.id, email=user.email), NEW_PASSWORD
+    )
 
     result = await session.execute(
         select(EmailVerificationOutbox).where(
@@ -377,6 +460,54 @@ async def test_identity_provider_adopts_unverified_account(
     assert adopted.id == user.id
     assert adopted.is_verified is True
     verified, _ = PasswordHelper().verify_and_update(PASSWORD, adopted.hashed_password)
+    assert verified is False
+    tokens = await session.execute(
+        select(AccessToken).where(AccessToken.user_id == user.id)  # pyright: ignore[reportArgumentType]
+    )
+    assert tokens.scalars().all() == []
+
+
+@pytest.mark.anyio
+async def test_identity_provider_adopts_an_invitation_sign_up(
+    session: AsyncSession, manager: UserManager
+) -> None:
+    """An invitation link proves no mailbox control: its reader may have used it."""
+    user = await _add_user(
+        session, verified=True, verified_via=EmailVerificationMethod.INVITATION
+    )
+
+    adopted = await manager.provision_user_by_email(
+        email=user.email, is_verified_by_default=True, provider="scim"
+    )
+
+    assert adopted.email_verified_via == EmailVerificationMethod.SCIM
+    verified, _ = PasswordHelper().verify_and_update(PASSWORD, adopted.hashed_password)
+    assert verified is False
+
+
+@pytest.mark.anyio
+async def test_oidc_sign_in_adopts_unverified_account(
+    session: AsyncSession, manager: UserManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The OIDC callback links by email only after replacing the squatter's password."""
+    user = await _add_user(session)
+    session.add(AccessToken(token=uuid.uuid4().hex, user_id=user.id))
+    await session.commit()
+    monkeypatch.setattr(manager, "_enforce_login_ip_allowlist", AsyncMock())
+
+    linked = await manager.oauth_callback(
+        "oidc",
+        "provider-access-token",
+        "provider-account-id",
+        user.email,
+        associate_by_email=True,
+        is_verified_by_default=True,
+    )
+
+    assert linked.id == user.id
+    assert linked.is_verified is True
+    assert linked.email_verified_via == EmailVerificationMethod.OIDC
+    verified, _ = PasswordHelper().verify_and_update(PASSWORD, linked.hashed_password)
     assert verified is False
     tokens = await session.execute(
         select(AccessToken).where(AccessToken.user_id == user.id)  # pyright: ignore[reportArgumentType]
@@ -471,6 +602,80 @@ async def test_bogus_invitation_token_does_not_bypass_the_gate(
         await manager._check_self_registration("member@example.com", "bogus")
 
 
+async def _add_invitation(
+    session: AsyncSession, organization: Organization, *, email: str
+) -> str:
+    raw = secrets.token_urlsafe(32)
+    session.add(
+        Invitation(
+            organization_id=organization.id,
+            email=email,
+            token=hash_bearer_token(raw),
+            token_hashed=True,
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+            status=InvitationStatus.PENDING,
+        )
+    )
+    await session.commit()
+    return raw
+
+
+@pytest.fixture
+def gate_on_test_session(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> UserManager:
+    """A manager whose registration gate queries the test database."""
+
+    @contextlib.asynccontextmanager
+    async def fake_session() -> AsyncGenerator[AsyncSession, None]:
+        yield session
+
+    monkeypatch.setattr(
+        users_module, "get_async_session_auth_context_manager", fake_session
+    )
+    monkeypatch.setattr(users_module, "users_exist", AsyncMock(return_value=True))
+    return UserManager(cast(Any, MagicMock()))
+
+
+@pytest.mark.anyio
+async def test_hashed_invitation_admits_registration_without_smtp(
+    session: AsyncSession,
+    svc_organization: Organization,
+    gate_on_test_session: UserManager,
+    smtp_unconfigured: None,
+) -> None:
+    raw = await _add_invitation(session, svc_organization, email="Invited@Example.com")
+
+    await gate_on_test_session._check_self_registration("invited@example.com", raw)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "token_for",
+    ["bogus", "digest", "other-email"],
+)
+async def test_unmatched_invitation_does_not_bypass_the_gate(
+    session: AsyncSession,
+    svc_organization: Organization,
+    gate_on_test_session: UserManager,
+    smtp_unconfigured: None,
+    token_for: str,
+) -> None:
+    raw = await _add_invitation(session, svc_organization, email="invited@example.com")
+    token = {
+        "bogus": secrets.token_urlsafe(32),
+        # The stored digest must never work as a link token.
+        "digest": hash_bearer_token(raw),
+        "other-email": raw,
+    }[token_for]
+    email = "other@example.com" if token_for == "other-email" else "invited@example.com"
+
+    with pytest.raises(HTTPException) as exc_info:
+        await gate_on_test_session._check_self_registration(email, token)
+
+    assert exc_info.value.status_code == 403
+
+
 @pytest.mark.anyio
 async def test_first_user_bootstrap_is_marked_for_verification(
     monkeypatch: pytest.MonkeyPatch, smtp_unconfigured: None
@@ -536,6 +741,70 @@ async def test_accepted_invitation_verifies_registration(
 
     await session.refresh(user)
     assert user.is_verified is True
+    assert user.email_verified_via == EmailVerificationMethod.INVITATION
+
+
+@pytest.mark.anyio
+async def test_invitation_sign_up_at_the_superadmin_email_is_not_promoted(
+    session: AsyncSession,
+    manager: UserManager,
+    smtp_unconfigured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL", SUPERADMIN_EMAIL)
+    user = await _add_user(session, email=SUPERADMIN_EMAIL)
+    manager._pending_invitation_token = "invite-token"
+    monkeypatch.setattr(
+        manager,
+        "_accept_invitation_atomically",
+        AsyncMock(return_value=uuid.uuid4()),
+    )
+
+    await manager.on_after_register(user)
+
+    await session.refresh(user)
+    assert user.is_superuser is False
+
+
+@pytest.mark.anyio
+async def test_superadmin_email_is_promoted_only_once_the_mailbox_is_proven(
+    session: AsyncSession,
+    manager: UserManager,
+    smtp_configured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL", SUPERADMIN_EMAIL)
+    user = await _add_user(session, email=SUPERADMIN_EMAIL)
+
+    await manager.on_after_register(user)
+
+    await session.refresh(user)
+    assert user.is_superuser is False
+
+    verified = await manager.verify_with_password(
+        create_verification_token(user_id=user.id, email=user.email), NEW_PASSWORD
+    )
+
+    await session.refresh(verified)
+    assert verified.is_superuser is True
+
+
+@pytest.mark.anyio
+async def test_bootstrap_registration_is_promoted(
+    session: AsyncSession,
+    manager: UserManager,
+    smtp_unconfigured: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "AUTOSECOPS__AUTH_SUPERADMIN_EMAIL", SUPERADMIN_EMAIL)
+    user = await _add_user(session, email=SUPERADMIN_EMAIL)
+    manager._pending_bootstrap_registration = True
+
+    await manager.on_after_register(user)
+
+    await session.refresh(user)
+    assert user.is_superuser is True
+    assert user.email_verified_via == EmailVerificationMethod.BOOTSTRAP
 
 
 @pytest.mark.anyio
