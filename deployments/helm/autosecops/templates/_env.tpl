@@ -99,20 +99,63 @@ storage keys out of the default AWS credential chain used by integrations. */}}
 {{- end }}
 {{- end }}
 
+{{/* Scrape annotations for Temporal worker pods. Expects root. */}}
 {{- define "autosecops.metricsPodAnnotations" -}}
-{{- if .Values.autosecops.temporal.metrics.enabled -}}
+{{- if and .Values.autosecops.temporal.metrics.enabled .Values.metrics.scrapeAnnotations -}}
 prometheus.io/scrape: "true"
 prometheus.io/port: {{ .Values.autosecops.temporal.metrics.port | toString | quote }}
 prometheus.io/path: /metrics
 {{- end -}}
 {{- end }}
 
+{{/* Temporal SDK metrics container port for worker processes. Expects root. */}}
 {{- define "autosecops.metricsPort" -}}
 {{- if .Values.autosecops.temporal.metrics.enabled }}
 - name: metrics
   containerPort: {{ .Values.autosecops.temporal.metrics.port }}
   protocol: TCP
 {{- end }}
+{{- end }}
+
+{{/*
+API metrics listener. It is a separate container port that the API Service and
+ingress never expose. Expects root.
+*/}}
+{{- define "autosecops.env.apiMetrics" -}}
+{{- if .Values.metrics.api.enabled }}
+- name: AUTOSECOPS__API_METRICS_ENABLED
+  value: "true"
+- name: AUTOSECOPS__API_METRICS_PORT
+  value: {{ .Values.metrics.api.port | toString | quote }}
+{{- end }}
+{{- end }}
+
+{{- define "autosecops.apiMetricsPodAnnotations" -}}
+{{- if and .Values.metrics.api.enabled .Values.metrics.scrapeAnnotations -}}
+prometheus.io/scrape: "true"
+prometheus.io/port: {{ .Values.metrics.api.port | toString | quote }}
+prometheus.io/path: /metrics
+{{- end -}}
+{{- end }}
+
+{{/*
+Components that serve a `metrics` container port, as a list of
+"component=port" strings for the PodMonitor and ServiceMonitor. Expects root.
+*/}}
+{{- define "autosecops.metricsComponents" -}}
+{{- $components := list -}}
+{{- if and .Values.api.enabled .Values.metrics.api.enabled -}}
+{{- $components = append $components (printf "api=%v" .Values.metrics.api.port) -}}
+{{- end -}}
+{{- if .Values.autosecops.temporal.metrics.enabled -}}
+{{- $workers := dict "worker" .Values.worker "background-worker" .Values.backgroundWorker "executor" .Values.executor "agent-worker" .Values.agentWorker "agent-executor" .Values.agentExecutor -}}
+{{- range $component := list "worker" "background-worker" "executor" "agent-worker" "agent-executor" -}}
+{{- if (get $workers $component).enabled -}}
+{{- $components = append $components (printf "%s=%v" $component $.Values.autosecops.temporal.metrics.port) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- join "," $components -}}
 {{- end }}
 
 {{/* Sandbox paths baked into the backend image. */}}

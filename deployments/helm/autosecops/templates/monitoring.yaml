@@ -1,0 +1,83 @@
+{{- /*
+Optional Prometheus Operator resources. The PodMonitor scrapes the `metrics`
+container port directly; the ServiceMonitor scrapes headless per-component
+metrics Services created only for it. Neither is reachable from the ingress.
+*/ -}}
+{{- $components := include "autosecops.metricsComponents" . -}}
+{{- $m := .Values.metrics -}}
+{{- if and (or $m.podMonitor.enabled $m.serviceMonitor.enabled) (not $components) }}
+{{- fail "metrics.podMonitor/serviceMonitor need metrics.api.enabled or autosecops.temporal.metrics.enabled" }}
+{{- end }}
+{{- if $m.podMonitor.enabled }}
+{{- $names := list }}
+{{- range splitList "," $components }}
+{{- $names = append $names (first (splitList "=" .)) }}
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "autosecops.fullname" . }}
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+    {{- with $m.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "autosecops.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          {{- toYaml $names | nindent 10 }}
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ $m.podMonitor.interval }}
+      scrapeTimeout: {{ $m.podMonitor.scrapeTimeout }}
+{{- end }}
+{{- if $m.serviceMonitor.enabled }}
+{{- range splitList "," $components }}
+{{- $parts := splitList "=" . }}
+{{- $component := first $parts }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "autosecops.componentName" (dict "root" $ "component" (printf "%s-metrics" $component)) }}
+  labels:
+    {{- include "autosecops.componentLabels" (dict "root" $ "component" (printf "%s-metrics" $component)) | nindent 4 }}
+    autosecops.io/metrics: "true"
+spec:
+  clusterIP: None
+  selector:
+    {{- include "autosecops.componentSelectorLabels" (dict "root" $ "component" $component) | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ last $parts }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "autosecops.fullname" . }}
+  labels:
+    {{- include "autosecops.labels" . | nindent 4 }}
+    {{- with $m.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "autosecops.selectorLabels" . | nindent 6 }}
+      autosecops.io/metrics: "true"
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ $m.serviceMonitor.interval }}
+      scrapeTimeout: {{ $m.serviceMonitor.scrapeTimeout }}
+{{- end }}

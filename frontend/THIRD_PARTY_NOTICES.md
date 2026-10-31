@@ -775,7 +775,7 @@ hand.
 | ts-interface-checker | 0.1.13 | Apache-2.0 |
 | tslib | 2.0.1 | 0BSD |
 | tslib | 2.8.1 | 0BSD |
-| typescript | 5.9.2 | Apache-2.0 |
+| typescript | 5.9.3 | Apache-2.0 |
 | ufo | 1.6.1 | MIT |
 | undici | 7.30.1 | MIT |
 | undici-types | 6.21.0 | MIT |
@@ -29445,7 +29445,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### typescript 5.9.2
+### typescript 5.9.3
 
 - License: Apache-2.0
 - Homepage: https://www.typescriptlang.org/

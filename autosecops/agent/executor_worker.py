@@ -36,7 +36,10 @@ from autosecops.observability.otel import (
 )
 from autosecops.observability.sentry import initialize_worker_sentry_from_environment
 from autosecops.storage.blob import close_storage_client_cache
-from autosecops.temporal.worker_lifecycle import run_worker_entrypoint
+from autosecops.temporal.worker_lifecycle import (
+    run_worker_entrypoint,
+    temporal_worker_readiness_check,
+)
 
 if TYPE_CHECKING:
     from temporalio.client import Client
@@ -119,29 +122,32 @@ async def main(shutdown_event: asyncio.Event | None = None) -> None:
 
             client = await _start_runtime_services()
             with ThreadPoolExecutor(max_workers=threadpool_max_workers) as executor:
-                async with (
-                    Worker(
-                        client,
-                        task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
-                        activities=get_activities(),
-                        workflow_runner=new_sandbox_runner(),
-                        max_concurrent_activities=max_concurrent,
-                        disable_eager_activity_execution=config.TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION,
-                        activity_executor=executor,
-                        # Activity cancellation is only delivered to a running activity
-                        # via heartbeat RPC responses, and the SDK throttles those to
-                        # 80% of the heartbeat timeout (48s at our 60s timeout) by
-                        # default. Cap the throttle so Temporal-driven cancellation
-                        # reaches long agent turns promptly; the Redis cancel signal
-                        # (autosecops/agent/cancellation.py) remains the primary path.
-                        max_heartbeat_throttle_interval=timedelta(seconds=5),
-                        default_heartbeat_throttle_interval=timedelta(seconds=5),
-                        graceful_shutdown_timeout=timedelta(
-                            seconds=config.AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
-                        ),
+                temporal_worker = Worker(
+                    client,
+                    task_queue=config.AUTOSECOPS__AGENT_EXECUTOR_QUEUE,
+                    activities=get_activities(),
+                    workflow_runner=new_sandbox_runner(),
+                    max_concurrent_activities=max_concurrent,
+                    disable_eager_activity_execution=config.TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION,
+                    activity_executor=executor,
+                    # Activity cancellation is only delivered to a running activity
+                    # via heartbeat RPC responses, and the SDK throttles those to
+                    # 80% of the heartbeat timeout (48s at our 60s timeout) by
+                    # default. Cap the throttle so Temporal-driven cancellation
+                    # reaches long agent turns promptly; the Redis cancel signal
+                    # (autosecops/agent/cancellation.py) remains the primary path.
+                    max_heartbeat_throttle_interval=timedelta(seconds=5),
+                    default_heartbeat_throttle_interval=timedelta(seconds=5),
+                    graceful_shutdown_timeout=timedelta(
+                        seconds=config.AUTOSECOPS__AGENT_EXECUTOR_GRACEFUL_SHUTDOWN_TIMEOUT
                     ),
+                )
+                async with (
+                    temporal_worker,
                     # LIFO exit removes readiness before Temporal drains activities.
-                    readiness,
+                    readiness(
+                        check=temporal_worker_readiness_check(temporal_worker, client)
+                    ),
                 ):
                     logger.info("AgentExecutorWorker started, ctrl+c to exit")
                     await shutdown_event.wait()

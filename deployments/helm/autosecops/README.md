@@ -85,7 +85,9 @@ leftover keys from other charts fail early.
 | `externalPostgres`, `externalRedis`, `externalS3`, `externalTemporal` | Connection settings and credentials for the external services. |
 | `serviceAccount`, `<component>.serviceAccount` | Shared and per-component service accounts, with annotations for IRSA. |
 | `<component>.*` | Replicas, resources, probes, HPA, PDB, scheduling, extra env and volumes. |
+| `workerProbes` | Default exec startup, readiness, and liveness probes for the Temporal workers. A component's own probe replaces the matching default. |
 | `migrations` | `alembic upgrade head` Job, run as a `pre-install,pre-upgrade` hook by default. |
+| `metrics` | Opt-in API metrics port, `prometheus.io/*` scrape annotations, and optional Prometheus Operator PodMonitor/ServiceMonitor. Metrics ports are never on a public Service or the ingress. |
 | `ingress` | One Ingress with the Caddyfile routing: `/api` to api, MCP routes to mcp, `/` to ui. |
 | `tunnels` | RBAC, namespace, NetworkPolicy, and admission policy for managed tunnel gateways. |
 
@@ -125,6 +127,27 @@ PostgreSQL exempts from row-level security, and log a warning.
 When migrations run as hooks, chart-created Secrets are hooks too, so they
 exist before the migrations Job. Helm keeps hook resources on
 `helm uninstall`; delete them by hand when you discard an installation.
+
+## Health probes and metrics
+
+The API, MCP, LiteLLM, and UI use HTTP probes. The Temporal workers (`worker`,
+`background-worker`, `executor`, `agent-worker`, `agent-executor`) serve no
+HTTP, so their default probes run `python -m autosecops.temporal.healthcheck`:
+liveness checks a marker file the worker's event loop refreshes every 10
+seconds, and readiness checks a marker that stays fresh only while the worker
+is polling Temporal. Readiness gates rolling updates. The markers live in an
+in-memory `emptyDir` at `/var/run/autosecops`, so the probes also work with a
+read-only root filesystem.
+
+The defaults are in `workerProbes`. A probe set on a component, such as
+`worker.readinessProbe`, replaces the matching default rather than merging into
+it. Set a `workerProbes` entry to `null` to drop that probe for every worker.
+
+Metrics are off by default. `autosecops.temporal.metrics.enabled` starts the
+Temporal SDK Prometheus exporter in every worker; `metrics.api.enabled` serves
+API metrics on a separate container port. Scrape them with the `prometheus.io/*`
+annotations, `metrics.podMonitor.enabled`, or `metrics.serviceMonitor.enabled`.
+See the [monitoring guide](https://docs.singularityrd.com/self-hosting/monitoring).
 
 ## Sandboxing
 
