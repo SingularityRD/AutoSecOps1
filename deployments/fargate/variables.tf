@@ -569,25 +569,25 @@ variable "smtp_password_arn" {
 
 variable "smtp_host" {
   type        = string
-  description = "The SMTP relay host for invitation emails"
+  description = "The SMTP relay host for invitation and email verification emails"
   default     = ""
 }
 
 variable "smtp_port" {
   type        = number
-  description = "The SMTP relay port for invitation emails"
+  description = "The SMTP relay port for invitation and email verification emails"
   default     = 587
 }
 
 variable "smtp_user" {
   type        = string
-  description = "The SMTP username for invitation emails"
+  description = "The SMTP username for invitation and email verification emails"
   default     = ""
 }
 
 variable "email_from" {
   type        = string
-  description = "The sender address for invitation emails, e.g. AutoSecOps <no-reply@example.com>"
+  description = "The sender address for invitation and email verification emails, e.g. AutoSecOps <no-reply@example.com>"
   default     = ""
 }
 

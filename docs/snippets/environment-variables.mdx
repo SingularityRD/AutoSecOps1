@@ -46,19 +46,23 @@
 | `AUTOSECOPS__AUTH_TYPES` | `basic` | Comma-separated list of enabled auth methods: `basic`, `oidc`, `saml`. |
 | `AUTOSECOPS__AUTH_ALLOWED_DOMAINS` | | Comma-separated email domains allowed to create an account and to sign in through OIDC, e.g. `example.com,example.org`. Leave blank to allow all. SAML uses the organization's configured domains when set; without them, single-tenant deployments fall back to this list and multi-tenant deployments reject the sign-in. Membership in an organization still comes from an invitation or admin provisioning. |
 | `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` | `12` | Minimum password length for basic auth. |
-| `AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED` | `true` | Rate limit sign-in, registration, password reset, invitation links, and failed API-key authentication. Counters live in Redis and are shared by all API replicas. Requests over a limit get `429` with a `Retry-After` header. If Redis is unreachable, AutoSecOps logs a warning and lets the request through. The client address is resolved with `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS`. |
+| `AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS` | `3600` | How long an emailed verification link stays valid, from `300` to `86400` seconds. See [email verification](/authentication/basic#email-verification). |
+| `AUTOSECOPS__AUTH_RATE_LIMIT_ENABLED` | `true` | Rate limit sign-in, registration, password reset, email verification, invitation links, and failed API-key authentication. Counters live in Redis and are shared by all API replicas. Requests over a limit get `429` with a `Retry-After` header. If Redis is unreachable, AutoSecOps logs a warning and lets the request through. The client address is resolved with `AUTOSECOPS__AUDIT_TRUSTED_PROXY_CIDRS`. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_IP` | `50` | Password sign-in attempts per client address per minute. `0` turns off this limit, as it does for every limit below. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_LOGIN_PER_ACCOUNT` | `10` | Password sign-in attempts per client address and email per minute. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_FORGOT_PASSWORD_PER_IP` | `20` | Password reset emails requested per client address per hour. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_FORGOT_PASSWORD_PER_ACCOUNT` | `5` | Password reset emails requested per email per hour, from any address. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_RESET_PASSWORD_PER_IP` | `10` | Password reset submissions per client address per minute. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_REGISTER_PER_IP` | `10` | Registration attempts per client address per hour. |
+| `AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_IP` | `20` | Verification emails requested per client address per hour. |
+| `AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_REQUEST_PER_ACCOUNT` | `5` | Verification emails requested per email per hour, from any address. |
+| `AUTOSECOPS__AUTH_RATE_LIMIT_VERIFY_PER_IP` | `10` | Verification link submissions per client address per minute. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_INVITATION_PER_IP` | `30` | Invitation link lookups and acceptances per client address per minute. |
 | `AUTOSECOPS__AUTH_RATE_LIMIT_API_KEY_FAILURES_PER_IP` | `20` | Failed service-account API-key authentications per client address per minute. Past this, API-key requests from that address get `429` until the window ends. |
 
 ### Email
 
-Set every SMTP value on `api` to email organization invitations. Leave any of them blank to disable email; admins then share the invitation link themselves.
+Set every SMTP value on `api` to email organization invitations and [email verification](/authentication/basic#email-verification) links. Leave any of them blank to disable email; admins then share the invitation link themselves, and self-registration through `/auth/register` is refused.
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |

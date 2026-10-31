@@ -12,6 +12,7 @@ describe("sanitizeReturnUrl", () => {
     "/sign-up/invite",
     "/auth",
     "/auth/oauth/callback",
+    "/verify-email?token=signed",
   ])("rejects auth routes for %s", (value) => {
     expect(sanitizeReturnUrl(value)).toBeNull()
   })

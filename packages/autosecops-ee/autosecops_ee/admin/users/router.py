@@ -91,6 +91,20 @@ async def promote_to_superuser(
         ) from e
 
 
+@router.post("/{user_id}/verify", response_model=AdminUserRead)
+async def verify_user_email(
+    role: SuperuserStepUpRole,
+    session: AsyncDBSessionBypass,
+    user_id: uuid.UUID,
+) -> AdminUserRead:
+    """Mark a user's email address verified."""
+    service = AdminUserService(session, role)
+    try:
+        return await service.verify_user_email(user_id)
+    except AutoSecOpsNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
 @router.post("/{user_id}/demote", response_model=AdminUserRead)
 async def demote_from_superuser(
     role: SuperuserStepUpRole,

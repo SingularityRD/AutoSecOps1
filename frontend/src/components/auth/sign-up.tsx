@@ -10,6 +10,7 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { ApiError } from "@/client"
+import { CheckInbox } from "@/components/auth/check-inbox"
 import { Icons } from "@/components/icons"
 import { CenteredSpinner } from "@/components/loading/spinner"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { useAuth, useAuthActions } from "@/hooks/use-auth"
 import { getPostAuthRedirectPath } from "@/lib/auth-redirect"
+import { getSelfRegistrationUnavailableMessage } from "@/lib/email-verification"
 import type { AutoSecOpsApiError, RequestValidationError } from "@/lib/errors"
 import { useAppInfo } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -44,8 +46,7 @@ type EmailLoginValidationError = {
 function isEmailLoginValidationError(
   detail: EmailLoginValidationError | RequestValidationError[]
 ): detail is EmailLoginValidationError {
-  // not an array
-  if (!Array.isArray(detail)) {
+  if (Array.isArray(detail)) {
     return false
   }
   return (
@@ -202,6 +203,7 @@ export function BasicRegistrationForm({
   returnUrl,
 }: BasicRegistrationFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const { register, login } = useAuthActions()
   const form = useForm<BasicLoginForm>({
     resolver: zodResolver(basicRegistrationSchema),
@@ -223,13 +225,20 @@ export function BasicRegistrationForm({
        * XXX(auth): The user cannot set is_active or is_superuser itself at registration.
        * Only a superuser can do it by PATCHing the user.
        */
-      await register({
+      const created = await register({
         requestBody: {
           email: values.email,
           password: values.password,
           ...(invitationToken && { invitation_token: invitationToken }),
         },
       })
+
+      // A self-registered account must verify its email before signing in.
+      // Invitation and first-user registrations are verified on creation.
+      if (!created.is_verified) {
+        setPendingEmail(created.email)
+        return
+      }
 
       // On successful registration, log the user in
       await login({
@@ -240,7 +249,10 @@ export function BasicRegistrationForm({
       })
       // Redirect is handled by the useEffect in SignUp component
     } catch (error) {
-      if (error instanceof ApiError) {
+      const unavailable = getSelfRegistrationUnavailableMessage(error)
+      if (unavailable) {
+        form.setError("email", { message: unavailable })
+      } else if (error instanceof ApiError) {
         const apiError = error as AutoSecOpsApiError
 
         // Handle both string and object error details
@@ -280,7 +292,7 @@ export function BasicRegistrationForm({
           } else {
             // Handle RequestValidationError case
             form.setError("email", {
-              message: detail[0].msg || "Unknown error",
+              message: detail[0]?.msg || "Unknown error",
             })
           }
         }
@@ -292,6 +304,10 @@ export function BasicRegistrationForm({
       setIsLoading(false)
     }
   }
+  if (pendingEmail) {
+    return <CheckInbox email={pendingEmail} />
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

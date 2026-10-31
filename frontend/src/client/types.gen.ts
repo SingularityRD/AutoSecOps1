@@ -2084,6 +2084,7 @@ export type Body_auth_verify_request_token = {
 
 export type Body_auth_verify_verify = {
   token: string
+  password: string
 }
 
 export type Body_case_attachments_create_attachment = {
@@ -17633,6 +17634,12 @@ export type AdminPromoteToSuperuserData = {
 
 export type AdminPromoteToSuperuserResponse = AdminUserRead
 
+export type AdminVerifyUserEmailData = {
+  userId: string
+}
+
+export type AdminVerifyUserEmailResponse = AdminUserRead
+
 export type AdminDemoteFromSuperuserData = {
   userId: string
 }
@@ -25975,6 +25982,21 @@ export type $OpenApiTs = {
   "/admin/users/{user_id}/promote": {
     post: {
       req: AdminPromoteToSuperuserData
+      res: {
+        /**
+         * Successful Response
+         */
+        200: AdminUserRead
+        /**
+         * Validation Error
+         */
+        422: HTTPValidationError
+      }
+    }
+  }
+  "/admin/users/{user_id}/verify": {
+    post: {
+      req: AdminVerifyUserEmailData
       res: {
         /**
          * Successful Response

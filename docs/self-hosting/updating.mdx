@@ -272,6 +272,19 @@ A worker that stays `unhealthy` or not ready cannot reach Temporal; check its lo
 The chart's default worker probes live in the new `workerProbes` value. A probe you already set on a worker component (for example `worker.readinessProbe`) replaces the matching default; it is never merged with it. If you mounted a volume at `/var/run/autosecops` through `extraVolumeMounts`, remove it: the chart now mounts an in-memory `emptyDir` there for the health files, and a duplicate mount path fails the upgrade.
 On AWS Fargate, worker tasks get an ECS container health check, and the new `metrics_enabled` and `metrics_scraper_security_group_ids` module variables turn on metrics. See [Monitoring](/self-hosting/monitoring).
 
+## Email verification for password accounts
+
+Releases with email verification require a verified email for password sign-in. The upgrade migration marks every existing account verified, so nobody is locked out. After the upgrade:
+
+- A new self-registration must open an emailed link before it can sign in. Invitation links, the first superadmin, superadmin-created accounts, and SSO and SCIM accounts are verified on creation. See [email verification](/authentication/basic#email-verification).
+- Without the SMTP settings, `POST /auth/register` refuses self-registration with `403`. Configure SMTP to keep open sign-up, or invite users instead.
+- An account created while the old version was still serving, during a rolling upgrade, starts unverified. That includes invitation sign-ups, which the old version did not mark verified. The user requests a new email from the sign-in page, or, without SMTP, a superadmin marks the account verified in `/admin/users`.
+- Opening an emailed verification link now asks for the account password and sets it. `POST /auth/verify` takes `{"token", "password"}`; a client that sends only the token gets `422`.
+- A superadmin changing an account's email no longer unverifies it.
+- `AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION` no longer has an effect. Remove it from your environment.
+
+The migration verified accounts that self-registered under the old policy without proving their address. If your deployment allowed open sign-up, review those accounts in `/admin/users` and delete any you do not recognize.
+
 ## Agent workers during a rolling upgrade
 
 Kubernetes and Fargate replace agent worker replicas one at a time, so for a few minutes old and new agent workers share the same Temporal task queue. A new release can add an agent activity, such as the [model lookup by name](/agents/custom-llm-providers#credentials) for agent configurations without a `catalog_id`. When an old worker receives that activity, it fails the attempt as not registered, and AutoSecOps retries it for up to 10 minutes until an upgraded worker takes it.
