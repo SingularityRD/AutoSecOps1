@@ -121,7 +121,9 @@ function LicenseAlert({ license }: { license: LicenseRead }) {
         <AlertDescription>
           The license that grants multi-tenant mode expired and its grace period
           ended. Existing organizations keep working with their tiers, but new
-          organizations cannot be created. Contact {LICENSE_CONTACT} to renew.
+          organizations cannot be created and tiers cannot be changed. The API
+          refuses to start 30 days after the grace period ended. Contact{" "}
+          {LICENSE_CONTACT} to renew.
         </AlertDescription>
       </Alert>
     )

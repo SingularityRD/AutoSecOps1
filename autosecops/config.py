@@ -1812,10 +1812,12 @@ AUTOSECOPS__EE_MULTI_TENANT = (
 """Whether multi-tenant enterprise features are enabled.
 
 Requires ``AUTOSECOPS__EE_MULTI_TENANT=true`` and a verified license key that
-grants ``multi_tenant``, evaluated at process start. A license that expired
-past its grace period keeps multi-tenant mode on in a degraded state
-(``MultiTenantMode.LAPSED``) so existing tenants are never dropped; see
-``autosecops.licensing.multi_tenant``. Otherwise the process runs single-tenant
+grants ``multi_tenant``, evaluated at process start. For
+``MULTI_TENANT_LAPSE_LIMIT`` after its grace period, an expired license keeps
+multi-tenant mode on in a degraded state (``MultiTenantMode.LAPSED``) so
+existing tenants are not dropped at once; the API allows that only on a
+deployment that ran multi-tenant under the same license while it was valid.
+See ``autosecops.licensing.multi_tenant``. Otherwise the process runs single-tenant
 with license-based entitlements, and the API refuses to start if the database
 already holds more than one organization.
 """

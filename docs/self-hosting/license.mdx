@@ -138,14 +138,22 @@ If a license that grants `multi_tenant` is bound to a different deployment ID, t
 
 ### When a multi-tenant license lapses
 
-A multi-tenant deployment never drops its tenants because its license expired.
+A multi-tenant deployment does not drop its tenants the moment its license expires.
 While the license is in its 14-day grace period, nothing changes.
-After the grace period, the deployment keeps running multi-tenant in a degraded, `lapsed` mode:
+After the grace period, the deployment keeps running multi-tenant for 30 more days in a degraded, `lapsed` mode:
 
 - Existing organizations keep working, with the tiers platform admins assigned to them, including SSO and organization selection.
-- Creating an organization is blocked and returns `403` with the type `MultiTenantLicenseLapsed`.
-- The `api` service logs a `MULTI-TENANT LICENSE LAPSED` error at startup and every hour.
+- Creating an organization returns `403` with the type `MultiTenantLicenseLapsed` and `detail.action` `create_organization`.
+- Creating, changing, or deleting a tier, and changing an organization's tier assignment, return `403` with the type `MultiTenantLicenseLapsed` and `detail.action` `manage_tiers`, because tiers decide each organization's entitlements.
+- The expired license's `max_users` and `max_workspaces` limits apply to new users and workspaces.
+- The `api` service logs a `MULTI-TENANT LICENSE LAPSED` error at startup and every hour, with the time `lapsed` mode ends.
 - The `License` page in the admin console shows a `Multi-tenant license lapsed` alert, and the license API reports `multi_tenant_mode: "lapsed"`.
+
+When the 30 days end, the `api` service refuses to start until a renewed key is installed.
+
+`lapsed` mode is only for a deployment that ran multi-tenant under the same license while it was valid or in grace.
+While multi-tenant mode is licensed, the `api` service records that in the database at startup and every hour.
+If you start a deployment that never ran multi-tenant under the configured license (for example, a fresh install with an expired key), the `api` service refuses to start; install a valid key, or unset `AUTOSECOPS__EE_MULTI_TENANT` to run single-tenant.
 
 Install a renewed key that grants `multi_tenant` and restart the services to leave `lapsed` mode.
 The license API reports `multi_tenant_requested` and `multi_tenant_mode` (`off`, `active`, or `lapsed`) on every deployment.

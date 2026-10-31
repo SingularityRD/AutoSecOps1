@@ -85,7 +85,8 @@ class LicenseRead(BaseModel):
         default=MultiTenantMode.OFF,
         description="Whether this deployment runs multi-tenant. 'lapsed' means"
         " the license that grants multi_tenant expired past its grace period:"
-        " existing organizations keep working and new ones are blocked",
+        " existing organizations keep working, while creating organizations and"
+        " changing tiers are blocked until a renewed license is installed",
     )
     clock_high_water: datetime | None = Field(
         default=None,

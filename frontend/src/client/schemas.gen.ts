@@ -24057,7 +24057,7 @@ export const $LicenseRead = {
     multi_tenant_mode: {
       $ref: "#/components/schemas/MultiTenantMode",
       description:
-        "Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working and new ones are blocked",
+        "Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed",
       default: "off",
     },
     clock_high_water: {

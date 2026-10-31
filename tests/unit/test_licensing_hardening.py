@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import orjson
 import pytest
+from autosecops_ee.admin.tiers import router as tiers_router
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -29,8 +30,9 @@ from autosecops.admin.license.router import (
 from autosecops.api.app import multi_tenant_license_lapsed_exception_handler
 from autosecops.auth.types import PlatformRole
 from autosecops.db.models import PlatformSetting
-from autosecops.exceptions import MultiTenantLicenseLapsed
+from autosecops.exceptions import LicenseLimitExceeded, MultiTenantLicenseLapsed
 from autosecops.licensing import clock as license_clock
+from autosecops.licensing import enforcement as license_enforcement
 from autosecops.licensing import keys
 from autosecops.licensing import multi_tenant as license_multi_tenant
 from autosecops.licensing import service as license_service
@@ -52,25 +54,36 @@ from autosecops.licensing.clock import (
     reset_high_water,
     reset_license_clock,
 )
+from autosecops.licensing.enforcement import (
+    enforce_user_limit,
+    enforce_workspace_limit,
+)
 from autosecops.licensing.evaluation import (
     LICENSE_GRACE_PERIOD,
+    MULTI_TENANT_LAPSE_LIMIT,
     license_permits_multi_tenant_mode,
 )
 from autosecops.licensing.multi_tenant import (
+    MULTI_TENANT_ACTIVITY_SETTING_KEY,
     MultiTenantLicenseRequiredError,
     check_multi_tenant_license_on_startup,
     ensure_new_organizations_allowed,
+    ensure_tier_changes_allowed,
     get_multi_tenant_mode,
+    ran_multi_tenant_under,
+    record_multi_tenant_activity,
     run_license_monitor,
 )
 from autosecops.licensing.token import encode_license
 from autosecops.licensing.types import (
     LicenseClaims,
+    LicenseLimits,
     LicenseStatus,
     MultiTenantMode,
 )
 from autosecops.organization import management as organization_management
 from autosecops.organization.management import create_organization
+from autosecops.tiers.schemas import TierUpdate
 
 NOW = datetime(2026, 6, 1, tzinfo=UTC)
 
@@ -139,20 +152,38 @@ def clock_db(monkeypatch: pytest.MonkeyPatch, session: AsyncSession) -> AsyncSes
     return session
 
 
+def _claims(
+    *,
+    entitlements: list[str],
+    expires_at: datetime,
+    issued_at: datetime | None = None,
+    limits: LicenseLimits | None = None,
+    license_id: str = "lic_test",
+) -> LicenseClaims:
+    return LicenseClaims(
+        license_id=license_id,
+        customer="Synthetic Customer",
+        issued_at=issued_at or expires_at - timedelta(days=365),
+        expires_at=expires_at,
+        entitlements=entitlements,
+        limits=limits,
+    )
+
+
 def _token(
     key: Ed25519PrivateKey,
     *,
     entitlements: list[str],
     expires_at: datetime,
     issued_at: datetime | None = None,
+    limits: LicenseLimits | None = None,
 ) -> str:
     return encode_license(
-        LicenseClaims(
-            license_id="lic_test",
-            customer="Synthetic Customer",
-            issued_at=issued_at or expires_at - timedelta(days=365),
-            expires_at=expires_at,
+        _claims(
             entitlements=entitlements,
+            expires_at=expires_at,
+            issued_at=issued_at,
+            limits=limits,
         ),
         key,
     )
@@ -180,6 +211,12 @@ def _multi_tenant(monkeypatch: pytest.MonkeyPatch, *, requested: bool = True) ->
             ["multi_tenant"],
             True,
             id="past-grace-stays-multi-tenant",
+        ),
+        pytest.param(
+            -(LICENSE_GRACE_PERIOD + MULTI_TENANT_LAPSE_LIMIT),
+            ["multi_tenant"],
+            False,
+            id="past-lapse-limit",
         ),
         pytest.param(timedelta(days=30), ["git_sync"], False, id="no-grant"),
     ],
@@ -270,7 +307,10 @@ async def test_lapsed_multi_tenant_blocks_new_organizations(
         await create_organization(session, name="Synthetic Org", slug="synthetic")
 
     session.add.assert_not_called()
-    assert exc_info.value.detail == {"grant": "multi_tenant"}
+    assert exc_info.value.detail == {
+        "grant": "multi_tenant",
+        "action": "create_organization",
+    }
     assert "info@singularityrd.com" in str(exc_info.value)
 
 
@@ -302,7 +342,7 @@ def test_lapsed_exception_handler_returns_403_with_type() -> None:
     assert response.status_code == 403
     body = orjson.loads(bytes(response.body))
     assert body["type"] == "MultiTenantLicenseLapsed"
-    assert body["detail"] == {"grant": "multi_tenant"}
+    assert body["detail"] == {"grant": "multi_tenant", "action": "create_organization"}
 
 
 # --- Startup check -----------------------------------------------------------------
@@ -361,6 +401,9 @@ async def test_startup_logs_lapsed_multi_tenant_and_keeps_running(
     )
     count = AsyncMock(return_value=4)
     monkeypatch.setattr(license_multi_tenant, "count_organizations", count)
+    monkeypatch.setattr(
+        license_multi_tenant, "ran_multi_tenant_under", AsyncMock(return_value=True)
+    )
     mock_logger = MagicMock()
     monkeypatch.setattr(license_multi_tenant, "logger", mock_logger)
 
@@ -369,6 +412,221 @@ async def test_startup_logs_lapsed_multi_tenant_and_keeps_running(
     messages = [call.args[0] for call in mock_logger.error.call_args_list]
     assert any("MULTI-TENANT LICENSE LAPSED" in message for message in messages)
     count.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_expired_key_cannot_turn_multi_tenant_on_for_a_fresh_install(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    """Lapsed mode needs proof the deployment ran multi-tenant while licensed."""
+    _multi_tenant(monkeypatch)
+    _install(
+        monkeypatch,
+        _token(
+            embedded_key,
+            entitlements=["multi_tenant"],
+            expires_at=datetime.now(UTC) - LICENSE_GRACE_PERIOD - timedelta(days=1),
+        ),
+    )
+    monkeypatch.setattr(
+        license_multi_tenant, "ran_multi_tenant_under", AsyncMock(return_value=False)
+    )
+
+    with pytest.raises(MultiTenantLicenseRequiredError, match="never ran"):
+        await check_multi_tenant_license_on_startup(AsyncMock())
+
+
+@pytest.mark.anyio
+async def test_startup_refuses_once_lapsed_mode_ends(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    # Config allowed multi-tenant at import time; the high-water mark says
+    # lapsed mode has ended since (for example, the clock was turned back).
+    _multi_tenant(monkeypatch)
+    expires_at = datetime.now(UTC) - LICENSE_GRACE_PERIOD - timedelta(days=1)
+    _install(
+        monkeypatch,
+        _token(embedded_key, entitlements=["multi_tenant"], expires_at=expires_at),
+    )
+    monkeypatch.setattr(
+        license_multi_tenant, "ran_multi_tenant_under", AsyncMock(return_value=True)
+    )
+    reset_license_clock(
+        high_water=expires_at + LICENSE_GRACE_PERIOD + MULTI_TENANT_LAPSE_LIMIT
+    )
+    monkeypatch.setattr(license_clock, "logger", MagicMock())
+
+    with pytest.raises(MultiTenantLicenseRequiredError, match="mode ended"):
+        await check_multi_tenant_license_on_startup(AsyncMock())
+
+
+@pytest.mark.anyio
+async def test_active_startup_records_multi_tenant_activity(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    _multi_tenant(monkeypatch)
+    _install(
+        monkeypatch,
+        _token(
+            embedded_key,
+            entitlements=["multi_tenant"],
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        ),
+    )
+    record = AsyncMock()
+    monkeypatch.setattr(license_multi_tenant, "record_multi_tenant_activity", record)
+
+    await check_multi_tenant_license_on_startup(AsyncMock())
+
+    record.assert_awaited_once()
+    assert record.await_args is not None
+    assert record.await_args.args[1].license_id == "lic_test"
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("db")
+async def test_multi_tenant_activity_record_is_bound_and_tamper_evident(
+    session: AsyncSession,
+) -> None:
+    claims = _claims(entitlements=["multi_tenant"], expires_at=NOW)
+    assert not await ran_multi_tenant_under(session, claims)
+
+    await record_multi_tenant_activity(session, claims, NOW - timedelta(days=1))
+    assert await ran_multi_tenant_under(session, claims)
+
+    # A different license does not inherit the record.
+    other = _claims(
+        entitlements=["multi_tenant"], expires_at=NOW, license_id="lic_other"
+    )
+    assert not await ran_multi_tenant_under(session, other)
+
+    # A record edited in the database fails its MAC.
+    forged = orjson.dumps(
+        {
+            "license_id": "lic_other",
+            "last_active_at": (NOW - timedelta(days=1)).isoformat(),
+            "mac": "0" * 64,
+        }
+    )
+    await session.execute(
+        update(PlatformSetting)
+        .where(PlatformSetting.key == MULTI_TENANT_ACTIVITY_SETTING_KEY)
+        .values(value=forged)
+    )
+    assert not await ran_multi_tenant_under(session, other)
+
+    # Activity recorded after the grace period ended does not count.
+    await record_multi_tenant_activity(
+        session, claims, NOW + LICENSE_GRACE_PERIOD + timedelta(days=1)
+    )
+    assert not await ran_multi_tenant_under(session, claims)
+
+
+@pytest.mark.anyio
+async def test_lapsed_multi_tenant_freezes_tier_changes(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    _multi_tenant(monkeypatch)
+    _install(
+        monkeypatch,
+        _token(
+            embedded_key,
+            entitlements=["multi_tenant"],
+            expires_at=datetime.now(UTC) - LICENSE_GRACE_PERIOD - timedelta(days=1),
+        ),
+    )
+    monkeypatch.setattr(
+        license_multi_tenant, "ensure_license_deployment_loaded", AsyncMock()
+    )
+    service = MagicMock()
+    monkeypatch.setattr(tiers_router, "AdminTierService", service)
+    role = PlatformRole(type="user", user_id=uuid.uuid4(), service_id="autosecops-api")
+
+    with pytest.raises(MultiTenantLicenseLapsed) as exc_info:
+        await tiers_router.update_tier(
+            role,
+            AsyncMock(),
+            uuid.uuid4(),
+            TierUpdate.model_validate({"entitlements": {"sso": True}}),
+        )
+    assert exc_info.value.detail == {
+        "grant": "multi_tenant",
+        "action": "manage_tiers",
+    }
+    with pytest.raises(MultiTenantLicenseLapsed):
+        await tiers_router.create_tier(role, AsyncMock(), MagicMock())
+    with pytest.raises(MultiTenantLicenseLapsed):
+        await tiers_router.delete_tier(role, AsyncMock(), uuid.uuid4())
+    with pytest.raises(MultiTenantLicenseLapsed):
+        await tiers_router.update_org_tier(role, AsyncMock(), uuid.uuid4(), MagicMock())
+    service.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_active_multi_tenant_allows_tier_changes(
+    monkeypatch: pytest.MonkeyPatch, embedded_key: Ed25519PrivateKey
+) -> None:
+    _multi_tenant(monkeypatch)
+    _install(
+        monkeypatch,
+        _token(
+            embedded_key,
+            entitlements=["multi_tenant"],
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        ),
+    )
+    monkeypatch.setattr(
+        license_multi_tenant, "ensure_license_deployment_loaded", AsyncMock()
+    )
+
+    await ensure_tier_changes_allowed()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("enforce", "counter"),
+    [
+        pytest.param(enforce_user_limit, "count_active_users", id="users"),
+        pytest.param(enforce_workspace_limit, "count_workspaces", id="workspaces"),
+    ],
+)
+async def test_lapsed_multi_tenant_enforces_the_last_licensed_limits(
+    monkeypatch: pytest.MonkeyPatch,
+    embedded_key: Ed25519PrivateKey,
+    enforce: Callable[[AsyncSession], Awaitable[None]],
+    counter: str,
+) -> None:
+    _multi_tenant(monkeypatch)
+    limits = LicenseLimits(max_users=5, max_workspaces=5)
+    lapsed = _token(
+        embedded_key,
+        entitlements=["multi_tenant"],
+        expires_at=datetime.now(UTC) - LICENSE_GRACE_PERIOD - timedelta(days=1),
+        limits=limits,
+    )
+    monkeypatch.setattr(
+        license_enforcement, "ensure_license_deployment_loaded", AsyncMock()
+    )
+    monkeypatch.setattr(license_enforcement, "_lock_limit", AsyncMock())
+    count = AsyncMock(return_value=5)
+    monkeypatch.setattr(license_enforcement, counter, count)
+
+    _install(monkeypatch, lapsed)
+    with pytest.raises(LicenseLimitExceeded):
+        await enforce(AsyncMock())
+
+    # While the license is active, tiers size the tenants instead.
+    _install(
+        monkeypatch,
+        _token(
+            embedded_key,
+            entitlements=["multi_tenant"],
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+            limits=limits,
+        ),
+    )
+    await enforce(AsyncMock())
+    count.assert_awaited_once()
 
 
 @pytest.mark.anyio

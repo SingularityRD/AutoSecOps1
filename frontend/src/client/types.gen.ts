@@ -7451,7 +7451,7 @@ export type LicenseRead = {
    */
   multi_tenant_requested?: boolean
   /**
-   * Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working and new ones are blocked
+   * Whether this deployment runs multi-tenant. 'lapsed' means the license that grants multi_tenant expired past its grace period: existing organizations keep working, while creating organizations and changing tiers are blocked until a renewed license is installed
    */
   multi_tenant_mode?: MultiTenantMode
   /**

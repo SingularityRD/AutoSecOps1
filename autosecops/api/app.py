@@ -626,7 +626,7 @@ def multi_tenant_license_lapsed_exception_handler(
 ) -> Response:
     """Handle MultiTenantLicenseLapsed with a 403 that names the lapsed grant."""
     logger.warning(
-        "Organization creation blocked: the multi-tenant license lapsed",
+        "Change blocked: the multi-tenant license lapsed",
         path=request.url.path,
     )
     if is_scim_path(request):
