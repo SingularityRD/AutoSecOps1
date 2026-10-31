@@ -1,6 +1,7 @@
 import asyncio
 import fcntl
 import importlib
+import importlib.util
 import os
 import socket
 import subprocess
@@ -74,6 +75,10 @@ from autosecops.executor import backends as executor_backends
 from autosecops.executor.backends import ExecutorBackend
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.logger import logger
+from autosecops.process_hardening import (
+    is_process_dumpable,
+    restore_process_dumpable,
+)
 from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 from autosecops.registry.repositories.service import RegistryReposService
 from autosecops.secrets import secrets_manager
@@ -128,37 +133,29 @@ def pytest_xdist_auto_num_workers(config: pytest.Config) -> int:
 # Default ports are for cluster 1, override with PG_PORT, TEMPORAL_PORT, MINIO_PORT, REDIS_PORT
 
 
+MCP_TOKEN_REVOKER_MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "c4e8a2f6d9b1_revoke_mcp_refresh_tokens_on_any_granted_org.py"
+)
+
+
 def _install_membership_token_revoker(conn: Any) -> None:
-    """Mirror the production trigger that revokes MCP tokens on member removal."""
-    conn.execute(
-        text(
-            """
-            CREATE OR REPLACE FUNCTION revoke_mcp_tokens_on_membership_delete()
-            RETURNS trigger
-            LANGUAGE plpgsql
-            AS $$
-            BEGIN
-                UPDATE mcp_personal_access_token
-                SET revoked_at = now(),
-                    revoked_by = NULLIF(
-                        current_setting('app.current_user_id', true), ''
-                    )::uuid
-                WHERE user_id = OLD.user_id
-                  AND organization_id = OLD.organization_id
-                  AND revoked_at IS NULL;
+    """Install the production trigger that revokes MCP tokens on member removal.
 
-                UPDATE mcp_refresh_token
-                SET status = 'revoked'
-                WHERE user_id = OLD.user_id
-                  AND organization_id = OLD.organization_id
-                  AND status = 'active';
-
-                RETURN OLD;
-            END;
-            $$;
-            """
-        )
+    The function SQL comes from the migration that defines it, so tests cannot
+    drift from what deployments run.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "mcp_token_revoker_migration", MCP_TOKEN_REVOKER_MIGRATION
     )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load {MCP_TOKEN_REVOKER_MIGRATION}")
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    conn.execute(text(migration.REVOKER_FUNCTION_SQL))
+    conn.execute(text(migration.REVOKER_PRIVILEGES_SQL))
     conn.execute(
         text(
             "DROP TRIGGER IF EXISTS trg_organization_membership_revoke_mcp_tokens "
@@ -450,6 +447,21 @@ def clean_redis_db(redis_server):
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture(autouse=True, scope="function")
+def keep_test_process_dumpable() -> Iterator[None]:
+    """Undo PR_SET_DUMPABLE=0 that code under test applied to this worker.
+
+    The executor, API and registry sync protect their own process from
+    same-user inspection. When a test runs that code in the pytest worker, the
+    flag would otherwise outlive the test: /proc/self and the /proc entries of
+    later tests' children become unreadable, which breaks unrelated tests in
+    the same xdist worker. A process may always make itself dumpable again.
+    """
+    yield
+    if sys.platform.startswith("linux") and not is_process_dumpable():
+        restore_process_dumpable()
 
 
 @pytest.fixture(autouse=True, scope="function")

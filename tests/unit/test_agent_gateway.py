@@ -776,6 +776,48 @@ async def test_pre_call_hook_uses_request_model_route_claim(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    "model",
+    ["synthetic-model", "openai/synthetic-model", "litellm_proxy/synthetic-model"],
+)
+async def test_pre_call_hook_routes_custom_provider_models_through_hosted_vllm(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+) -> None:
+    async def mock_get_provider_credentials(**_: object) -> dict[str, str]:
+        return {
+            "CUSTOM_MODEL_PROVIDER_API_KEY": "synthetic-key",
+            "CUSTOM_MODEL_PROVIDER_BASE_URL": "https://provider.example.invalid/v1",
+        }
+
+    monkeypatch.setattr(
+        "autosecops.agent.gateway.get_provider_credentials",
+        mock_get_provider_credentials,
+    )
+
+    result = await AutoSecOpsCallbackHandler().async_pre_call_hook(
+        user_api_key_dict=UserAPIKeyAuth(
+            api_key="llm-token",
+            metadata={
+                "workspace_id": "00000000-0000-0000-0000-000000000001",
+                "organization_id": "00000000-0000-0000-0000-000000000002",
+                "model": model,
+                "provider": "custom-model-provider",
+                "use_workspace_credentials": True,
+            },
+        ),
+        cache=cast(DualCache, object()),
+        data={"model": model},
+        call_type="anthropic_messages",
+    )
+
+    # Vendor-prefixed custom IDs must not match that vendor's route; the
+    # hosted_vllm adapter strips only its own prefix and forwards the rest.
+    assert result["model"] == f"hosted_vllm/{model}"
+    assert result["custom_llm_provider"] == "hosted_vllm"
+
+
+@pytest.mark.anyio
 async def test_pre_call_hook_does_not_inject_reasoning_effort_without_model_setting(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -6,6 +6,7 @@ from autosecops.authz.controls import require_scope
 from autosecops.cases.tags.schemas import CaseTagRead
 from autosecops.cases.tags.service import CaseTagsService
 from autosecops.db.dependencies import AsyncDBSession
+from autosecops.db.errors import is_unique_violation
 from autosecops.tags.schemas import TagCreate
 
 router = APIRouter(
@@ -42,6 +43,12 @@ async def executor_create_case_tag(
             detail=str(err),
         ) from err
     except IntegrityError as err:
+        if not is_unique_violation(
+            err,
+            "uq_case_tag_name_workspace",
+            "uq_case_tag_ref_workspace",
+        ):
+            raise
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Case tag already exists",

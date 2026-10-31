@@ -30,6 +30,7 @@ from autosecops.exceptions import AutoSecOpsNotFoundError
 from autosecops.pagination import CursorPaginatedResponse, Page
 from autosecops.tables.enums import SqlType
 from autosecops.tables.schemas import TableColumnRead
+from tests._db_error_utils import unique_violation
 
 
 def _build_case_read(case_id: uuid.UUID) -> CaseReadMinimal:
@@ -52,13 +53,7 @@ def _build_case_read(case_id: uuid.UUID) -> CaseReadMinimal:
 
 
 def _duplicate_case_row_link_error() -> IntegrityError:
-    return IntegrityError(
-        "INSERT INTO case_table_row ...",
-        {},
-        Exception(
-            'duplicate key value violates unique constraint "uq_case_table_row_link"'
-        ),
-    )
+    return unique_violation("uq_case_table_row_link")
 
 
 @pytest.mark.anyio

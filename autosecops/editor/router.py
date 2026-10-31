@@ -18,6 +18,7 @@ from autosecops.editor.schemas import (
 from autosecops.expressions.functions import FUNCTION_MAPPING
 from autosecops.expressions.parser.grammar import grammar
 from autosecops.identifiers.workflow import AnyWorkflowIDQuery
+from autosecops.logger import logger
 from autosecops.registry.fields import EditorComponent
 from autosecops.workflow.management.management import WorkflowsManagementService
 
@@ -281,12 +282,14 @@ async def validate_expression(
             tokens=[],
         )
 
-    except Exception as e:
-        # Handle any other parsing errors
+    except Exception:
+        logger.exception("Failed to validate expression")
         return ExpressionValidationResponse(
             is_valid=False,
             errors=[
-                ValidationError(message=f"Parser error: {str(e)}", line=1, column=1)
+                ValidationError(
+                    message="Unable to validate expression", line=1, column=1
+                )
             ],
             tokens=[],
         )

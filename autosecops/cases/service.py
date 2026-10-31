@@ -208,6 +208,21 @@ CASE_BATCH_LOCK_NOT_AVAILABLE_SQLSTATE = "55P03"
 PENDING_CASE_NUMBER = 0
 
 
+async def _validate_case_assignee(
+    session: AsyncSession, assignee_id: uuid.UUID | None
+) -> None:
+    if assignee_id is None:
+        return
+    user_id_column = User.__table__.c.id
+    user_id = await session.scalar(
+        select(user_id_column)
+        .where(user_id_column == assignee_id)
+        .with_for_update(read=True, key_share=True)
+    )
+    if user_id is None:
+        raise AutoSecOpsValidationError("Assignee not found")
+
+
 class CasesService(BaseWorkspaceService):
     service_name = "cases"
 
@@ -637,6 +652,7 @@ class CasesService(BaseWorkspaceService):
             The created case.
         """
         try:
+            await _validate_case_assignee(self.session, params.assignee_id)
             # Ensure the workspace-scoped `case_fields` schema/table exists before we
             # take locks on the `case` table (e.g. via INSERT/UPDATE). This avoids
             # deadlocks under concurrency when schema initialization requires a
@@ -909,6 +925,7 @@ class CasesService(BaseWorkspaceService):
         # Update case parameters if provided
         set_fields = params.model_dump(exclude_unset=True)
         dropdown_values = set_fields.pop("dropdown_values", None)
+        await _validate_case_assignee(self.session, set_fields.get("assignee_id"))
 
         # Validate closure requirements before any mutations
         if (peek_status := set_fields.get("status")) and peek_status != case.status:

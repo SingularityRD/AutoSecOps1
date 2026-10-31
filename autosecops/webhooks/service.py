@@ -11,7 +11,7 @@ from autosecops.audit.logger import (
 )
 from autosecops.auth.types import Role
 from autosecops.authz.controls import require_scope
-from autosecops.db.models import Webhook
+from autosecops.db.models import Webhook, Workflow
 from autosecops.exceptions import (
     AutoSecOpsAuthorizationError,
     AutoSecOpsConflictError,
@@ -76,6 +76,14 @@ async def create_webhook(
     """Create a webhook for a workflow."""
     if role.workspace_id is None:
         raise AutoSecOpsAuthorizationError("Webhook creation requires a workspace")
+    # Locking the workflow serializes concurrent creates for the existence check.
+    workflow = await session.scalar(
+        select(Workflow.id)
+        .where(Workflow.workspace_id == role.workspace_id, Workflow.id == workflow_id)
+        .with_for_update()
+    )
+    if workflow is None:
+        raise AutoSecOpsNotFoundError("Workflow not found")
     if await get_webhook(session, role.workspace_id, workflow_id) is not None:
         raise AutoSecOpsConflictError(
             "Workflow already has a webhook. Update it with PATCH instead."

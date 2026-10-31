@@ -9,6 +9,7 @@ import pytest
 
 from autosecops import config
 from autosecops.executor import registry_artifact_mounts
+from autosecops.process_env import tool_subprocess_env
 
 
 def _process(*, returncode: int) -> AsyncMock:
@@ -46,6 +47,7 @@ async def test_sync_loop_device_nodes_parses_valid_counts() -> None:
         stdout=registry_artifact_mounts.asyncio.subprocess.PIPE,
         stderr=registry_artifact_mounts.asyncio.subprocess.PIPE,
         start_new_session=True,
+        env=tool_subprocess_env(),
     )
 
 

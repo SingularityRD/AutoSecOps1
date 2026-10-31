@@ -38,6 +38,7 @@ api. Expects dict root, component.
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__SERVICE_KEY" "secret" $core "key" "serviceKey") }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__SIGNING_SECRET" "secret" $core "key" "signingSecret") }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__LICENSE_KEY" "secret" $core "key" "licenseKey" "optional" true) }}
+{{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__DB_ENCRYPTION_PREVIOUS_KEYS" "secret" $core "key" "dbEncryptionPreviousKeys" "optional" true) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "AUTOSECOPS__OUTBOUND_PROXY_URL" "secret" $core "key" "outboundProxyUrl" "optional" true) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "SENTRY_DSN" "secret" $core "key" "sentryDsn" "optional" true) }}
 {{ include "autosecops.env.fromSecret" (dict "name" "OTEL_EXPORTER_OTLP_HEADERS" "secret" $core "key" "otelExporterOtlpHeaders" "optional" true) }}

@@ -14,6 +14,7 @@ from autosecops.auth.types import Role
 from autosecops.authz.controls import require_scope
 from autosecops.db.dependencies import AsyncDBSession
 from autosecops.db.engine import get_async_session_context_manager
+from autosecops.db.errors import is_unique_violation
 from autosecops.db.models import RegistryRepository
 from autosecops.exceptions import (
     AutoSecOpsCredentialsError,
@@ -413,11 +414,11 @@ async def create_registry_repository(
     try:
         created_repository = await service.create_repository(params)
     except IntegrityError as e:
-        msg = str(e)
-        logger.error("Error creating registry repository", exc=e)
+        if not is_unique_violation(e, "uq_registry_repository_organization_id_origin"):
+            raise
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
+            detail="Registry repository already exists",
         ) from e
     except AutoSecOpsValidationError as e:
         logger.error("Error creating registry repository", exc=e)
@@ -476,7 +477,15 @@ async def update_registry_repository(
 
     await check_entitlement(session, role, Entitlement.CUSTOM_REGISTRY)
 
-    updated_repository = await repos_service.update_repository(repository, params)
+    try:
+        updated_repository = await repos_service.update_repository(repository, params)
+    except IntegrityError as e:
+        if not is_unique_violation(e, "uq_registry_repository_organization_id_origin"):
+            raise
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registry repository already exists",
+        ) from e
     actions = await actions_service.list_actions_from_index_by_repository(repository_id)
     return RegistryRepositoryRead(
         id=updated_repository.id,

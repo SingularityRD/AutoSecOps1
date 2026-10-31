@@ -59,6 +59,8 @@ locals {
   }
 
   autosecops_common_env = {
+    AUTOSECOPS__BACKGROUND_QUEUE                        = var.background_queue
+    AUTOSECOPS__DB_ENCRYPTION_ALGORITHM                 = var.db_encryption_algorithm
     LOG_LEVEL                                           = var.log_level
     TEMPORAL__CLUSTER_NAMESPACE                         = local.temporal_namespace
     TEMPORAL__CLUSTER_URL                               = local.temporal_cluster_url
@@ -146,6 +148,7 @@ locals {
 
         # Break-glass recovery for a platform admin IP allowlist lockout.
         AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS = var.platform_admin_ip_allowlist_bypass
+        AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS          = var.platform_admin_mfa_bypass
       }
     ) :
     { name = k, value = tostring(v) } if v != null
@@ -174,6 +177,14 @@ locals {
     ) :
     { name = k, value = tostring(v) } if v != null
   ]
+
+  background_worker_env = concat(
+    [for item in local.worker_env : item if item.name != "AUTOSECOPS__SERVICE_NAME"],
+    [
+      { name = "AUTOSECOPS__SERVICE_NAME", value = "background-worker" },
+      { name = "AUTOSECOPS__BACKGROUND_MAX_CONCURRENT_ACTIVITIES", value = tostring(var.background_worker_max_concurrent_activities) }
+    ]
+  )
 
   agent_worker_env = [
     for k, v in merge(
