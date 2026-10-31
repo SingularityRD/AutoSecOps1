@@ -751,7 +751,8 @@ async def test_consumer_waits_out_each_backoff_then_resets_after_success(
     ]
 
 
-def test_retry_backoff_spreads_attempts_over_a_relay_restart() -> None:
+@pytest.mark.anyio
+async def test_retry_backoff_spreads_attempts_over_a_relay_restart() -> None:
     assert next_poll_delay(0) == POLL_INTERVAL_SECONDS
     assert [next_poll_delay(n) for n in range(1, 6)] == [
         30.0,
