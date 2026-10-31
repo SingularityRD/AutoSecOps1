@@ -23,6 +23,8 @@ The first superadmin bypasses the domain list. A blocked email fails with the me
 
 A password must be at least `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` characters long, default `12`.
 
+A self-registered account must verify its email before it can sign in, and self-registration needs SMTP. Invitation sign-ups, the first superadmin, and SSO accounts are verified on creation. See [email verification](/authentication/basic#email-verification).
+
 ## Joining an organization
 
 Registration and SSO create the account without an organization membership. Until an invitation or a superadmin grants one, the user sees `No organization access yet` after sign-in. That screen lists any pending invitations for their email and a `Sign out` button.

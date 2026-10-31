@@ -228,6 +228,17 @@ Run these checks right after every upgrade:
 5. A case with an attachment opens and the attachment downloads.
 6. Scheduled workflows fire on their next interval.
 
+## Email verification for password accounts
+
+Releases with email verification require a verified email for password sign-in. The upgrade migration marks every existing account verified, so nobody is locked out. After the upgrade:
+
+- A new self-registration must open an emailed link before it can sign in. Invitation links, the first superadmin, superadmin-created accounts, and SSO and SCIM accounts are verified on creation. See [email verification](/authentication/basic#email-verification).
+- Without the SMTP settings, `POST /auth/register` refuses self-registration with `403`. Configure SMTP to keep open sign-up, or invite users instead.
+- An account that self-registered while the old version was still serving, during a rolling upgrade, starts unverified. It requests a new email from the sign-in page, or a superadmin marks it verified.
+- `AUTOSECOPS__AUTH_REQUIRE_EMAIL_VERIFICATION` no longer has an effect. Remove it from your environment.
+
+The migration verified accounts that self-registered under the old policy without proving their address. If your deployment allowed open sign-up, review those accounts in `/admin/users` and delete any you do not recognize.
+
 ## Agent workers during a rolling upgrade
 
 Kubernetes and Fargate replace agent worker replicas one at a time, so for a few minutes old and new agent workers share the same Temporal task queue. A new release can add an agent activity, such as the [model lookup by name](/agents/custom-llm-providers#credentials) for agent configurations without a `catalog_id`. When an old worker receives that activity, it fails the attempt as not registered, and AutoSecOps retries it for up to 10 minutes until an upgraded worker takes it.

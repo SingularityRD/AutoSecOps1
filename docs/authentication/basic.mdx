@@ -38,6 +38,50 @@ AUTOSECOPS__AUTH_TYPES=basic,oidc
 When you use basic auth, your password must be at least
 `AUTOSECOPS__AUTH_MIN_PASSWORD_LENGTH` characters long. The default minimum is `12`.
 
+## Email verification
+
+Password sign-in requires a verified email. An account that signs in before verifying gets `400` with `LOGIN_USER_NOT_VERIFIED` after the password matches, and the sign-in page offers to resend the email. A session never belongs to an unverified account.
+
+How an account gets verified depends on how it was created:
+
+| How the account was created | Verified | Why |
+| :-------------------------- | :------- | :-- |
+| Self-registration at `POST /auth/register` | After the user opens the emailed link | Nobody has vouched for the address. |
+| Registration through an invitation link, for the invited email | On creation | An organization admin chose the address, and the link was sent to it. |
+| First registration of `AUTOSECOPS__AUTH_SUPERADMIN_EMAIL` | On creation | The operator configured that exact address. A later registration of the same address must verify. |
+| Created by a superadmin, the admin CLI, OIDC, SAML, or SCIM | On creation | The admin or identity provider vouches for the address. OIDC sign-ins that report `email_verified: false` are rejected. |
+
+Verification links are signed with `USER_AUTH_SECRET`, bound to the account and its current email, valid for `AUTOSECOPS__AUTH_EMAIL_VERIFICATION_TOKEN_LIFETIME_SECONDS` (default one hour), and spent once the account is verified. AutoSecOps never stores or logs a link: the email sender mints it when it sends. Each account gets at most one email per minute, and the request and verify endpoints are [rate limited](/self-hosting/environment-variables). Every verification writes a `user.verify` event to the platform audit log with the method that proved the address.
+
+The emailed link opens `/verify-email`, which submits the token only when the user clicks `Verify email`, so mail scanners that open links cannot verify an account.
+
+If an OIDC, SAML, or SCIM identity resolves to an unverified password account with the same email, AutoSecOps verifies the account, replaces its password with a random one, and revokes its sessions. Whoever registered the address first cannot keep a password on an account the identity provider has proven belongs to someone else.
+
+### Without SMTP
+
+Verification emails need the [SMTP settings](/self-hosting/environment-variables). Without them:
+
+- `POST /auth/register` refuses self-registration with `403` and the code `self_registration_unavailable`. Invitation links and the first superadmin registration still work.
+- A superadmin marks an account verified with `Mark email verified` in the account's menu on `/admin/users`, or with `POST /admin/users/{user_id}/verify`. Confirm out of band that the person controls the address first.
+
+### API
+
+```bash
+# Ask for a new verification email. Always returns 202.
+curl https://<host>/api/auth/request-verify-token \
+  --request POST \
+  --header "Content-Type: application/json" \
+  --data '{"email": "user@example.com"}'
+
+# Submit the token from the emailed link.
+curl https://<host>/api/auth/verify \
+  --request POST \
+  --header "Content-Type: application/json" \
+  --data '{"token": "<TOKEN>"}'
+```
+
+`POST /auth/verify` returns `400` with `VERIFY_USER_BAD_TOKEN` for an invalid, expired, or superseded token, and `VERIFY_USER_ALREADY_VERIFIED` once the account is verified.
+
 ## Change password
 
 Password changes go through the API with the session cookie. Sign in with `POST /auth/login`, then send the new password to `PATCH /users/me`:
