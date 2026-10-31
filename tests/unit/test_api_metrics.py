@@ -25,6 +25,7 @@ from autosecops.observability.api_metrics import (
     method_label,
 )
 from autosecops.observability.metrics_server import (
+    MAX_CONCURRENT_CONNECTIONS,
     MAX_REQUEST_LINE_BYTES,
     MetricsServer,
     build_response,
@@ -287,6 +288,41 @@ async def test_metrics_listener_serves_and_rejects_oversized_requests() -> None:
         )
         assert await _http_get(port, oversized) == b""
     finally:
+        await server.stop()
+
+
+@pytest.mark.anyio
+async def test_metrics_listener_caps_concurrent_connections() -> None:
+    server = MetricsServer(lambda: "up 1\n", host="127.0.0.1", port=0)
+    await server.start()
+    idle: list[asyncio.StreamWriter] = []
+    try:
+        port = server.bound_port
+        assert port is not None
+        # Idle peers hold every slot without sending a request.
+        for _ in range(MAX_CONCURRENT_CONNECTIONS):
+            _, writer = await asyncio.open_connection("127.0.0.1", port)
+            idle.append(writer)
+        await asyncio.sleep(0.05)
+        assert server._active_connections == MAX_CONCURRENT_CONNECTIONS
+        # One more is closed at once instead of waiting for a slot.
+        try:
+            rejected = await asyncio.wait_for(
+                _http_get(port, b"GET /metrics HTTP/1.1\r\n\r\n"), timeout=2
+            )
+        except ConnectionResetError:
+            rejected = b""
+        assert rejected == b""
+
+        for writer in idle:
+            writer.close()
+        idle.clear()
+        await asyncio.sleep(0.05)
+        ok = await _http_get(port, b"GET /metrics HTTP/1.1\r\n\r\n")
+        assert ok.startswith(b"HTTP/1.1 200 OK\r\n")
+    finally:
+        for writer in idle:
+            writer.close()
         await server.stop()
 
 

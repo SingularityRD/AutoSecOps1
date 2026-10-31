@@ -1,8 +1,8 @@
 """Internal HTTP listener that serves a metrics registry at ``/metrics``.
 
 The listener is deliberately tiny: it answers ``GET``/``HEAD /metrics`` and
-nothing else, reads at most one bounded request per connection, and closes the
-connection after responding. It runs on its own port so the public API router,
+nothing else, reads at most one bounded request per connection, closes the
+connection after responding, and serves a bounded number of connections at once. It runs on its own port so the public API router,
 Caddy, and the Helm ingress never expose it.
 """
 
@@ -20,6 +20,12 @@ MAX_REQUEST_LINE_BYTES: Final = 8192
 """Stream reader limit, which bounds each request and header line."""
 MAX_HEADER_LINES: Final = 100
 REQUEST_TIMEOUT_SECONDS: Final = 5.0
+MAX_CONCURRENT_CONNECTIONS: Final = 16
+"""Connections served at once; extra connections are closed without a reply.
+
+A scraper needs one connection per scrape, so this only bounds how many file
+descriptors and tasks idle peers can hold in the host process.
+"""
 
 
 def _response(status: str, body: bytes, content_type: str, *, head: bool) -> bytes:
@@ -58,6 +64,7 @@ class MetricsServer:
         self.host = host
         self.port = port
         self._server: asyncio.Server | None = None
+        self._active_connections = 0
 
     @property
     def bound_port(self) -> int | None:
@@ -85,6 +92,18 @@ class MetricsServer:
         self._server = None
 
     async def _handle(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        if self._active_connections >= MAX_CONCURRENT_CONNECTIONS:
+            writer.close()
+            return
+        self._active_connections += 1
+        try:
+            await self._serve(reader, writer)
+        finally:
+            self._active_connections -= 1
+
+    async def _serve(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         try:
