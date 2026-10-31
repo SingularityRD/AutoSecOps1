@@ -50,6 +50,7 @@ from autosecops.executor.registry_artifacts import (
     bundled_builtin_registry_uri,
     compute_registry_artifact_cache_key,
 )
+from autosecops.process_env import tool_subprocess_env
 
 MAX_ENTRIES_CONFIG = (
     "autosecops.executor.registry_artifacts.config"
@@ -1850,6 +1851,7 @@ class TestRegistryArtifactCache:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
+            env=tool_subprocess_env(),
         )
         terminate_process_group.assert_awaited_once_with(process)
 

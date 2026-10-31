@@ -37,6 +37,8 @@ env:
     value: {{ $a.smtp.emailFrom | quote }}
   - name: AUTOSECOPS__PLATFORM_ADMIN_IP_ALLOWLIST_BYPASS
     value: {{ $a.platformAdminIpAllowlistBypass | toString | quote }}
+  - name: AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS
+    value: {{ $a.platformAdminMfaBypass | toString | quote }}
   {{- with include "autosecops.presignedUrlEndpoint" . }}
   - name: AUTOSECOPS__BLOB_STORAGE_PRESIGNED_URL_ENDPOINT
     value: {{ . | quote }}

@@ -22,6 +22,7 @@ import type {
   AdminAgentListPlatformCatalogResponse,
   AdminCheckIpAllowlistData,
   AdminCheckIpAllowlistResponse,
+  AdminClearSourceResponse,
   AdminCreateOrganizationData,
   AdminCreateOrganizationDomainData,
   AdminCreateOrganizationDomainResponse,
@@ -43,6 +44,7 @@ import type {
   AdminDemoteFromSuperuserData,
   AdminDemoteFromSuperuserResponse,
   AdminGetAuditSettingsResponse,
+  AdminGetMfaSettingsResponse,
   AdminGetOrganizationData,
   AdminGetOrganizationInvitationTokenData,
   AdminGetOrganizationInvitationTokenResponse,
@@ -51,6 +53,7 @@ import type {
   AdminGetOrgTierResponse,
   AdminGetRegistrySettingsResponse,
   AdminGetSecuritySettingsResponse,
+  AdminGetSourceResponse,
   AdminGetTierData,
   AdminGetTierResponse,
   AdminGetUserData,
@@ -67,6 +70,8 @@ import type {
   AdminListOrgRepositoryVersionsResponse,
   AdminListOrgTiersData,
   AdminListOrgTiersResponse,
+  AdminListSourceTagsData,
+  AdminListSourceTagsResponse,
   AdminListTiersData,
   AdminListTiersResponse,
   AdminListUsersResponse,
@@ -95,14 +100,20 @@ import type {
   AdminRegistrySyncRepositoryResponse,
   AdminResendOrganizationInvitationData,
   AdminResendOrganizationInvitationResponse,
+  AdminResetUserMfaData,
+  AdminResetUserMfaResponse,
   AdminRevokeOrganizationInvitationData,
   AdminRevokeOrganizationInvitationResponse,
+  AdminSetSourceData,
+  AdminSetSourceResponse,
   AdminSyncOrgRepositoryData,
   AdminSyncOrgRepositoryResponse,
   AdminTestAuditWebhookData,
   AdminTestAuditWebhookResponse,
   AdminUpdateAuditSettingsData,
   AdminUpdateAuditSettingsResponse,
+  AdminUpdateMfaSettingsData,
+  AdminUpdateMfaSettingsResponse,
   AdminUpdateOrganizationData,
   AdminUpdateOrganizationDomainData,
   AdminUpdateOrganizationDomainResponse,
@@ -207,6 +218,8 @@ import type {
   AgentSessionsGetSessionVercelResponse,
   AgentSessionsListAgentBackendsData,
   AgentSessionsListAgentBackendsResponse,
+  AgentSessionsListPendingMessagesData,
+  AgentSessionsListPendingMessagesResponse,
   AgentSessionsListSessionsData,
   AgentSessionsListSessionsResponse,
   AgentSessionsRemoveSessionArtifactData,
@@ -278,21 +291,37 @@ import type {
   AuthAuthDatabaseLoginData,
   AuthAuthDatabaseLoginResponse,
   AuthAuthDatabaseLogoutResponse,
+  AuthBeginAuthenticationResponse,
+  AuthBeginRegistrationResponse,
+  AuthCompleteAuthenticationData,
+  AuthCompleteAuthenticationResponse,
+  AuthCompleteRegistrationData,
+  AuthCompleteRegistrationResponse,
+  AuthDeleteCredentialData,
+  AuthDeleteCredentialResponse,
   AuthDiscoverAuthMethodData,
   AuthDiscoverAuthMethodResponse,
+  AuthGetMfaStatusResponse,
+  AuthListCredentialsResponse,
   AuthOauthOidcDatabaseAuthorizeData,
   AuthOauthOidcDatabaseAuthorizeResponse,
   AuthOauthOidcDatabaseCallbackData,
   AuthOauthOidcDatabaseCallbackResponse,
+  AuthRegenerateRecoveryCodesResponse,
   AuthRegisterRegisterData,
   AuthRegisterRegisterResponse,
+  AuthRenameCredentialData,
+  AuthRenameCredentialResponse,
   AuthResetForgotPasswordData,
   AuthResetForgotPasswordResponse,
   AuthResetResetPasswordData,
   AuthResetResetPasswordResponse,
   AuthSamlDatabaseLoginResponse,
+  AuthSignOutPendingSessionResponse,
   AuthSsoAcsData,
   AuthSsoAcsResponse,
+  AuthVerifyRecoveryCodeData,
+  AuthVerifyRecoveryCodeResponse,
   AuthVerifyRequestTokenData,
   AuthVerifyRequestTokenResponse,
   AuthVerifyVerifyData,
@@ -940,6 +969,7 @@ import type {
   SettingsGetAppSettingsResponse,
   SettingsGetAuditSettingsResponse,
   SettingsGetGitSettingsResponse,
+  SettingsGetMfaPolicyResponse,
   SettingsGetSamlSettingsResponse,
   SettingsGetSecuritySettingsResponse,
   SettingsTestAuditWebhookData,
@@ -954,6 +984,8 @@ import type {
   SettingsUpdateAuditSettingsResponse,
   SettingsUpdateGitSettingsData,
   SettingsUpdateGitSettingsResponse,
+  SettingsUpdateMfaPolicyData,
+  SettingsUpdateMfaPolicyResponse,
   SettingsUpdateSamlSettingsData,
   SettingsUpdateSamlSettingsResponse,
   SettingsUpdateSecuritySettingsData,
@@ -1188,8 +1220,12 @@ import type {
   WorkflowExecutionsTerminateWorkflowExecutionResponse,
   WorkflowsAddTagData,
   WorkflowsAddTagResponse,
+  WorkflowsApplySyncOperationData,
+  WorkflowsApplySyncOperationResponse,
   WorkflowsCommitWorkflowData,
   WorkflowsCommitWorkflowResponse,
+  WorkflowsCreateSyncOperationData,
+  WorkflowsCreateSyncOperationResponse,
   WorkflowsCreateWorkflowData,
   WorkflowsCreateWorkflowResponse,
   WorkflowsDeleteWorkflowData,
@@ -1198,12 +1234,20 @@ import type {
   WorkflowsExportWorkflowResponse,
   WorkflowsExportWorkspaceSyncData,
   WorkflowsExportWorkspaceSyncResponse,
+  WorkflowsGetSyncDiffData,
+  WorkflowsGetSyncDiffResponse,
+  WorkflowsGetSyncOperationData,
+  WorkflowsGetSyncOperationResponse,
   WorkflowsGetWorkflowData,
   WorkflowsGetWorkflowDefinitionData,
   WorkflowsGetWorkflowDefinitionResponse,
   WorkflowsGetWorkflowDraftData,
   WorkflowsGetWorkflowDraftResponse,
   WorkflowsGetWorkflowResponse,
+  WorkflowsListSyncDiffsData,
+  WorkflowsListSyncDiffsResponse,
+  WorkflowsListSyncOperationsData,
+  WorkflowsListSyncOperationsResponse,
   WorkflowsListTagsData,
   WorkflowsListTagsResponse,
   WorkflowsListWorkflowBranchesData,
@@ -1230,6 +1274,8 @@ import type {
   WorkflowsReplaceWorkflowDraftResponse,
   WorkflowsRestoreWorkflowDefinitionData,
   WorkflowsRestoreWorkflowDefinitionResponse,
+  WorkflowsRetrySyncOperationData,
+  WorkflowsRetrySyncOperationResponse,
   WorkflowsUpdateWorkflowData,
   WorkflowsUpdateWorkflowResponse,
   WorkflowsValidateWorkflowEntrypointData,
@@ -3895,6 +3941,7 @@ export const workflowsPublishWorkflow = (
     body: data.requestBody,
     mediaType: "application/json",
     errors: {
+      400: "Bad Request",
       422: "Validation Error",
     },
   })
@@ -4003,6 +4050,7 @@ export const workflowsExportWorkspaceSync = (
     body: data.requestBody,
     mediaType: "application/json",
     errors: {
+      400: "Bad Request",
       422: "Validation Error",
     },
   })
@@ -4029,6 +4077,7 @@ export const workflowsPreviewExportWorkspaceSync = (
     body: data.requestBody,
     mediaType: "application/json",
     errors: {
+      400: "Bad Request",
       422: "Validation Error",
     },
   })
@@ -4059,6 +4108,224 @@ export const workflowsPullWorkflows = (
     body: data.requestBody,
     mediaType: "application/json",
     errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Create Sync Operation
+ * Accept a preview and return before any Git or resource work begins.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns SyncOperationRead Successful Response
+ * @throws ApiError
+ */
+export const workflowsCreateSyncOperation = (
+  data: WorkflowsCreateSyncOperationData
+): CancelablePromise<WorkflowsCreateSyncOperationResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      400: "Bad Request",
+      403: "Forbidden",
+      404: "Not Found",
+      409: "Conflict",
+      422: "Validation Error",
+      503: "Service Unavailable",
+    },
+  })
+}
+
+/**
+ * List Sync Operations
+ * Recover the initiating actor's operations after a reload or reconnect.
+ * @param data The data for the request.
+ * @param data.workspaceId
+ * @param data.limit
+ * @param data.cursor
+ * @returns Page_SyncOperationRead_ Successful Response
+ * @throws ApiError
+ */
+export const workflowsListSyncOperations = (
+  data: WorkflowsListSyncOperationsData
+): CancelablePromise<WorkflowsListSyncOperationsResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations",
+    path: {
+      workspace_id: data.workspaceId,
+    },
+    query: {
+      limit: data.limit,
+      cursor: data.cursor,
+    },
+    errors: {
+      400: "Bad Request",
+      403: "Forbidden",
+      404: "Not Found",
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Sync Operation
+ * Poll durable progress without starting or mutating the operation.
+ * @param data The data for the request.
+ * @param data.operationId
+ * @param data.workspaceId
+ * @returns SyncOperationRead Successful Response
+ * @throws ApiError
+ */
+export const workflowsGetSyncOperation = (
+  data: WorkflowsGetSyncOperationData
+): CancelablePromise<WorkflowsGetSyncOperationResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}",
+    path: {
+      operation_id: data.operationId,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      403: "Forbidden",
+      404: "Not Found",
+      422: "Validation Error",
+      503: "Service Unavailable",
+    },
+  })
+}
+
+/**
+ * Apply Sync Operation
+ * Send a stable apply command to the existing lifecycle workflow.
+ * @param data The data for the request.
+ * @param data.operationId
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns SyncOperationRead Successful Response
+ * @throws ApiError
+ */
+export const workflowsApplySyncOperation = (
+  data: WorkflowsApplySyncOperationData
+): CancelablePromise<WorkflowsApplySyncOperationResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/apply",
+    path: {
+      operation_id: data.operationId,
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      403: "Forbidden",
+      404: "Not Found",
+      409: "Conflict",
+      422: "Validation Error",
+      503: "Service Unavailable",
+    },
+  })
+}
+
+/**
+ * Retry Sync Operation
+ * Send a stable retry command to the existing lifecycle workflow.
+ * @param data The data for the request.
+ * @param data.operationId
+ * @param data.workspaceId
+ * @param data.requestBody
+ * @returns SyncOperationRead Successful Response
+ * @throws ApiError
+ */
+export const workflowsRetrySyncOperation = (
+  data: WorkflowsRetrySyncOperationData
+): CancelablePromise<WorkflowsRetrySyncOperationResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/retry",
+    path: {
+      operation_id: data.operationId,
+      workspace_id: data.workspaceId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      403: "Forbidden",
+      404: "Not Found",
+      409: "Conflict",
+      422: "Validation Error",
+      503: "Service Unavailable",
+    },
+  })
+}
+
+/**
+ * List Sync Diffs
+ * Read one bounded page of diff metadata, without loading file contents.
+ * @param data The data for the request.
+ * @param data.operationId
+ * @param data.workspaceId
+ * @param data.cursor
+ * @returns SyncDiffPage Successful Response
+ * @throws ApiError
+ */
+export const workflowsListSyncDiffs = (
+  data: WorkflowsListSyncDiffsData
+): CancelablePromise<WorkflowsListSyncDiffsResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs",
+    path: {
+      operation_id: data.operationId,
+      workspace_id: data.workspaceId,
+    },
+    query: {
+      cursor: data.cursor,
+    },
+    errors: {
+      400: "Bad Request",
+      403: "Forbidden",
+      404: "Not Found",
+      410: "Gone",
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Sync Diff
+ * Load one selected file diff on demand.
+ * @param data The data for the request.
+ * @param data.operationId
+ * @param data.index
+ * @param data.workspaceId
+ * @returns PullResourceDiff Successful Response
+ * @throws ApiError
+ */
+export const workflowsGetSyncDiff = (
+  data: WorkflowsGetSyncDiffData
+): CancelablePromise<WorkflowsGetSyncDiffResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/workflows/sync/operations/{operation_id}/diffs/{index}",
+    path: {
+      operation_id: data.operationId,
+      index: data.index,
+      workspace_id: data.workspaceId,
+    },
+    errors: {
+      403: "Forbidden",
+      404: "Not Found",
+      410: "Gone",
       422: "Validation Error",
     },
   })
@@ -9253,7 +9520,7 @@ export const agentSkillsRemoveSkillTag = (
 
 /**
  * List Agent Backends
- * List enabled installed backends available to new sessions.
+ * List enabled installed backends this organization may start sessions on.
  * @param data The data for the request.
  * @param data.workspaceId
  * @returns AgentBackendRead Successful Response
@@ -9295,7 +9562,7 @@ export const agentSessionsCreateSession = (
     body: data.requestBody,
     mediaType: "application/json",
     errors: {
-      403: "Workspace Chat entitlement or parent session write access required",
+      403: "Workspace Chat or agent backend entitlement, or parent session write access required",
       404: "Parent session not found in this workspace",
       422: "Validation Error",
     },
@@ -9546,6 +9813,36 @@ export const agentSessionsStreamSessionEvents = (
     },
     query: {
       format: data.format,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * List Pending Messages
+ * List the user messages the model has not read yet, in send order.
+ *
+ * Covers steers waiting to join the running turn and messages queued for a
+ * later turn. The list is short-lived and small, so it is not paginated. Only
+ * the session's owner sees it: the messages are theirs until the model reads
+ * them.
+ * @param data The data for the request.
+ * @param data.sessionId
+ * @param data.workspaceId
+ * @returns AgentSessionPendingRead Successful Response
+ * @throws ApiError
+ */
+export const agentSessionsListPendingMessages = (
+  data: AgentSessionsListPendingMessagesData
+): CancelablePromise<AgentSessionsListPendingMessagesResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/workspaces/{workspace_id}/agent/sessions/{session_id}/pending",
+    path: {
+      session_id: data.sessionId,
+      workspace_id: data.workspaceId,
     },
     errors: {
       422: "Validation Error",
@@ -9871,6 +10168,80 @@ export const watchtowerEnableWatchtowerAgent = (
     url: "/watchtower/monitor/agents/{agent_id}/enable",
     path: {
       agent_id: data.agentId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Source
+ * Get the workspace managed resources are published from.
+ * @returns ManagedSourceSettingRead Successful Response
+ * @throws ApiError
+ */
+export const adminGetSource = (): CancelablePromise<AdminGetSourceResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/admin/managed-resources/source",
+  })
+}
+
+/**
+ * Set Source
+ * Set the managed resources source and pin its Git binding.
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns ManagedSourceRead Successful Response
+ * @throws ApiError
+ */
+export const adminSetSource = (
+  data: AdminSetSourceData
+): CancelablePromise<AdminSetSourceResponse> => {
+  return __request(OpenAPI, {
+    method: "PUT",
+    url: "/admin/managed-resources/source",
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Clear Source
+ * Remove the managed resources source setting.
+ * @returns void Successful Response
+ * @throws ApiError
+ */
+export const adminClearSource =
+  (): CancelablePromise<AdminClearSourceResponse> => {
+    return __request(OpenAPI, {
+      method: "DELETE",
+      url: "/admin/managed-resources/source",
+    })
+  }
+
+/**
+ * List Source Tags
+ * List tags in the managed resources source repository, newest first.
+ * @param data The data for the request.
+ * @param data.limit
+ * @param data.cursor
+ * @returns Page_GitTagInfo_ Successful Response
+ * @throws ApiError
+ */
+export const adminListSourceTags = (
+  data: AdminListSourceTagsData = {}
+): CancelablePromise<AdminListSourceTagsResponse> => {
+  return __request(OpenAPI, {
+    method: "GET",
+    url: "/admin/managed-resources/source/tags",
+    query: {
+      limit: data.limit,
+      cursor: data.cursor,
     },
     errors: {
       422: "Validation Error",
@@ -10463,6 +10834,44 @@ export const adminUpdateSecuritySettings = (
 }
 
 /**
+ * Get Mfa Settings
+ * Whether platform admins must sign in with a security key.
+ * @returns MfaPolicyRead Successful Response
+ * @throws ApiError
+ */
+export const adminGetMfaSettings =
+  (): CancelablePromise<AdminGetMfaSettingsResponse> => {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/admin/settings/security/mfa",
+    })
+  }
+
+/**
+ * Update Mfa Settings
+ * Require a security key at sign-in for platform admins.
+ *
+ * ``AUTOSECOPS__PLATFORM_ADMIN_MFA_BYPASS`` is the break-glass override.
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns MfaPolicyRead Successful Response
+ * @throws ApiError
+ */
+export const adminUpdateMfaSettings = (
+  data: AdminUpdateMfaSettingsData
+): CancelablePromise<AdminUpdateMfaSettingsResponse> => {
+  return __request(OpenAPI, {
+    method: "PATCH",
+    url: "/admin/settings/security/mfa",
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
  * Check Ip Allowlist
  * Report whether an IP address is admitted by the saved platform admin allowlist.
  * @param data The data for the request.
@@ -10791,6 +11200,32 @@ export const adminDemoteFromSuperuser = (
   return __request(OpenAPI, {
     method: "POST",
     url: "/admin/users/{user_id}/demote",
+    path: {
+      user_id: data.userId,
+    },
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Reset User Mfa
+ * Remove a user's security keys and recovery codes after they lose access.
+ *
+ * If a policy still requires MFA, the user must register a new key at their
+ * next sign-in.
+ * @param data The data for the request.
+ * @param data.userId
+ * @returns void Successful Response
+ * @throws ApiError
+ */
+export const adminResetUserMfa = (
+  data: AdminResetUserMfaData
+): CancelablePromise<AdminResetUserMfaResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/admin/users/{user_id}/mfa/reset",
     path: {
       user_id: data.userId,
     },
@@ -11787,6 +12222,45 @@ export const settingsUpdateSecuritySettings = (
   return __request(OpenAPI, {
     method: "PATCH",
     url: "/settings/security",
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Mfa Policy
+ * Whether members must sign in with a security key.
+ * @returns MfaPolicyRead Successful Response
+ * @throws ApiError
+ */
+export const settingsGetMfaPolicy =
+  (): CancelablePromise<SettingsGetMfaPolicyResponse> => {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/settings/security/mfa",
+    })
+  }
+
+/**
+ * Update Mfa Policy
+ * Require (or stop requiring) a security key at sign-in for all members.
+ *
+ * Applies to password, OIDC, and SAML sign-in. Members without a key must
+ * register one before they can continue. The caller must already have one.
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns MfaPolicyRead Successful Response
+ * @throws ApiError
+ */
+export const settingsUpdateMfaPolicy = (
+  data: SettingsUpdateMfaPolicyData
+): CancelablePromise<SettingsUpdateMfaPolicyResponse> => {
+  return __request(OpenAPI, {
+    method: "PATCH",
+    url: "/settings/security/mfa",
     body: data.requestBody,
     mediaType: "application/json",
     errors: {
@@ -18174,6 +18648,198 @@ export const authSsoAcs = (
     url: "/auth/saml/acs",
     formData: data.formData,
     mediaType: "application/x-www-form-urlencoded",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Get Mfa Status
+ * @returns MfaStatusRead Successful Response
+ * @throws ApiError
+ */
+export const authGetMfaStatus =
+  (): CancelablePromise<AuthGetMfaStatusResponse> => {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/auth/mfa/status",
+    })
+  }
+
+/**
+ * Sign Out Pending Session
+ * End the current session, including one that is waiting on MFA.
+ * @returns void Successful Response
+ * @throws ApiError
+ */
+export const authSignOutPendingSession =
+  (): CancelablePromise<AuthSignOutPendingSessionResponse> => {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/auth/mfa/sign-out",
+    })
+  }
+
+/**
+ * Begin Registration
+ * @returns WebAuthnOptionsRead Successful Response
+ * @throws ApiError
+ */
+export const authBeginRegistration =
+  (): CancelablePromise<AuthBeginRegistrationResponse> => {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/auth/mfa/webauthn/register/options",
+    })
+  }
+
+/**
+ * Complete Registration
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns WebAuthnRegistrationResult Successful Response
+ * @throws ApiError
+ */
+export const authCompleteRegistration = (
+  data: AuthCompleteRegistrationData
+): CancelablePromise<AuthCompleteRegistrationResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/auth/mfa/webauthn/register/verify",
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Begin Authentication
+ * @returns WebAuthnOptionsRead Successful Response
+ * @throws ApiError
+ */
+export const authBeginAuthentication =
+  (): CancelablePromise<AuthBeginAuthenticationResponse> => {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/auth/mfa/webauthn/authenticate/options",
+    })
+  }
+
+/**
+ * Complete Authentication
+ * Verify a security key. Satisfies both the sign-in challenge and step-up.
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns MfaStatusRead Successful Response
+ * @throws ApiError
+ */
+export const authCompleteAuthentication = (
+  data: AuthCompleteAuthenticationData
+): CancelablePromise<AuthCompleteAuthenticationResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/auth/mfa/webauthn/authenticate/verify",
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Verify Recovery Code
+ * Sign in with a one-time recovery code instead of a security key.
+ * @param data The data for the request.
+ * @param data.requestBody
+ * @returns MfaStatusRead Successful Response
+ * @throws ApiError
+ */
+export const authVerifyRecoveryCode = (
+  data: AuthVerifyRecoveryCodeData
+): CancelablePromise<AuthVerifyRecoveryCodeResponse> => {
+  return __request(OpenAPI, {
+    method: "POST",
+    url: "/auth/mfa/recovery-codes/verify",
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Regenerate Recovery Codes
+ * Replace all recovery codes. Previous codes stop working.
+ * @returns RecoveryCodesRead Successful Response
+ * @throws ApiError
+ */
+export const authRegenerateRecoveryCodes =
+  (): CancelablePromise<AuthRegenerateRecoveryCodesResponse> => {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/auth/mfa/recovery-codes",
+    })
+  }
+
+/**
+ * List Credentials
+ * @returns WebAuthnCredentialRead Successful Response
+ * @throws ApiError
+ */
+export const authListCredentials =
+  (): CancelablePromise<AuthListCredentialsResponse> => {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/auth/mfa/credentials",
+    })
+  }
+
+/**
+ * Rename Credential
+ * @param data The data for the request.
+ * @param data.credentialId
+ * @param data.requestBody
+ * @returns WebAuthnCredentialRead Successful Response
+ * @throws ApiError
+ */
+export const authRenameCredential = (
+  data: AuthRenameCredentialData
+): CancelablePromise<AuthRenameCredentialResponse> => {
+  return __request(OpenAPI, {
+    method: "PATCH",
+    url: "/auth/mfa/credentials/{credential_id}",
+    path: {
+      credential_id: data.credentialId,
+    },
+    body: data.requestBody,
+    mediaType: "application/json",
+    errors: {
+      422: "Validation Error",
+    },
+  })
+}
+
+/**
+ * Delete Credential
+ * @param data The data for the request.
+ * @param data.credentialId
+ * @returns void Successful Response
+ * @throws ApiError
+ */
+export const authDeleteCredential = (
+  data: AuthDeleteCredentialData
+): CancelablePromise<AuthDeleteCredentialResponse> => {
+  return __request(OpenAPI, {
+    method: "DELETE",
+    url: "/auth/mfa/credentials/{credential_id}",
+    path: {
+      credential_id: data.credentialId,
+    },
     errors: {
       422: "Validation Error",
     },

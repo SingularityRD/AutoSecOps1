@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
 import errno
 import importlib
 import json
@@ -21,6 +22,7 @@ import os
 import re
 import resource
 import signal
+import stat
 import sys
 import threading
 import time
@@ -69,6 +71,9 @@ except ImportError:
 
     JSON_OUTPUT_IS_BYTES = True
 
+
+RUNNER_READY = b"\x06"
+"""Byte the runner sends on a socket stdin once it is protected and ready."""
 
 # Static config (read once at module load, immutable)
 _API_URL = os.environ.get("AUTOSECOPS__API_URL", "http://api:8000")
@@ -807,6 +812,75 @@ def _action_display_name(action_impl: dict[str, Any] | None) -> str:
     return "<unknown>"
 
 
+def _add_isolated_import_roots() -> None:
+    """Apply PYTHONPATH by hand when the runner starts in isolated mode.
+
+    The direct backend starts the runner with ``python -I`` so that the user
+    site directory, the working directory and import hooks planted on
+    PYTHONPATH cannot run before the runner protects itself. Registry import
+    roots still arrive in PYTHONPATH and are added here, ahead of site-packages
+    as the interpreter would. Children of the action inherit PYTHONPATH as is.
+    """
+    if not sys.flags.isolated:
+        return
+    roots = [root for root in os.environ.get("PYTHONPATH", "").split(":") if root]
+    sys.path[0:0] = [root for root in roots if root not in sys.path]
+
+
+def _signal_ready_for_payload() -> None:
+    """Ask the executor for the payload once this runner is protected.
+
+    The direct backend hands the runner a socket as stdin and sends the
+    payload only after this byte arrives, so nothing secret sits in a channel
+    while the runner is still readable by other same-user processes. Pipes
+    and files (the nsjail backend) need no handshake.
+    """
+    if stat.S_ISSOCK(os.fstat(0).st_mode):
+        os.write(0, RUNNER_READY)
+
+
+def _apply_runtime_env(input_data: Mapping[str, Any]) -> None:
+    """Set credentials the executor sent on stdin instead of in the environment.
+
+    The executor token and tunnel proxy URL stay out of the initial process
+    environment, which same-user processes can read through /proc until this
+    runner is protected. Call this only after ``_protect_from_other_actions``.
+    """
+    runtime_env = input_data.get("runtime_env") or {}
+    for key, value in runtime_env.items():
+        os.environ[str(key)] = str(value)
+
+
+def _protect_from_other_actions() -> None:
+    """Refuse other same-user processes /proc access to this runner.
+
+    Concurrent direct-mode actions share one Linux user. Without this, one
+    action could read another's environment or memory, including the workspace
+    secrets this runner receives, through /proc/<pid>/environ or /proc/<pid>/mem.
+    The flag resets on execve, so it does not leak into processes the action
+    starts. Standard library only: the runner must not import AutoSecOps.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    prctl = libc.prctl
+    prctl.argtypes = [
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    prctl.restype = ctypes.c_int
+    pr_set_dumpable = 4
+    if prctl(pr_set_dumpable, 0, 0, 0, 0) != 0:
+        error_number = ctypes.get_errno()
+        raise SystemExit(
+            "_protect_from_other_actions: could not clear the dumpable flag: "
+            f"{os.strerror(error_number)}"
+        )
+
+
 def _enforce_nproc_limit() -> None:
     """Cap the sandbox's process count via RLIMIT_NPROC.
 
@@ -854,7 +928,9 @@ if __name__ == "__main__":
     # import, because the executor process also imports this module.
     sys.modules.setdefault("httpx._main", cast(ModuleType, None))
 
+    _protect_from_other_actions()
     _enforce_nproc_limit()
+    _add_isolated_import_roots()
 
     # Determine input source: file (sandbox) or stdin (direct)
     input_path = Path("/work/input.json")
@@ -869,6 +945,7 @@ if __name__ == "__main__":
             input_data = json_loads(input_path.read_bytes())
             use_file_io = True
         else:
+            _signal_ready_for_payload()
             input_bytes = sys.stdin.buffer.read()
             input_data = json_loads(input_bytes)
             use_file_io = False
@@ -888,6 +965,8 @@ if __name__ == "__main__":
             sys.stdout.buffer.write(envelope)
             sys.stdout.buffer.flush()
         raise SystemExit(1) from None
+
+    _apply_runtime_env(input_data)
 
     # Run the action
     result = main_minimal(input_data)

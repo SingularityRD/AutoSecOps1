@@ -11,7 +11,10 @@ from autosecops import config
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import RegistryRepository, RegistryVersion
 from autosecops.exceptions import RegistryError, RegistryNotFound
-from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.constants import (
+    API_SIDE_CUSTOM_SYNC_REFUSED,
+    DEFAULT_REGISTRY_ORIGIN,
+)
 from autosecops.registry.repositories.schemas import (
     RegistryRepositoryCreate,
     RegistryRepositorySync,
@@ -139,6 +142,14 @@ class RegistryReposService(BaseOrgService):
             git_repo_package_name = await get_setting(
                 "git_repo_package_name", role=self.role
             )
+
+        if (
+            repository.origin != DEFAULT_REGISTRY_ORIGIN
+            and not config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED
+        ):
+            # Refuse before touching versions or keys: the API never runs
+            # repository code, so a force sync must not delete anything first.
+            raise RegistryError(API_SIDE_CUSTOM_SYNC_REFUSED)
 
         if force and repository.current_version_id is not None:
             versions_service = RegistryVersionsService(self.session, self.role)
