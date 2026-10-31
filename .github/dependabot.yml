@@ -12,6 +12,17 @@
 # `build(deps-dev): ...` for development dependencies, and `deps-dev` is not a
 # scope.
 #
+# Version updates are minor and patch only for Python, frontend, and base
+# images: every entry below except GitHub Actions ignores
+# `version-update:semver-major`. Major upgrades are done as deliberate, tested
+# migration PRs, not as bot bumps. These rules filter version updates only.
+# Security updates are raised from Dependabot alerts, and GitHub documents
+# `update-types` ignore rules as not applying to them, so a fix that needs a
+# major still opens a PR. Never add an ignore rule without `update-types` or
+# `versions`: ignoring a dependency outright can suppress its security updates
+# too. GitHub Actions are SHA-pinned, and majors there are reviewed in the
+# grouped PR, so that entry has no ignore rule.
+#
 # Base images are pinned as `name:tag@sha256:<digest>` in every Dockerfile.
 # Dependabot refreshes the digest and patch-level tags so OS security patches
 # still reach the images. A tag that changes the runtime (Python 3.12 to 3.13,
@@ -31,6 +42,10 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: build(deps)
+    ignore:
+      # Majors move in a deliberate, tested migration PR (see the header).
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]
@@ -47,6 +62,21 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: build(deps)
+    ignore:
+      # Majors move in a deliberate, tested migration PR (see the header).
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+      # Held until their migration PRs land. openapi-ts 0.99 rewrites the
+      # generated client, biome 2.6 needs a config migration and the
+      # lint-frontend.yml pin moved with it, and react-virtual 3.14 changes
+      # viewport sizing and scrollToIndex (tool picker keyboard paging).
+      # Remove each entry in the PR that migrates it.
+      - dependency-name: "@hey-api/openapi-ts"
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: "@biomejs/*"
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: "@tanstack/react-virtual"
+        update-types: [version-update:semver-minor, version-update:semver-patch]
     groups:
       frontend-minor-and-patch:
         update-types: [minor, patch]

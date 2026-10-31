@@ -51,5 +51,8 @@ def _validate_json(value: object) -> JsonValue:
 
 
 type FrozenJSONObject = Annotated[
-    FrozenMap[FrozenJSON], BeforeValidator(_validate_json)
+    # basedpyright 1.40 cannot specialize the recursive FrozenJSON alias here,
+    # although FrozenMap's type parameter is unbounded.
+    FrozenMap[FrozenJSON],  # pyright: ignore[reportInvalidTypeForm]
+    BeforeValidator(_validate_json),
 ]

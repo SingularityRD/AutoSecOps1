@@ -119,19 +119,13 @@ class CompressionPayloadCodec(PayloadCodec):
         algorithm: str | None = None,
         enabled: bool | None = None,
     ):
-        from cramjam import (
-            brotli as cramjam_brotli,  # pyright: ignore[reportAttributeAccessIssue]
-        )
-        from cramjam import (
-            gzip as cramjam_gzip,  # pyright: ignore[reportAttributeAccessIssue]
-        )
-        from cramjam import (
-            zstd as cramjam_zstd,  # pyright: ignore[reportAttributeAccessIssue]
-        )
+        # The codec submodules live in cramjam's compiled extension; reach them
+        # as attributes so type checkers resolve them from cramjam's stubs.
+        import cramjam
 
-        self._brotli = cramjam_brotli
-        self._gzip = cramjam_gzip
-        self._zstd = cramjam_zstd
+        self._brotli = cramjam.brotli
+        self._gzip = cramjam.gzip
+        self._zstd = cramjam.zstd
         self.enabled = (
             enabled
             if enabled is not None
@@ -276,7 +270,7 @@ class TemporalEncryptionKeyring:
     """Derive and cache workspace-scoped Temporal payload keys."""
 
     def __init__(self) -> None:
-        self._cache: TTLCache[tuple[str, str, int], bytes] = TTLCache(
+        self._cache = TTLCache[tuple[str, str, int], bytes, float](
             maxsize=config.TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_MAX_ITEMS,
             ttl=config.TEMPORAL__PAYLOAD_ENCRYPTION_CACHE_TTL_SECONDS,
         )
