@@ -43,6 +43,7 @@ from autosecops.invitations.schemas import InvitationGrant as InvitationGrantReq
 from autosecops.invitations.service import (
     accept_invitation_for_user,
     create_invitation_row,
+    reveal_invitation_token,
 )
 
 
@@ -553,7 +554,9 @@ async def test_reactivation_revokes_invitation_before_it_can_grant_roles(
     assert invitation.status == InvitationStatus.REVOKED
     with pytest.raises(AutoSecOpsAuthorizationError):
         await accept_invitation_for_user(
-            session, user_id=user_id, token=invitation.token
+            session,
+            user_id=user_id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
 

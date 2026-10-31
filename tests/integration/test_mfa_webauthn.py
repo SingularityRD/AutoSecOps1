@@ -23,7 +23,6 @@ import pytest
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi_users.password import PasswordHelper
-from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from fido2.cose import ES256
 from fido2.utils import websafe_decode, websafe_encode
 from fido2.webauthn import (
@@ -39,6 +38,7 @@ from autosecops.api.app import app
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.service import AuditService
 from autosecops.auth.credentials import SuperuserStepUpRole
+from autosecops.auth.crypto import hash_bearer_token
 from autosecops.auth.mfa import service as mfa_service
 from autosecops.auth.mfa import webauthn as mfa_webauthn
 from autosecops.auth.mfa.constants import (
@@ -47,6 +47,7 @@ from autosecops.auth.mfa.constants import (
 )
 from autosecops.auth.mfa.policy import clear_mfa_policy_cache
 from autosecops.auth.mfa.service import MfaService
+from autosecops.auth.session_tokens import HashedAccessTokenDatabase
 from autosecops.auth.users import SessionMetadataDatabaseStrategy, cookie_transport
 from autosecops.authz.seeding import seed_system_scopes
 from autosecops.db.engine import (
@@ -271,7 +272,7 @@ async def _new_session(user: User) -> str:
     """
     async with get_async_session_bypass_rls_context_manager() as session:
         strategy = SessionMetadataDatabaseStrategy(
-            SQLAlchemyAccessTokenDatabase(session, AccessToken),
+            HashedAccessTokenDatabase(session, AccessToken),
             lifetime_seconds=config.SESSION_EXPIRE_TIME_SECONDS,
         )
         return await strategy.write_token(user)
@@ -281,7 +282,7 @@ async def _set_step_up_age(token: str, age: timedelta) -> None:
     async with get_async_session_bypass_rls_context_manager() as session:
         await session.execute(
             update(AccessToken)
-            .where(cast(Any, AccessToken.token) == token)
+            .where(cast(Any, AccessToken.token) == hash_bearer_token(token))
             .values(step_up_verified_at=datetime.now(UTC) - age)
         )
         await session.commit()

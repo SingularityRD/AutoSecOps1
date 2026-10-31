@@ -14,7 +14,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from sqlalchemy import and_, func, or_, select, update
+from cryptography.fernet import InvalidToken
+from sqlalchemy import ColumnElement, and_, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +24,9 @@ from sqlalchemy.orm import selectinload
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.audit.logger import audit_log
 from autosecops.audit.service import AuditService
+from autosecops.auth.crypto import hash_bearer_token
 from autosecops.auth.domain_policy import is_org_saml_enforced
+from autosecops.auth.secrets import get_db_encryption_key
 from autosecops.auth.types import Role
 from autosecops.authz.controls import ensure_can_grant_scopes, has_scope, require_scope
 from autosecops.authz.enums import ScimConnectionStatus
@@ -57,7 +60,9 @@ from autosecops.exceptions import (
 from autosecops.identifiers import OrganizationID, UserID
 from autosecops.invitations.enums import InvitationStatus
 from autosecops.invitations.schemas import InvitationCreate
+from autosecops.invitations.types import IssuedInvitationToken
 from autosecops.logger import logger
+from autosecops.secrets.encryption import decrypt_value, encrypt_value
 from autosecops.service import BaseOrgService
 from autosecops.tiers.access import is_org_entitled
 from autosecops.tiers.enums import Entitlement
@@ -69,8 +74,154 @@ INVITATION_TTL = timedelta(days=7)
 RESEND_COOLDOWN: Final = timedelta(seconds=60)
 
 
+class InvitationTokenUnrecoverableError(Exception):
+    """The stored ciphertext of one invitation's token cannot be decrypted.
+
+    Raised for a corrupted ciphertext or one written under another
+    ``AUTOSECOPS__DB_ENCRYPTION_KEY``, for example after restoring another
+    environment's dump. It concerns that row alone: a missing or malformed key
+    affects every row and raises ``ValueError`` instead.
+    """
+
+    def __init__(self, invitation_id: uuid.UUID) -> None:
+        super().__init__(f"Cannot decrypt the token of invitation {invitation_id}")
+        self.invitation_id = invitation_id
+
+
 def _generate_token() -> str:
     return secrets.token_urlsafe(48)[:64]
+
+
+# --- Token storage
+#
+# ``invitation.token`` holds ``hash_bearer_token(raw)``, so database read access
+# does not yield a usable link. ``encrypted_token`` keeps the raw value under
+# the database encryption key for the email outbox and copy-link actions.
+# Rows written before this release, or by the previous app version during a
+# rolling upgrade, hold the raw token with ``token_hashed`` false; this version
+# matches them by raw value only while that flag is false, so a digest read
+# from the database never works as a token here. A pre-hashing app version
+# still compares raw values, so do not run it against hashed rows: the
+# migration's downgrade revokes pending hashed invitations for that reason.
+
+
+def _issue_token() -> IssuedInvitationToken:
+    raw = _generate_token()
+    return IssuedInvitationToken(
+        raw=raw,
+        digest=hash_bearer_token(raw),
+        ciphertext=encrypt_value(raw.encode("utf-8"), key=get_db_encryption_key()),
+    )
+
+
+def invitation_token_matches(token: str) -> ColumnElement[bool]:
+    """Build a WHERE clause selecting the invitation for a raw link token.
+
+    Args:
+        token: The raw token from the invitation link.
+
+    Returns:
+        A clause matching the hashed row, or a pre-hashing row stored raw.
+    """
+    return or_(
+        and_(
+            Invitation.token == hash_bearer_token(token),
+            Invitation.token_hashed.is_(True),
+        ),
+        and_(Invitation.token == token, Invitation.token_hashed.is_(False)),
+    )
+
+
+async def reveal_stored_invitation_token(
+    session: AsyncSession,
+    *,
+    invitation_id: uuid.UUID,
+    token: str,
+    token_hashed: bool,
+    encrypted_token: bytes | None,
+) -> str:
+    """Return the raw token for an invitation from its stored columns.
+
+    A row hashed by the contract migration has no ciphertext, so it is issued a
+    fresh token here, which retires any link emailed for it before hashing.
+    Does not commit.
+
+    Args:
+        session: The session to write a rotated token with.
+        invitation_id: The invitation's ID.
+        token: The stored ``token`` column.
+        token_hashed: The stored ``token_hashed`` column.
+        encrypted_token: The stored ``encrypted_token`` column.
+
+    Returns:
+        The raw token to put in a link.
+
+    Raises:
+        NoResultFound: If the row was deleted while rotating its token.
+        InvitationTokenUnrecoverableError: If this row's ciphertext cannot be
+            decrypted with the configured key.
+        ValueError: If the database encryption key is missing or malformed.
+    """
+    if not token_hashed:
+        return token
+    if encrypted_token is not None:
+        return _decrypt_token(invitation_id, encrypted_token)
+
+    issued = _issue_token()
+    rotated = await session.execute(
+        update(Invitation)
+        .where(
+            Invitation.id == invitation_id,
+            Invitation.token_hashed.is_(True),
+            Invitation.encrypted_token.is_(None),
+        )
+        .values(token=issued.digest, encrypted_token=issued.ciphertext)
+        .returning(Invitation.id)
+        .execution_options(synchronize_session=False)
+    )
+    if rotated.scalar_one_or_none() is not None:
+        logger.info(
+            "Issued a new token for an invitation hashed by migration; links "
+            "sent for it earlier no longer work",
+            invitation_id=str(invitation_id),
+        )
+        return issued.raw
+
+    # A concurrent request rotated it first; the UPDATE waited for that commit.
+    current = (
+        await session.execute(
+            select(Invitation.encrypted_token).where(Invitation.id == invitation_id)
+        )
+    ).one_or_none()
+    if current is None or current.encrypted_token is None:
+        raise NoResultFound("Invitation not found")
+    return _decrypt_token(invitation_id, current.encrypted_token)
+
+
+async def reveal_invitation_token(session: AsyncSession, invitation: Invitation) -> str:
+    """Return the raw token for a loaded invitation. Does not commit.
+
+    See ``reveal_stored_invitation_token``. A rotation is written through Core,
+    so the loaded instance is refreshed to match.
+    """
+    raw = await reveal_stored_invitation_token(
+        session,
+        invitation_id=invitation.id,
+        token=invitation.token,
+        token_hashed=invitation.token_hashed,
+        encrypted_token=invitation.encrypted_token,
+    )
+    if invitation.token_hashed and invitation.encrypted_token is None:
+        await session.refresh(invitation, ["token", "encrypted_token"])
+    return raw
+
+
+def _decrypt_token(invitation_id: uuid.UUID, encrypted_token: bytes) -> str:
+    key = get_db_encryption_key()
+    try:
+        return decrypt_value(encrypted_token, key=key).decode("utf-8")
+    except InvalidToken as e:
+        raise InvitationTokenUnrecoverableError(invitation_id) from e
 
 
 # --- Create
@@ -130,11 +281,14 @@ async def create_invitation_row(
         await session.delete(pending)
         await session.flush()
 
+    issued = _issue_token()
     invitation = Invitation(
         organization_id=organization_id,
         email=email,
         invited_by=invited_by,
-        token=_generate_token(),
+        token=issued.digest,
+        token_hashed=True,
+        encrypted_token=issued.ciphertext,
         expires_at=now + INVITATION_TTL,
         status=InvitationStatus.PENDING,
         created_by_platform_admin=created_by_platform_admin,
@@ -490,7 +644,43 @@ async def accept_invitation_for_user(
     invitation = await find_invitation_by_token(session, token)
     if invitation is None:
         raise AutoSecOpsNotFoundError("Invitation not found")
+    return await _accept_loaded_invitation(
+        session, invitation, user_id=user_id, via_sso=via_sso
+    )
 
+
+async def accept_invitation_by_id_for_user(
+    session: AsyncSession,
+    *,
+    user_id: UserID,
+    invitation_id: uuid.UUID,
+    via_sso: bool = False,
+) -> Invitation:
+    """Accept an invitation the caller resolved without its token.
+
+    Only for callers that have already proven the user is the invitee by other
+    means, such as the org's SSO callback matching the asserted email. Applies
+    the same checks as ``accept_invitation_for_user``.
+
+    Raises:
+        AutoSecOpsNotFoundError: If the invitation doesn't exist.
+        AutoSecOpsAuthorizationError: See ``accept_invitation_for_user``.
+    """
+    invitation = await _load_invitation(session, Invitation.id == invitation_id)
+    if invitation is None:
+        raise AutoSecOpsNotFoundError("Invitation not found")
+    return await _accept_loaded_invitation(
+        session, invitation, user_id=user_id, via_sso=via_sso
+    )
+
+
+async def _accept_loaded_invitation(
+    session: AsyncSession,
+    invitation: Invitation,
+    *,
+    user_id: UserID,
+    via_sso: bool,
+) -> Invitation:
     user = (
         await session.execute(select(User).where(User.id == user_id))  # pyright: ignore[reportArgumentType]
     ).scalar_one_or_none()
@@ -660,9 +850,15 @@ async def find_invitation_by_token(
 
     Unauthenticated callers use this for the accept page.
     """
+    return await _load_invitation(session, invitation_token_matches(token))
+
+
+async def _load_invitation(
+    session: AsyncSession, criterion: ColumnElement[bool]
+) -> Invitation | None:
     result = await session.execute(
         select(Invitation)
-        .where(Invitation.token == token)
+        .where(criterion)
         .options(selectinload(Invitation.organization), selectinload(Invitation.grants))
         .options(selectinload(Invitation.groups))
     )

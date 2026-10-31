@@ -1,7 +1,7 @@
 """Add an optional expiry time to service account API keys.
 
 Revision ID: d3a7e5c1b9f2
-Revises: 21042b4645f1
+Revises: 3f7a9c2d5b81
 Create Date: 2026-10-30 23:30:00.000000
 
 Expand-only: the column is nullable and existing keys keep ``NULL``, which
@@ -19,7 +19,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "d3a7e5c1b9f2"
-down_revision: str | None = "21042b4645f1"
+down_revision: str | None = "3f7a9c2d5b81"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -12,7 +12,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autosecops import config
@@ -28,6 +27,7 @@ from autosecops.auth.mfa.policy import (
     platform_admin_mfa_bypassed,
     user_has_credentials,
 )
+from autosecops.auth.session_tokens import HashedAccessTokenDatabase
 from autosecops.auth.users import cookie_transport
 from autosecops.db.engine import get_async_session
 from autosecops.db.models import AccessToken, User
@@ -48,7 +48,8 @@ async def _load_mfa_session(request: Request, db: AsyncSession) -> MfaSession:
     if not token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     max_age = datetime.now(UTC) - timedelta(seconds=config.SESSION_EXPIRE_TIME_SECONDS)
-    access_token = await SQLAlchemyAccessTokenDatabase(db, AccessToken).get_by_token(
+    # The cookie holds the raw token; the row holds its digest.
+    access_token = await HashedAccessTokenDatabase(db, AccessToken).get_by_token(
         token, max_age
     )
     if access_token is None:

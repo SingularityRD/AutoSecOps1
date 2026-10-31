@@ -67,6 +67,10 @@ from autosecops.auth.mfa.policy import (
 )
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
+from autosecops.auth.session_tokens import (
+    HashedAccessTokenDatabase,
+    access_token_matches,
+)
 from autosecops.auth.types import CredentialRevocation, PlatformRole, Role
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.contexts import ctx_request_audit, ctx_role
@@ -1102,7 +1106,7 @@ async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 async def get_access_token_db(
     session: AsyncSession = Depends(get_async_session),
 ) -> AsyncGenerator[SQLAlchemyAccessTokenDatabase[AccessToken], None]:
-    yield SQLAlchemyAccessTokenDatabase(session, AccessToken)
+    yield HashedAccessTokenDatabase(session, AccessToken)
 
 
 def get_user_db_context(
@@ -1186,7 +1190,17 @@ class SessionMetadataDatabaseStrategy(DatabaseStrategy[User, uuid.UUID, AccessTo
     Captures the client IP and User-Agent when a session is created and
     refreshes ``last_seen_at`` on reads, throttled so an active session incurs
     at most one write per ``SESSION_LAST_SEEN_UPDATE_INTERVAL_SECONDS``.
+
+    Paired with ``HashedAccessTokenDatabase``, the database row holds only the
+    token digest, so ``write_token`` returns the raw value it generated rather
+    than the stored one.
     """
+
+    async def write_token(self, user: User) -> str:
+        access_token_dict = self._create_access_token_dict(user)
+        raw_token: str = access_token_dict["token"]
+        await self.database.create(access_token_dict)
+        return raw_token
 
     def _create_access_token_dict(self, user: User) -> dict[str, Any]:
         token_dict = super()._create_access_token_dict(user)
@@ -1385,9 +1399,9 @@ async def revoke_user_sessions(
         AccessToken.user_id == user_id  # pyright: ignore[reportArgumentType]
     )
     if keep_token:
-        statement = statement.where(
-            AccessToken.token != keep_token  # pyright: ignore[reportArgumentType]
-        )
+        # Rows hold the token digest (or the raw value for pre-hashing rows),
+        # so the raw cookie value must be matched the same way a login is.
+        statement = statement.where(~access_token_matches(keep_token))
     result = await session.execute(statement.returning(AccessToken.id))
     return len(result.scalars().all())
 

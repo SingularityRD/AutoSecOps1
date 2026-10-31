@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autosecops.audit.enums import AuditEventStatus
 from autosecops.auth import users as users_module
 from autosecops.auth.audit import drain_auth_audit_tasks
+from autosecops.auth.crypto import hash_bearer_token
 from autosecops.auth.schemas import UserUpdate
 from autosecops.auth.types import CredentialRevocation, Role
 from autosecops.auth.users import PermissionsException, UserManager, cookie_transport
@@ -279,9 +280,9 @@ async def test_password_change_revokes_other_sessions_only(
     current, stolen, bystander = (uuid.uuid4().hex for _ in range(3))
     session.add_all(
         [
-            AccessToken(token=current, user_id=user.id),
-            AccessToken(token=stolen, user_id=user.id),
-            AccessToken(token=bystander, user_id=other_user_id),
+            AccessToken(token=hash_bearer_token(current), user_id=user.id),
+            AccessToken(token=hash_bearer_token(stolen), user_id=user.id),
+            AccessToken(token=hash_bearer_token(bystander), user_id=other_user_id),
         ]
     )
     await session.commit()
@@ -295,14 +296,15 @@ async def test_password_change_revokes_other_sessions_only(
         request=_request_with_session(current),
     )
 
+    digests = {hash_bearer_token(t): t for t in (current, stolen, bystander)}
     tokens = (
         await session.execute(
-            select(AccessToken).where(
-                AccessToken.token.in_([current, stolen, bystander])  # pyright: ignore[reportAttributeAccessIssue]
+            select(AccessToken.__table__.c.token).where(
+                AccessToken.__table__.c.token.in_(digests)
             )
         )
     ).scalars()
-    remaining = {token.token for token in tokens}
+    remaining = {digests[digest] for digest in tokens}
     assert remaining == {current, bystander}
 
 
@@ -401,9 +403,13 @@ async def _seed_user_with_sessions(
     await session.flush()
     tokens = [uuid.uuid4().hex for _ in range(token_count)]
     bystander = uuid.uuid4().hex
+    # Sessions are stored as digests, as SessionMetadataDatabaseStrategy does.
     session.add_all(
-        [AccessToken(token=token, user_id=user.id) for token in tokens]
-        + [AccessToken(token=bystander, user_id=bystander_user.id)]
+        [
+            AccessToken(token=hash_bearer_token(token), user_id=user.id)
+            for token in tokens
+        ]
+        + [AccessToken(token=hash_bearer_token(bystander), user_id=bystander_user.id)]
     )
     await session.commit()
     return user, tokens, bystander
@@ -480,12 +486,14 @@ async def _mcp_credential_state(
 
 
 async def _remaining_tokens(session: AsyncSession, tokens: list[str]) -> set[str]:
+    """The raw tokens among ``tokens`` whose session row still exists."""
+    digests = {hash_bearer_token(token): token for token in tokens}
     result = await session.execute(
-        select(AccessToken).where(
-            AccessToken.token.in_(tokens)  # pyright: ignore[reportAttributeAccessIssue]
+        select(AccessToken.__table__.c.token).where(
+            AccessToken.__table__.c.token.in_(digests)
         )
     )
-    return {access_token.token for access_token in result.scalars().all()}
+    return {digests[digest] for digest in result.scalars().all()}
 
 
 @pytest.mark.anyio
