@@ -1,16 +1,20 @@
 """Tests for SSH base functionality."""
 
+import asyncio
 import os
 import shlex
 import shutil
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from pydantic import SecretStr
 
+from autosecops import config
 from autosecops.git.types import GitUrl
 from autosecops.process_env import tool_subprocess_env
 from autosecops.ssh import (
@@ -97,6 +101,14 @@ async def test_temporary_ssh_agent_is_a_reaped_foreground_child(
 ) -> None:
     monkeypatch.setenv("AUTOSECOPS__SERVICE_KEY", "synthetic-service-key")
     socket_dir = tmp_path / "agent"
+    real_exec = asyncio.create_subprocess_exec
+    agent_envs: list[dict[str, str]] = []
+
+    async def spy_exec(*args: Any, **kwargs: Any) -> Any:
+        agent_envs.append(kwargs["env"])
+        return await real_exec(*args, **kwargs)
+
+    monkeypatch.setattr("autosecops.ssh.asyncio.create_subprocess_exec", spy_exec)
 
     async with temporary_ssh_agent(socket_dir=socket_dir) as env:
         assert env.ssh_auth_sock == str(socket_dir / "agent.sock")
@@ -106,8 +118,10 @@ async def test_temporary_ssh_agent_is_a_reaped_foreground_child(
         # A child of this process, not a daemon reparented to PID 1.
         stat = Path(f"/proc/{pid}/stat").read_text()
         assert int(stat[stat.rfind(")") + 2 :].split()[1]) == os.getpid()
-        # The agent lives for the whole sync without platform credentials.
-        assert b"synthetic-service-key" not in Path(f"/proc/{pid}/environ").read_bytes()
+        # The agent lives for the whole sync without platform credentials. It
+        # marks itself non-dumpable, so check what it was started with.
+        assert agent_envs == [tool_subprocess_env()]
+        assert "AUTOSECOPS__SERVICE_KEY" not in agent_envs[0]
 
     # Stopped and reaped: no zombie remains.
     with pytest.raises(ProcessLookupError):
@@ -239,3 +253,44 @@ def test_add_ssh_key_rejects_non_ed25519_key_with_credentials_error(mocker) -> N
 
     assert str(exc_info.value) == INVALID_SSH_KEY_MESSAGE
     run.assert_not_called()
+
+
+@requires_ssh_agent
+@pytest.mark.anyio
+async def test_ssh_context_trusts_operator_pinned_host_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker
+) -> None:
+    """A pinned host is verified against the operator's key, never rescanned."""
+    pinned = tmp_path / "known_hosts"
+    pinned.write_text("git.example.test ssh-ed25519 AAAApinnedsynthetic\n")
+    monkeypatch.setattr(config, "AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE", str(pinned))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    secrets_service = mocker.patch("autosecops.ssh.SecretsService")
+    secrets_service.return_value.get_ssh_key = mocker.AsyncMock(
+        return_value=SecretStr(_ed25519_private_key())
+    )
+    real_run = subprocess.run
+
+    def run(cmd: list[str], *args: Any, **kwargs: Any) -> Any:
+        assert cmd[0] != "ssh-keyscan", "pinned host was rescanned"
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr("autosecops.ssh.subprocess.run", run)
+    git_url = GitUrl(host="git.example.test", org="example-org", repo="registry")
+
+    async with ssh_context(git_url=git_url, session=mocker.Mock(), role=None) as env:
+        assert env is not None
+        known_hosts = Path(env.known_hosts_path or "")
+        assert known_hosts.read_text() == pinned.read_text()
+
+
+@requires_ssh_agent
+@pytest.mark.anyio
+async def test_temporary_ssh_agent_shortens_overlong_socket_paths(
+    tmp_path: Path,
+) -> None:
+    deep = tmp_path / ("d" * 60) / ("e" * 60)
+
+    async with temporary_ssh_agent(socket_dir=deep) as env:
+        assert len(os.fsencode(env.ssh_auth_sock)) < 108
+        assert Path(env.ssh_auth_sock).is_socket()

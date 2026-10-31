@@ -163,31 +163,127 @@ def _sandbox_failure_message(
             return f"{message}. Workload stderr (tail):\n{masked_tail}"
 
 
-async def _send_payload_when_ready(
-    payload_socket: socket.socket, payload: bytes, *, timeout: float
+_RUNNER_OUTPUT_DRAIN_SECONDS = 10.0
+"""Seconds to collect output still buffered after the action tree is gone."""
+
+
+def _shutdown_quietly(sock: socket.socket, how: int) -> None:
+    """Shut a socket down, ignoring a peer that is already gone."""
+    with contextlib.suppress(OSError):
+        sock.shutdown(how)
+
+
+async def _read_until_eof(sock: socket.socket, buffer: bytearray) -> None:
+    """Append everything the peer sends until it closes or fails."""
+    loop = asyncio.get_running_loop()
+    while True:
+        try:
+            chunk = await loop.sock_recv(sock, 1 << 16)
+        except OSError:
+            return
+        if not chunk:
+            return
+        buffer += chunk
+
+
+async def _exchange_with_runner(
+    payload_socket: socket.socket,
+    payload: bytes,
+    output: bytearray,
+    *,
+    ready_timeout: float,
 ) -> None:
-    """Send the runner its payload once it reports that it is protected.
+    """Send the runner its payload once it is protected, then collect its result.
+
+    The runner's stdin and stdout are this one socket. A runner that dies while
+    the payload is in flight is not an error here: whatever it wrote before
+    dying, such as a resource-limit envelope, is still collected.
 
     Args:
-        payload_socket: The executor's end of the runner's stdin socket.
+        payload_socket: The executor's end of the runner's stdin/stdout socket.
         payload: The serialized payload, including secrets.
-        timeout: Seconds the runner may take to become ready.
+        output: Receives the runner's stdout after the ready byte.
+        ready_timeout: Seconds the runner may take to become ready.
     """
     loop = asyncio.get_running_loop()
-    payload_socket.setblocking(False)
     try:
-        async with asyncio.timeout(timeout):
+        async with asyncio.timeout(ready_timeout):
             ready = await loop.sock_recv(payload_socket, len(RUNNER_READY))
     except TimeoutError:
-        logger.error("Action runner did not become ready", timeout=timeout)
-        payload_socket.shutdown(socket.SHUT_RDWR)
+        logger.error("Action runner did not become ready", timeout=ready_timeout)
+        _shutdown_quietly(payload_socket, socket.SHUT_RDWR)
+        return
+    except OSError:
         return
     if ready != RUNNER_READY:
-        # The runner exited or misbehaved; it gets no payload.
-        payload_socket.shutdown(socket.SHUT_RDWR)
-        return
-    await loop.sock_sendall(payload_socket, payload)
-    payload_socket.shutdown(socket.SHUT_WR)
+        # The runner exited or misbehaved before asking: it gets no payload.
+        _shutdown_quietly(payload_socket, socket.SHUT_WR)
+        output += ready
+    else:
+        try:
+            await loop.sock_sendall(payload_socket, payload)
+        except OSError as e:
+            logger.warning(
+                "Action runner stopped reading its payload", error=type(e).__name__
+            )
+        _shutdown_quietly(payload_socket, socket.SHUT_WR)
+    await _read_until_eof(payload_socket, output)
+
+
+async def _communicate_with_runner(
+    proc: asyncio.subprocess.Process,
+    *,
+    payload_socket: socket.socket,
+    stderr_socket: socket.socket,
+    payload: bytes,
+    timeout: float,
+    ready_timeout: float,
+) -> tuple[bytes, bytes]:
+    """Run the runner's socket protocol while containing its process group.
+
+    Args:
+        proc: The supervised runner process.
+        payload_socket: The executor's end of the runner's stdin/stdout socket.
+        stderr_socket: The executor's end of the runner's stderr socket.
+        payload: The serialized payload.
+        timeout: Seconds before the whole process group is killed.
+        ready_timeout: Seconds the runner may take to become ready.
+
+    Returns:
+        The runner's stdout (after the ready byte) and stderr.
+
+    Raises:
+        TimeoutError: If the process outlives ``timeout``.
+    """
+    stdout = bytearray()
+    stderr = bytearray()
+    payload_socket.setblocking(False)
+    stderr_socket.setblocking(False)
+    io_tasks = [
+        asyncio.create_task(
+            _exchange_with_runner(
+                payload_socket, payload, stdout, ready_timeout=ready_timeout
+            )
+        ),
+        asyncio.create_task(_read_until_eof(stderr_socket, stderr)),
+    ]
+    try:
+        await communicate_process_group(
+            proc,
+            timeout=timeout,
+            terminate=terminate_supervised_process,
+            captured=False,
+        )
+        # The whole action tree is gone, so the sockets reach EOF once their
+        # buffered output is read.
+        await asyncio.wait(io_tasks, timeout=_RUNNER_OUTPUT_DRAIN_SECONDS)
+    finally:
+        for task in io_tasks:
+            task.cancel()
+        # The I/O tasks handle socket errors themselves; only cancellation
+        # can come back here.
+        await asyncio.gather(*io_tasks, return_exceptions=True)
+    return bytes(stdout), bytes(stderr)
 
 
 def _direct_subprocess_command(minimal_runner_path: Path) -> list[str]:
@@ -575,40 +671,40 @@ class ActionRunner:
         )
 
         start_time = time.monotonic()
-        # The payload (workspace secrets, executor token) travels over a socket
-        # rather than a pipe: same-user code can open a dumpable process's pipe
-        # through /proc/<pid>/fd, but never a socket. The runner asks for the
-        # payload only after it has protected itself.
+        # The runner's stdio are sockets, not pipes: same-user code can open a
+        # dumpable process's pipe through /proc/<pid>/fd and read the payload
+        # (workspace secrets, executor token) or forge the result, but Linux
+        # refuses to open a socket that way. stdin and stdout share one socket,
+        # and the runner asks for the payload only after protecting itself.
         payload_socket, runner_socket = socket.socketpair()
+        stderr_socket, runner_stderr = socket.socketpair()
         try:
             proc = await asyncio.create_subprocess_exec(
                 *command,
                 stdin=runner_socket.fileno(),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stdout=runner_socket.fileno(),
+                stderr=runner_stderr.fileno(),
                 env=env,
                 start_new_session=True,
             )
         except BaseException:
             payload_socket.close()
+            stderr_socket.close()
             raise
         finally:
             runner_socket.close()
-        payload_task = asyncio.create_task(
-            _send_payload_when_ready(
-                payload_socket,
-                input_json,
-                timeout=min(
-                    hard_timeout, config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
-                ),
-            )
-        )
+            runner_stderr.close()
 
         try:
-            stdout, stderr = await communicate_process_group(
+            stdout, stderr = await _communicate_with_runner(
                 proc,
+                payload_socket=payload_socket,
+                stderr_socket=stderr_socket,
+                payload=input_json,
                 timeout=hard_timeout,
-                terminate=terminate_supervised_process,
+                ready_timeout=min(
+                    hard_timeout, config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
+                ),
             )
             elapsed_ms = (time.monotonic() - start_time) * 1000
             logger.info(
@@ -635,10 +731,8 @@ class ActionRunner:
                 function="execute_action",
             )
         finally:
-            payload_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await payload_task
             payload_socket.close()
+            stderr_socket.close()
         # Check for subprocess crash
         if proc.returncode != 0:
             logger.error(

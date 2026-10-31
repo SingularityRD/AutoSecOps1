@@ -107,6 +107,9 @@ def watch_startups(seconds):
                 continue
             outcomes = seen.setdefault(entry.name, set())
             outcomes.add("stdin:" + _read_nonblocking(entry / "fd" / "0"))
+            outcomes.add("stdout:" + _read_nonblocking(entry / "fd" / "1"))
+            outcomes.add("stderr:" + _read_nonblocking(entry / "fd" / "2"))
+            outcomes.add("stdout-write:" + _write(entry / "fd" / "1"))
             outcomes.add("environ:" + _read(entry / "environ"))
     return {pid: sorted(outcomes) for pid, outcomes in seen.items()}
 
@@ -127,6 +130,8 @@ def attack_other_actions():
             "environ": _read(entry / "environ"),
             "stdin": _read(entry / "fd" / "0"),
             "stdout": _write(entry / "fd" / "1"),
+            "stdout_read": _read_nonblocking(entry / "fd" / "1"),
+            "stderr": _write(entry / "fd" / "2"),
         }
     return {"runner_dumpable": _dumpable(), "targets": outcome}
 """
@@ -428,6 +433,8 @@ def test_action_cannot_reach_another_actions_supervisor_or_runner(
         assert outcome["environ"].startswith("denied:"), (pid, outcome)
         assert outcome["stdin"].startswith("denied:"), (pid, outcome)
         assert outcome["stdout"].startswith("denied:"), (pid, outcome)
+        assert outcome["stdout_read"].startswith("denied:"), (pid, outcome)
+        assert outcome["stderr"].startswith("denied:"), (pid, outcome)
 
 
 def test_registry_code_cannot_read_the_syncing_process(work_dir: Path) -> None:
@@ -460,4 +467,8 @@ def test_action_cannot_read_another_actions_payload_during_startup(
             pid,
             outcomes,
         )
-        assert "stdin:readable" not in outcomes, (pid, outcomes)
+        # stdin, stdout and stderr are sockets, which /proc never opens, so
+        # no payload, result or diagnostics can be read or forged.
+        for stream in ("stdin", "stdout", "stderr"):
+            assert f"{stream}:readable" not in outcomes, (pid, outcomes)
+        assert "stdout-write:written" not in outcomes, (pid, outcomes)

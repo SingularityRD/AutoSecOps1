@@ -77,3 +77,13 @@ def protect_process_from_inspection() -> bool:
     if is_process_dumpable():
         raise RuntimeError("The worker process is still dumpable after PR_SET_DUMPABLE")
     return True
+
+
+def restore_process_dumpable() -> None:
+    """Make this process dumpable again (Linux only).
+
+    Production code never calls this. Tests use it so that code which
+    protected the test process does not leak into later tests.
+    """
+    if sys.platform.startswith("linux"):
+        _prctl(_PR_SET_DUMPABLE, 1)

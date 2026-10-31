@@ -75,6 +75,10 @@ from autosecops.executor import backends as executor_backends
 from autosecops.executor.backends import ExecutorBackend
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.logger import logger
+from autosecops.process_hardening import (
+    is_process_dumpable,
+    restore_process_dumpable,
+)
 from autosecops.registry.repositories.schemas import RegistryRepositoryCreate
 from autosecops.registry.repositories.service import RegistryReposService
 from autosecops.secrets import secrets_manager
@@ -443,6 +447,21 @@ def clean_redis_db(redis_server):
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture(autouse=True, scope="function")
+def keep_test_process_dumpable() -> Iterator[None]:
+    """Undo PR_SET_DUMPABLE=0 that code under test applied to this worker.
+
+    The executor, API and registry sync protect their own process from
+    same-user inspection. When a test runs that code in the pytest worker, the
+    flag would otherwise outlive the test: /proc/self and the /proc entries of
+    later tests' children become unreadable, which breaks unrelated tests in
+    the same xdist worker. A process may always make itself dumpable again.
+    """
+    yield
+    if sys.platform.startswith("linux") and not is_process_dumpable():
+        restore_process_dumpable()
 
 
 @pytest.fixture(autouse=True, scope="function")

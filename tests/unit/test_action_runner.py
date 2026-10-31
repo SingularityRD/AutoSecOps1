@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import shutil
+import sys
 import tempfile
 import uuid
 from collections.abc import Awaitable, Callable
@@ -125,16 +126,42 @@ class TestActionRunner:
 
     @pytest.fixture(autouse=True)
     def sent_payloads(self, monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-        """Record payloads instead of waiting for a mocked runner's handshake."""
+        """Record payloads; mocked processes get them through communicate.
+
+        Real subprocesses use the socket protocol. A mocked process has no
+        sockets, so it receives the payload as ``communicate`` input and
+        returns its scripted output, as it did before the protocol existed.
+        """
         sent: list[dict[str, Any]] = []
-        real_send = action_runner._send_payload_when_ready
+        real_communicate = action_runner._communicate_with_runner
 
-        def send(payload_socket: Any, payload: bytes, *, timeout: float) -> Any:
-            # Recorded when the runner schedules the send, before any await.
+        async def communicate(
+            proc: Any,
+            *,
+            payload_socket: Any,
+            stderr_socket: Any,
+            payload: bytes,
+            timeout: float,
+            ready_timeout: float,
+        ) -> tuple[bytes, bytes]:
             sent.append(orjson.loads(payload))
-            return real_send(payload_socket, payload, timeout=timeout)
+            if isinstance(proc, asyncio.subprocess.Process):
+                return await real_communicate(
+                    proc,
+                    payload_socket=payload_socket,
+                    stderr_socket=stderr_socket,
+                    payload=payload,
+                    timeout=timeout,
+                    ready_timeout=ready_timeout,
+                )
+            return await action_runner.communicate_process_group(
+                proc,
+                input=payload,
+                timeout=timeout,
+                terminate=action_runner.terminate_supervised_process,
+            )
 
-        monkeypatch.setattr(action_runner, "_send_payload_when_ready", send)
+        monkeypatch.setattr(action_runner, "_communicate_with_runner", communicate)
         return sent
 
     @pytest.fixture(autouse=True)
@@ -151,6 +178,7 @@ class TestActionRunner:
             timeout: float | None = None,
             terminate: Callable[[asyncio.subprocess.Process], Awaitable[None]]
             | None = None,
+            captured: bool = True,
         ) -> tuple[bytes, bytes]:
             if isinstance(process, asyncio.subprocess.Process):
                 return await real_communication(
@@ -158,6 +186,7 @@ class TestActionRunner:
                     input=input,
                     timeout=timeout,
                     terminate=terminate,
+                    captured=captured,
                 )
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(input=input),
@@ -490,9 +519,6 @@ class TestActionRunner:
             timeout: float | None = None,
             terminate: object = None,
         ) -> tuple[bytes, bytes]:
-            # The payload goes over the stdin socket, never through communicate.
-            assert input is None
-            await asyncio.sleep(0)
             captured["timeout"] = timeout
             return orjson.dumps({"success": True, "result": "ok"}), b""
 
@@ -1177,3 +1203,90 @@ class TestActionRunner:
         assert cache._refcount(cache_key) == 0
         assert paths.squashfs_mount_dir not in mounted
         assert paths.squashfs_image_path.is_file()
+
+
+RUNNER_DIES_MID_PAYLOAD = """
+import os
+import sys
+
+os.write(0, b"\\x06")
+os.read(0, 16)
+sys.stdout.buffer.write(b'{"success": true, "result": "envelope-before-exit"}')
+sys.stdout.flush()
+os.close(0)
+os.close(1)
+"""
+
+
+@pytest.mark.anyio
+async def test_runner_that_stops_reading_its_payload_keeps_its_result(
+    temp_cache_dir: Path,
+    mock_run_action_input: RunActionInput,
+    mock_role: Role,
+) -> None:
+    """A runner that dies mid-payload (e.g. at its memory cap) keeps its envelope.
+
+    The executor's send fails with a broken pipe; that must not mask what the
+    runner wrote before it exited.
+    """
+    runner = ActionRunner(cache_dir=temp_cache_dir)
+    resolved_context = ResolvedContext(
+        action_impl=ActionImplementation(
+            type="udf",
+            action_name="core.transform.reshape",
+            module="autosecops_registry.core.transform",
+            name="reshape",
+        ),
+        evaluated_args={"value": "x" * (8 * 1024 * 1024)},
+        workspace_id=str(mock_role.workspace_id),
+        workflow_id=str(mock_run_action_input.run_context.wf_id),
+        run_id=str(mock_run_action_input.run_context.wf_run_id),
+        executor_token="test-executor-token",
+    )
+
+    with patch.object(
+        action_runner,
+        "_direct_subprocess_command",
+        return_value=[sys.executable, "-c", RUNNER_DIES_MID_PAYLOAD],
+    ):
+        result = await runner._execute_direct(
+            input=mock_run_action_input,
+            role=mock_role,
+            registry_paths=[],
+            secret_projection=_empty_secret_projection(),
+            timeout=30.0,
+            resolved_context=resolved_context,
+        )
+
+    assert result == "envelope-before-exit"
+
+
+@pytest.mark.anyio
+async def test_runner_that_never_becomes_ready_gets_no_payload(
+    temp_cache_dir: Path,
+    mock_run_action_input: RunActionInput,
+    mock_role: Role,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        action_runner.config, "AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE", 0.5
+    )
+    runner = ActionRunner(cache_dir=temp_cache_dir)
+    script = "import os, sys; data = os.read(0, 1); sys.exit(3 if data else 0)"
+
+    with patch.object(
+        action_runner,
+        "_direct_subprocess_command",
+        return_value=[sys.executable, "-c", script],
+    ):
+        result = await runner._execute_direct(
+            input=mock_run_action_input,
+            role=mock_role,
+            registry_paths=[],
+            secret_projection=_empty_secret_projection(),
+            timeout=5.0,
+        )
+
+    # The runner saw EOF, not the payload, and exited with no output.
+    assert isinstance(result, ExecutorActionErrorInfo)
+    assert result.type == "ProtocolError"

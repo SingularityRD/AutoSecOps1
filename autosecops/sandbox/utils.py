@@ -78,8 +78,12 @@ async def communicate_process_group(
     input: bytes | None = None,  # noqa: A002
     timeout: float | None = None,
     terminate: Callable[[asyncio.subprocess.Process], Awaitable[None]] | None = None,
+    captured: bool = True,
 ) -> tuple[bytes, bytes]:
     """Communicate with a process while containing its process group.
+
+    Pass ``captured=False`` for a process whose stdout and stderr are not
+    pipes (the caller reads them some other way); empty bytes are returned.
 
     A background descendant can inherit the leader's output pipes, causing both
     ``communicate()`` and asyncio's ``wait()`` to wait after the leader exits.
@@ -118,6 +122,8 @@ async def communicate_process_group(
                 raise operation_error from cleanup_error
             raise
 
+    if not captured:
+        return b"", b""
     if stdout is None or stderr is None:
         raise RuntimeError("Captured stdout and stderr are required")
     return stdout, stderr

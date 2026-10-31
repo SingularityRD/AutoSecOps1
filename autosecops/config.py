@@ -2006,6 +2006,16 @@ AUTOSECOPS__EXECUTOR_BACKEND.
 When False, uses the existing subprocess approach from the API service.
 """
 
+AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE = (
+    os.environ.get("AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE") or None
+)
+"""Path to an operator-supplied known_hosts file for registry git hosts.
+
+Each registry sync copies it into its private known_hosts file. Hosts listed
+here are verified against these keys; any other host's key is scanned on first
+use (trust on first use) for that sync only. Mount the file read-only.
+"""
+
 AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT = int(
     os.environ.get("AUTOSECOPS__REGISTRY_SYNC_CLONE_TIMEOUT") or 120
 )

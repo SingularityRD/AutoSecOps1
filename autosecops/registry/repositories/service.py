@@ -11,7 +11,10 @@ from autosecops import config
 from autosecops.authz.controls import require_scope
 from autosecops.db.models import RegistryRepository, RegistryVersion
 from autosecops.exceptions import RegistryError, RegistryNotFound
-from autosecops.registry.constants import DEFAULT_REGISTRY_ORIGIN
+from autosecops.registry.constants import (
+    API_SIDE_CUSTOM_SYNC_REFUSED,
+    DEFAULT_REGISTRY_ORIGIN,
+)
 from autosecops.registry.repositories.schemas import (
     RegistryRepositoryCreate,
     RegistryRepositorySync,
@@ -162,6 +165,9 @@ class RegistryReposService(BaseOrgService):
             allowed_domains = allowed_domains_setting or {"github.com"}
             git_url = parse_git_url(repository.origin, allowed_domains=allowed_domains)
 
+            if not config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED:
+                # Refuse before fetching keys: the API never runs repository code.
+                raise RegistryError(API_SIDE_CUSTOM_SYNC_REFUSED)
             if config.AUTOSECOPS__REGISTRY_SYNC_SANDBOX_ENABLED:
                 # The ExecutorWorker fetches the organization key and acquires
                 # host keys inside the registry-sync activity. Avoid creating a

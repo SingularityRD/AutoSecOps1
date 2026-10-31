@@ -14,29 +14,24 @@ import _posixsubprocess
 import contextlib
 import multiprocessing.context as mp_context
 import os
+import re
 import sys
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from multiprocessing import popen_spawn_posix, resource_tracker, util
 from typing import Any, cast
 
+from autosecops.logger import logger
 from autosecops.process_env import BASE_ENV_NAMES, BASE_ENV_PREFIXES, select_env
 
 _LAUNCH_LOCK = threading.Lock()
+_SHELL_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # Typeshed's fork_exec stub does not admit the None values CPython 3.12's own
 # multiprocessing passes for cwd and preexec_fn, so the call goes untyped.
 _FORK_EXEC: Any = _posixsubprocess.fork_exec
 
-SCRUBBED_SPAWN_SUPPORTED = sys.platform.startswith("linux") and sys.version_info[
-    :2
-] == (3, 12)
-"""Whether this interpreter's ``spawnv_passfds`` matches the replacement below.
-
-The replacement mirrors CPython 3.12's ``multiprocessing.util.spawnv_passfds``
-with an explicit environment. Other versions fall back to running work in the
-calling process rather than starting workers with the full environment.
-"""
+SCRUBBED_SPAWN_SUPPORTED: bool  # Set below, once _spawnv_passfds_with_env exists.
 
 
 def _spawnv_passfds_with_env(
@@ -81,6 +76,67 @@ def _spawnv_passfds_with_env(
             os.close(errpipe_write)
 
     return spawnv_passfds
+
+
+def _self_test() -> bool:
+    """Check that the fork_exec replacement starts a child with only ``env``.
+
+    The replacement mirrors CPython 3.12's private call. If this interpreter
+    differs, starting workers this way could fail or leak the parent's
+    environment, so callers fall back to running work in-process.
+    """
+    if not (sys.platform.startswith("linux") and sys.version_info[:2] == (3, 12)):
+        return False
+    marker = "AUTOSECOPS_SCRUBBED_SPAWN_SELF_TEST"
+    script = f'test "${marker}" = 1'
+    # Any inherited parent variable proves a leak. The shell sets PATH and a
+    # few others itself, so probe for a variable it never defines.
+    shell_defined = {
+        "PATH",
+        "PWD",
+        "HOME",
+        "IFS",
+        "PS1",
+        "PS2",
+        "PS4",
+        "OPTIND",
+        "PPID",
+    }
+    if canary := next(
+        (
+            name
+            for name in os.environ
+            if name not in shell_defined and _SHELL_NAME.fullmatch(name)
+        ),
+        None,
+    ):
+        script += f' && test -z "${{{canary}+set}}"'
+    try:
+        pid = _spawnv_passfds_with_env({marker: "1"})(
+            "/bin/sh", ["/bin/sh", "-c", script], ()
+        )
+        _, status = os.waitpid(pid, 0)
+    except Exception as exc:  # noqa: BLE001 - any failure means unsupported
+        logger.warning(
+            "Scrubbed spawn self-test failed; worker pools run in-process",
+            error=type(exc).__name__,
+        )
+        return False
+    if os.waitstatus_to_exitcode(status) != 0:
+        logger.warning(
+            "Scrubbed spawn self-test leaked the parent environment; worker "
+            "pools run in-process"
+        )
+        return False
+    return True
+
+
+SCRUBBED_SPAWN_SUPPORTED = _self_test()
+"""Whether spawn workers can start from an allowlisted environment here.
+
+Checked once at import by starting a shell with a known environment.
+Unsupported interpreters run the work in the calling process instead of
+starting workers with the full environment."""
 
 
 @contextlib.contextmanager
@@ -137,6 +193,15 @@ class ScrubbedSpawnContext(mp_context.SpawnContext):
         _CHILD_ENV.update(child_env)
         # Queues and locks start the shared resource tracker on first use; it
         # lives as long as this process, so start it without credentials too.
+        # A tracker someone started earlier holds the full environment:
+        # replace it.
+        tracker = resource_tracker._resource_tracker  # noqa: SLF001
+        if vars(tracker).get("_pid") is not None:
+            logger.warning(
+                "Restarting the multiprocessing resource tracker without credentials"
+            )
+            # Typeshed omits the private _stop the stdlib tests use the same way.
+            cast(Any, tracker)._stop()  # noqa: SLF001
         with _scrubbed_spawnv(_CHILD_ENV):
             resource_tracker.ensure_running()
 

@@ -19,6 +19,7 @@ from pydantic import SecretStr
 from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autosecops import config
 from autosecops.auth.types import Role
 from autosecops.contexts import ctx_role
 from autosecops.exceptions import AutoSecOpsCredentialsError
@@ -44,6 +45,8 @@ __all__ = [
 
 
 _AGENT_START_SECONDS = 10.0
+_AGENT_STDERR_LIMIT = 4096
+_MAX_UNIX_SOCKET_PATH = 108
 _AGENT_STOP_SECONDS = 10.0
 
 INVALID_SSH_KEY_MESSAGE = (
@@ -130,6 +133,13 @@ async def temporary_ssh_agent(
         socket_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         socket_dir.chmod(0o700)
         socket_path = socket_dir / "agent.sock"
+        if len(os.fsencode(socket_path)) >= _MAX_UNIX_SOCKET_PATH:
+            # AF_UNIX paths are limited to 108 bytes; fall back to a short
+            # private directory under /tmp.
+            socket_path = (
+                Path(stack.enter_context(tempfile.TemporaryDirectory(dir="/tmp")))
+                / "agent.sock"
+            )
         logger.debug("Starting ssh-agent")
         try:
             process = await asyncio.create_subprocess_exec(
@@ -140,6 +150,7 @@ async def temporary_ssh_agent(
                 stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
+                limit=_AGENT_STDERR_LIMIT,
                 # The agent lives as long as the sync; it must not hold
                 # platform credentials in an environment readable via /proc.
                 env=tool_subprocess_env(),
@@ -148,8 +159,10 @@ async def temporary_ssh_agent(
         except OSError as e:
             logger.error("Failed to start ssh-agent", error=str(e))
             raise RuntimeError("Failed to start ssh-agent") from e
+        stderr_tail = bytearray()
+        drain = asyncio.create_task(_drain_agent_stderr(process, stderr_tail))
         try:
-            await _wait_for_agent_socket(process, socket_path)
+            await _wait_for_agent_socket(process, socket_path, stderr_tail)
             env = SshEnv(
                 ssh_auth_sock=str(socket_path),
                 ssh_agent_pid=str(process.pid),
@@ -167,21 +180,34 @@ async def temporary_ssh_agent(
                 with contextlib.suppress(ProcessLookupError):
                     process.kill()
                 await process.wait()
+            drain.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await drain
+
+
+async def _drain_agent_stderr(
+    process: asyncio.subprocess.Process, tail: bytearray
+) -> None:
+    """Keep the agent's stderr pipe empty, remembering its last few KiB."""
+    if process.stderr is None:
+        return
+    while chunk := await process.stderr.read(_AGENT_STDERR_LIMIT):
+        tail += chunk
+        del tail[: max(0, len(tail) - _AGENT_STDERR_LIMIT)]
 
 
 async def _wait_for_agent_socket(
-    process: asyncio.subprocess.Process, socket_path: Path
+    process: asyncio.subprocess.Process, socket_path: Path, stderr_tail: bytearray
 ) -> None:
     """Wait until a foreground ssh-agent listens on its socket."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + _AGENT_START_SECONDS
     while not socket_path.exists():
         if process.returncode is not None:
-            stderr = b""
-            if process.stderr is not None:
-                stderr = await process.stderr.read()
+            await asyncio.sleep(0)
             logger.error(
-                "Failed to start ssh-agent", stderr=stderr.decode(errors="replace")
+                "Failed to start ssh-agent",
+                stderr=bytes(stderr_tail).decode(errors="replace"),
             )
             raise RuntimeError("Failed to start ssh-agent")
         if loop.time() >= deadline:
@@ -306,6 +332,17 @@ def add_host_to_known_hosts_sync(url: str, env: SshEnv) -> None:
 async def add_host_to_known_hosts(url: str, *, env: SshEnv) -> None:
     """Asynchronously add the host to the known hosts file."""
     return await asyncio.to_thread(add_host_to_known_hosts_sync, url, env)
+
+
+def _pinned_known_hosts() -> str:
+    """Return the operator's pinned known_hosts entries, if configured."""
+    path = config.AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE
+    if not path:
+        return ""
+    try:
+        return Path(path).read_text()
+    except OSError as e:
+        raise RuntimeError("Cannot read AUTOSECOPS__GIT_SSH_KNOWN_HOSTS_FILE") from e
 
 
 def _public_key_line(key_data: str) -> str:
@@ -449,6 +486,7 @@ async def ssh_context(
             async with temporary_ssh_agent(socket_dir=context_dir / "agent") as agent:
                 known_hosts = context_dir / "known_hosts"
                 known_hosts.touch(mode=0o600)
+                known_hosts.write_text(_pinned_known_hosts())
                 identity = context_dir / "identity.pub"
                 identity.write_text(_public_key_line(secret.get_secret_value()))
                 env = replace(

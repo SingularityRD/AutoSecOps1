@@ -232,6 +232,8 @@ def tool_subprocess_env(extra: Mapping[str, str] | None = None) -> dict[str, str
     }
     env["GIT_CONFIG_GLOBAL"] = os.devnull
     env["UV_NO_CONFIG"] = "1"
+    # uv and git's HTTP transport read ~/.netrc, which this user can write.
+    env["NETRC"] = os.devnull
     if extra:
         env.update(extra)
     return env
