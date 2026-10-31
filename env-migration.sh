@@ -97,6 +97,45 @@ for key in TEMPORAL__POSTGRES_IMAGE; do
     fi
 done
 
+# The bundled Redis requires REDIS_PASSWORD. Never carry the template
+# placeholder into .env: reuse the password from the old REDIS_URL when it has
+# one (installs that followed the earlier Redis hardening steps keep working),
+# otherwise generate one. `./env.sh --upgrade` applies the same rule.
+redis_password=$(grep "^REDIS_PASSWORD=" "$TEMP_FILE" | tail -n 1 | sed "s/^REDIS_PASSWORD=//")
+if [[ -z "$redis_password" || "$redis_password" == change-me-* ]]; then
+    old_url=$(grep "^REDIS_URL=" "$OLD_ENV" | tail -n 1 | sed "s/^REDIS_URL=//; s/^[\"']//; s/[\"']$//")
+    redis_password=$(sed -nE 's#^rediss?://[^:/@]*:([^@]+)@.*$#\1#p' <<< "$old_url")
+    if [[ -n "$redis_password" ]]; then
+        redis_password=$(printf '%b' "$(sed 's/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g' <<< "$redis_password")")
+    fi
+    if [[ "$redis_password" == *"'"* ]]; then
+        echo "The REDIS_URL password contains a single quote, which .env cannot hold literally. Generating a new REDIS_PASSWORD; remove the credentials from REDIS_URL."
+        redis_password=""
+    fi
+    if [[ -n "$redis_password" ]]; then
+        echo "Set REDIS_PASSWORD from the password in REDIS_URL"
+    elif redis_password=$(openssl rand -hex 24 2>/dev/null) && [[ -n "$redis_password" ]]; then
+        echo "Generated REDIS_PASSWORD for the bundled Redis"
+    else
+        echo "Error: could not run openssl to generate REDIS_PASSWORD. Install openssl and rerun this script."
+        rm -f "$TEMP_FILE"
+        exit 1
+    fi
+    if [[ ! "$redis_password" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        # Single quotes keep Docker Compose from interpolating `$` and the like.
+        redis_password="'${redis_password}'"
+    fi
+    if grep -q "^REDIS_PASSWORD=" "$TEMP_FILE"; then
+        REDIS_PASSWORD_VALUE="$redis_password" awk '
+            /^REDIS_PASSWORD=/ { print "REDIS_PASSWORD=" ENVIRON["REDIS_PASSWORD_VALUE"]; next }
+            { print }
+        ' "$TEMP_FILE" > "${TEMP_FILE}.redis"
+        mv "${TEMP_FILE}.redis" "$TEMP_FILE"
+    else
+        printf '\nREDIS_PASSWORD=%s\n' "$redis_password" >> "$TEMP_FILE"
+    fi
+fi
+
 # Move the temporary file to the final output
 mv "$TEMP_FILE" "$OUTPUT_ENV"
 

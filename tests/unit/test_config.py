@@ -6,8 +6,10 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 
 import autosecops.config as autosecops_config
 from autosecops.config import (
@@ -1171,6 +1173,7 @@ ENV_EXAMPLE_GENERATED_SECRETS = (
     "TEMPORAL__POSTGRES_PASSWORD",
     "MINIO_ROOT_PASSWORD",
     "AUTOSECOPS__DB_RUNTIME_PASSWORD",
+    "REDIS_PASSWORD",
 )
 WEAK_DEFAULT_CREDENTIALS = {
     "AUTOSECOPS__POSTGRES_PASSWORD": {"postgres"},
@@ -1380,7 +1383,7 @@ def test_background_worker_shared_settings_match_other_services(
     assert len(set(values)) == 1, values
 
 
-# === Compose operations: log rotation and resource limits === #
+# === Compose operations: log rotation, resource limits, Redis auth === #
 
 # One-shot containers exit after their task, so they need no memory limit or
 # restart policy.
@@ -1393,9 +1396,7 @@ COMPOSE_LOGGING_ANCHOR = """x-logging: &default-logging
 """
 
 
-def _compose_services(path: Path) -> dict[str, dict[str, object]]:
-    import yaml
-
+def _compose_services(path: Path) -> dict[str, dict[str, Any]]:
     services = yaml.safe_load(path.read_text())["services"]
     assert isinstance(services, dict)
     return services
@@ -1459,3 +1460,177 @@ def test_compose_limit_defaults_match_across_files() -> None:
             )
         )
     assert len({tuple(sorted(d.items())) for d in defaults.values()}) == 1, defaults
+
+
+def _redis_service_body(path: Path) -> str:
+    body = _compose_service_body(path.read_text(), "redis")
+    assert body, f"{path.name} has no redis service"
+    return body
+
+
+@pytest.mark.parametrize(
+    "path",
+    (REPO_ROOT / "docker-compose.yml", REPO_ROOT / "docker-compose.local.yml"),
+    ids=lambda path: path.name,
+)
+def test_compose_redis_requires_password(path: Path) -> None:
+    body = _redis_service_body(path)
+    # Compose refuses to start without REDIS_PASSWORD, with the upgrade step.
+    assert re.search(
+        r"(?m)^      REDIS_PASSWORD: \$\{REDIS_PASSWORD:\?[^}]*env\.sh --upgrade[^}]*\}",
+        body,
+    )
+    # The container refuses an empty value or the .env.example placeholder.
+    assert '"" | change-me-*)' in body
+    assert (
+        'exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+        in body
+    )
+    assert "command:" not in body
+    # The health check authenticates; an unauthenticated PING answers NOAUTH.
+    assert 'REDISCLI_AUTH=\\"$$REDIS_PASSWORD\\"' in body
+    assert "| grep -q PONG" in body
+
+
+def test_dev_compose_redis_uses_password_when_set() -> None:
+    body = _redis_service_body(REPO_ROOT / "docker-compose.dev.yml")
+    assert "REDIS_PASSWORD: ${REDIS_PASSWORD:-}" in body
+    assert "change-me-*)" in body
+    assert (
+        'exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+        in body
+    )
+
+
+@pytest.mark.parametrize(
+    "path", SANDBOX_POLICY_COMPOSE_ENV_FILES, ids=lambda path: path.name
+)
+def test_compose_redis_clients_get_password(path: Path) -> None:
+    source = path.read_text()
+    clients = [
+        name
+        for name in _compose_services(path)
+        if "REDIS_URL:" in (_compose_service_body(source, name) or "")
+    ]
+    assert clients
+    for name in clients:
+        body = _compose_service_body(source, name) or ""
+        assert "REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive" in body, (
+            f"{path.name}: {name}"
+        )
+
+
+def test_compose_redis_is_not_published() -> None:
+    """Production Compose keeps Redis on the internal network only."""
+    prod = _compose_services(REPO_ROOT / "docker-compose.yml")["redis"]
+    assert "ports" not in prod
+    assert not re.search(
+        r"(?m)^ +#? *ports:", _redis_service_body(REPO_ROOT / "docker-compose.yml")
+    )
+    # Development stacks publish it for host tests, on loopback only.
+    for name in ("docker-compose.dev.yml", "docker-compose.local.yml"):
+        ports = _compose_services(REPO_ROOT / name)["redis"].get("ports", [])
+        assert ports, name
+        for port in ports:
+            assert str(port).startswith("127.0.0.1:"), f"{name}: {port}"
+
+
+def test_redis_password_is_generated_by_env_sh() -> None:
+    assert 'dotenv_replace "REDIS_PASSWORD"' in (REPO_ROOT / "env.sh").read_text()
+
+
+def _run_env_sh_upgrade(tmp_path: Path, env: str) -> tuple[str, str]:
+    env_file = tmp_path / ".env"
+    env_file.write_text(env)
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--upgrade", str(env_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return env_file.read_text(), result.stdout
+
+
+def test_env_sh_upgrade_adds_redis_password(tmp_path: Path) -> None:
+    upgraded, out = _run_env_sh_upgrade(
+        tmp_path, "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n"
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", upgraded)
+    assert "generated" in out
+    assert list(tmp_path.glob(".env.backup_*"))
+    # Idempotent: a second run keeps the password.
+    again, out = _run_env_sh_upgrade(tmp_path, upgraded)
+    assert again == upgraded
+    assert "up to date" in out
+
+
+def test_env_sh_upgrade_reuses_redis_url_password(tmp_path: Path) -> None:
+    # Installs that followed the earlier hardening steps keep their password.
+    upgraded, _ = _run_env_sh_upgrade(
+        tmp_path,
+        "REDIS_URL=redis://:synthetic%24pass@redis:6379\n"
+        "REDIS_PASSWORD=change-me-redis-password\n",
+    )
+    assert "REDIS_PASSWORD='synthetic$pass'\n" in upgraded
+    assert "change-me-" not in upgraded
+
+
+def test_env_sh_check_requires_redis_password(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("AUTOSECOPS__APP_ENV=development\n")
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "env.sh"), "--check", str(env_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "REDIS_PASSWORD" in result.stdout
+    assert "--upgrade" in result.stdout
+
+
+def test_env_migration_sets_redis_password(tmp_path: Path) -> None:
+    generated = _run_env_migration(
+        tmp_path, "REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}\n"
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=[0-9a-f]{48}$", generated)
+
+    reused = _run_env_migration(tmp_path, "REDIS_URL=redis://:synthetic@redis:6379\n")
+    assert re.search(r"(?m)^REDIS_PASSWORD=synthetic$", reused)
+
+    kept = _run_env_migration(
+        tmp_path, "REDIS_PASSWORD=existing\nREDIS_URL=redis://redis:6379\n"
+    )
+    assert re.search(r"(?m)^REDIS_PASSWORD=existing$", kept)
+
+
+def test_redis_password_treats_blank_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    try:
+        with monkeypatch.context() as env:
+            env.setenv("REDIS_PASSWORD", "")
+            assert importlib.reload(autosecops_config).REDIS_PASSWORD is None
+            env.setenv("REDIS_PASSWORD", "synthetic")
+            assert importlib.reload(autosecops_config).REDIS_PASSWORD == "synthetic"
+    finally:
+        importlib.reload(autosecops_config)
+
+
+def test_redis_clients_send_redis_password() -> None:
+    """Every Redis client passes REDIS_PASSWORD; URL credentials still win."""
+    clients = (
+        "autosecops/redis/client.py",
+        "autosecops/mcp/auth.py",
+        "autosecops/mcp/oidc/storage.py",
+        "autosecops/mcp/server.py",
+    )
+    for relative in clients:
+        source = (REPO_ROOT / relative).read_text()
+        calls = re.findall(r"from_url\((.*?)\)\n", source, re.S)
+        assert calls, relative
+        for call in calls:
+            assert "REDIS_PASSWORD" in call, f"{relative}: {call}"
+    for path in (REPO_ROOT / "autosecops").rglob("*.py"):
+        source = path.read_text()
+        if re.search(r"Redis\w*\.from_url\(|redis\.from_url\(", source):
+            assert "REDIS_PASSWORD" in source, path.relative_to(REPO_ROOT)

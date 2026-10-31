@@ -132,6 +132,7 @@ services:
       AUTOSECOPS__LOCAL_REPOSITORY_ENABLED: ${AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:-false}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
     volumes:
       - ${AUTOSECOPS__LOCAL_REPOSITORY_PATH}:/app/local_registry
     depends_on:
@@ -223,6 +224,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (MinIO/S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -313,6 +315,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (MinIO/S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -440,6 +443,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (MinIO/S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -538,6 +542,7 @@ services:
         AUTOSECOPS__OUTBOUND_NO_PROXY: ${AUTOSECOPS__OUTBOUND_NO_PROXY:-}
         # Redis
         REDIS_URL: ${REDIS_URL}
+        REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
         # Blob storage (MinIO/S3)
         AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
         AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -711,6 +716,7 @@ services:
         AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS: ${AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS:-30}
         # Redis
         REDIS_URL: ${REDIS_URL}
+        REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
         # Blob storage (MinIO/S3)
         AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
         AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -772,6 +778,7 @@ services:
       AUTOSECOPS__LICENSE_KEY: ${AUTOSECOPS__LICENSE_KEY:-}
       AUTOSECOPS__EE_MULTI_TENANT: ${AUTOSECOPS__EE_MULTI_TENANT:-false}
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Internal OIDC issuer (on the API server)
       USER_AUTH_SECRET: ${USER_AUTH_SECRET}
       AUTOSECOPS__API_URL: ${AUTOSECOPS__API_URL:-http://api:8000}
@@ -999,18 +1006,31 @@ services:
     mem_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
     memswap_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
     cpus: "${AUTOSECOPS__REDIS_CPU_LIMIT:-0}"
+    # No host ports: every client reaches Redis on the internal `core` network.
     networks:
       - core
-    # ports:
-    #   - 6379:6379
     volumes:
       # Not redis-data: Valkey 8 cannot load data files written by Redis 7.4+.
       - valkey-data:/data
-    # The redis-* names run in Valkey (compatibility links) and in Redis images
-    # selected through AUTOSECOPS__REDIS_IMAGE.
-    command: redis-server --appendonly yes
+    # Valkey requires the password from .env. The image entrypoint prepends the
+    # server binary to leading options and drops root before it starts, for
+    # Valkey and for Redis images selected through AUTOSECOPS__REDIS_IMAGE. The
+    # redis-cli name runs in both (Valkey ships compatibility links).
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is not set. Run ./env.sh --upgrade, see https://docs.singularityrd.com/self-hosting/updating#redis-password} # Sensitive
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        case "$${REDIS_PASSWORD:-}" in
+          "" | change-me-*)
+            echo "redis: set REDIS_PASSWORD in .env to a generated secret (./env.sh --upgrade): https://docs.singularityrd.com/self-hosting/updating#redis-password" >&2
+            exit 1
+            ;;
+        esac
+        exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 5

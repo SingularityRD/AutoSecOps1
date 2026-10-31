@@ -53,6 +53,73 @@ dotenv_get() {
     grep -E "^${env_var_name}=" "$file_path" | tail -n 1 | cut -d '=' -f 2- | sed -E 's/^["'"'"'](.*)["'"'"']$/\1/'
 }
 
+# Print the password embedded in a redis:// or rediss:// URL, percent-decoded,
+# or nothing when the URL carries none.
+redis_url_password() {
+    local password
+    password=$(sed -nE 's#^rediss?://[^:/@]*:([^@]+)@.*$#\1#p' <<< "$1")
+    if [ -n "$password" ]; then
+        printf '%b' "$(sed 's/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g' <<< "$password")"
+    fi
+}
+
+# Bring an existing env file up to date with settings that later releases
+# require. Idempotent; backs the file up before the first change.
+#   REDIS_PASSWORD: the bundled Redis requires a password. Reuse the password
+#   from REDIS_URL when it has one (installs that followed the earlier Redis
+#   hardening steps), otherwise generate one.
+upgrade_env_file() {
+    local file_path=$1
+    if [ ! -f "$file_path" ]; then
+        echo -e "${RED}No env file found at ${file_path}. Run ./env.sh to create one.${NC}"
+        return 1
+    fi
+
+    local redis_password
+    redis_password=$(dotenv_get "REDIS_PASSWORD" "$file_path")
+    if [ -n "$redis_password" ] && [[ "$redis_password" != change-me-* ]]; then
+        echo -e "${GREEN}${file_path} is up to date.${NC}"
+        return 0
+    fi
+
+    local backup
+    backup="${file_path}.backup_$(date "+%Y%m%d_%H%M%S")"
+    cp -p "$file_path" "$backup"
+    echo -e "${YELLOW}Backed up ${file_path} to ${backup}.${NC}"
+
+    local source="generated"
+    local value
+    redis_password=$(redis_url_password "$(dotenv_get "REDIS_URL" "$file_path")")
+    if [[ "$redis_password" == *"'"* ]]; then
+        echo -e "${YELLOW}The REDIS_URL password contains a single quote, which .env cannot hold literally. Generating a new password; remove the credentials from REDIS_URL.${NC}"
+        redis_password=""
+    fi
+    if [ -n "$redis_password" ]; then
+        source="taken from REDIS_URL"
+    else
+        redis_password=$(openssl rand -hex 24)
+    fi
+    value=$redis_password
+    # Single quotes keep Docker Compose from interpolating `$` and the like.
+    if [[ ! "$value" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        value="'${value}'"
+    fi
+    if grep -qE "^REDIS_PASSWORD=" "$file_path"; then
+        local tmp_file
+        tmp_file=$(mktemp)
+        # awk, not sed: a password taken from REDIS_URL may hold sed metacharacters.
+        REDIS_PASSWORD_VALUE="$value" awk '
+            /^REDIS_PASSWORD=/ { print "REDIS_PASSWORD=" ENVIRON["REDIS_PASSWORD_VALUE"]; next }
+            { print }
+        ' "$file_path" > "$tmp_file"
+        cat "$tmp_file" > "$file_path"
+        rm -f "$tmp_file"
+    else
+        printf '\n# Password the bundled Redis (Valkey) requires. Added by ./env.sh --upgrade.\nREDIS_PASSWORD=%s\n' "$value" >> "$file_path"
+    fi
+    echo -e "${GREEN}Set REDIS_PASSWORD (${source}). Recreate the stack with docker compose up -d.${NC}"
+}
+
 # Validate an env file. Exits non-zero when placeholders remain; warns about
 # weak development credentials when the file is configured for production.
 check_env_file() {
@@ -70,6 +137,11 @@ check_env_file() {
         echo -e "${RED}${file_path} still contains placeholder secrets. Refusing to continue.${NC}"
         echo -e "${RED}Generate real values with ./env.sh (or set them manually) for:${NC}"
         echo "$placeholders" | awk -F ':' '{ print "  line " $1 ": " $2 }'
+        status=1
+    fi
+
+    if [ -z "$(dotenv_get "REDIS_PASSWORD" "$file_path")" ]; then
+        echo -e "${RED}${file_path} has no REDIS_PASSWORD. The bundled Redis requires one: run ./env.sh --upgrade${NC}"
         status=1
     fi
 
@@ -102,10 +174,21 @@ if [ "${1:-}" = "--check" ]; then
     exit $?
 fi
 
+if [ "${1:-}" = "--upgrade" ]; then
+    if ! openssl version &> /dev/null; then
+        echo -e "${RED}Could not run openssl. Please check if openssl is correctly installed.${NC}"
+        exit 1
+    fi
+    upgrade_env_file "${2:-.env}" || exit $?
+    check_env_file "${2:-.env}"
+    exit $?
+fi
+
 if [ -n "${1:-}" ]; then
     echo -e "${RED}Unknown argument: $1${NC}"
     echo "Usage: ./env.sh            Create .env from .env.example"
     echo "       ./env.sh --check [file]  Refuse an env file that still has placeholder secrets"
+    echo "       ./env.sh --upgrade [file]  Add settings a newer release requires (backs the file up first)"
     exit 2
 fi
 
@@ -204,6 +287,12 @@ dotenv_replace "MINIO_ROOT_PASSWORD" "$minio_root_password" "$env_file"
 echo -e "${YELLOW}Generating the database runtime role password...${NC}"
 db_runtime_password=$(openssl rand -hex 24)
 dotenv_replace "AUTOSECOPS__DB_RUNTIME_PASSWORD" "$db_runtime_password" "$env_file"
+
+# The bundled Redis requires a password in every mode. Always random: host
+# tooling and tests read it from .env.
+echo -e "${YELLOW}Generating the Redis password...${NC}"
+redis_password=$(openssl rand -hex 24)
+dotenv_replace "REDIS_PASSWORD" "$redis_password" "$env_file"
 
 # Prompt for the public address. Keep a typed http:// or https:// scheme.
 # Without one, production mode uses https:// for any host but a loopback

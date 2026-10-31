@@ -141,3 +141,14 @@ def test_env_sh_reprompts_for_unsupported_scheme(tmp_path: Path) -> None:
         _read_env(tmp_path / ".env")["PUBLIC_APP_URL"]
         == "https://autosecops.example.test"
     )
+
+
+@requires_env_sh
+@pytest.mark.parametrize("production", [True, False])
+def test_env_sh_generates_redis_password(tmp_path: Path, production: bool) -> None:
+    # Development mode too: the development Compose Redis requires it when set.
+    env = _run_env_sh(tmp_path, production=production, public_host="")
+    assert len(env["REDIS_PASSWORD"]) == 48
+    assert not env["REDIS_PASSWORD"].startswith("change-me-")
+    # Compose clients send it separately, so REDIS_URL keeps no credentials.
+    assert env["REDIS_URL"] == "redis://${REDIS_HOST}:${REDIS_PORT}"

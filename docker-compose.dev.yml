@@ -127,6 +127,7 @@ services:
       AUTOSECOPS__LOCAL_REPOSITORY_ENABLED: ${AUTOSECOPS__LOCAL_REPOSITORY_ENABLED:-false}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
 
     volumes:
       - ./autosecops:/app/autosecops
@@ -221,6 +222,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (for S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -311,6 +313,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (for S3)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -434,6 +437,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (for S3/MinIO wheel access)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -529,6 +533,7 @@ services:
       AUTOSECOPS__OUTBOUND_NO_PROXY: ${AUTOSECOPS__OUTBOUND_NO_PROXY:-}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (for S3/MinIO tarball access)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -703,6 +708,7 @@ services:
       AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS: ${AUTOSECOPS__LLM_GATEWAY_STATUS_LOG_INTERVAL_SECONDS:-30}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Blob storage (for S3/MinIO tarball access)
       AUTOSECOPS__BLOB_STORAGE_ENDPOINT: ${AUTOSECOPS__BLOB_STORAGE_ENDPOINT:-http://minio:9000}
       AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY: ${AUTOSECOPS__BLOB_STORAGE_SSL_VERIFY:-true}
@@ -764,6 +770,7 @@ services:
       AUTOSECOPS__EE_MULTI_TENANT: ${AUTOSECOPS__EE_MULTI_TENANT:-false}
       # Redis
       REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
       # Internal OIDC issuer (on the API server)
       USER_AUTH_SECRET: ${USER_AUTH_SECRET}
       AUTOSECOPS__API_URL: ${AUTOSECOPS__API_URL:-http://api:8000}
@@ -1005,14 +1012,33 @@ services:
     mem_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
     memswap_limit: ${AUTOSECOPS__REDIS_MEMORY_LIMIT:-2g}
     cpus: "${AUTOSECOPS__REDIS_CPU_LIMIT:-0}"
+    # Host tests connect on loopback only.
     ports:
-      - ${REDIS_PORT_HOST:-6379}:6379
+      - 127.0.0.1:${REDIS_PORT_HOST:-6379}:6379
     volumes:
       # Not redis-data: Valkey 8 cannot load data files written by Redis 7.4+.
       - valkey-data:/data
-    command: valkey-server --appendonly yes
+    # Development stacks require the password when .env sets one (env.sh always
+    # does) and run without one for older development .env files.
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-} # Sensitive
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        case "$${REDIS_PASSWORD:-}" in
+          change-me-*)
+            echo "redis: set REDIS_PASSWORD in .env to a generated secret (./env.sh --upgrade)" >&2
+            exit 1
+            ;;
+          "")
+            echo "redis: REDIS_PASSWORD is empty, so Valkey accepts unauthenticated clients. Development only." >&2
+            exec docker-entrypoint.sh --appendonly yes
+            ;;
+        esac
+        exec docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" valkey-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 5

@@ -1650,6 +1650,15 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 REDIS_URL__ARN = os.environ.get("REDIS_URL__ARN")
 """(AWS only) ARN of the secret containing the Redis URL."""
 
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD") or None
+"""Password for Redis AUTH when the Redis URL carries none.
+
+Docker Compose sets it for the bundled Redis, which requires a password. A
+password in the URL takes precedence, so an external Redis keeps the
+credentials in its URL. Pass it as the ``password`` argument of
+``Redis.from_url``: redis-py applies URL credentials over keyword arguments.
+"""
+
 AUTOSECOPS__CASE_TRIGGERS_ENABLED = env_bool(
     "AUTOSECOPS__CASE_TRIGGERS_ENABLED", default=True
 )
