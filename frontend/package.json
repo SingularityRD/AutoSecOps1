@@ -69,7 +69,7 @@
     "@t3-oss/env-nextjs": "0.13.11",
     "@tanstack/react-query": "5.104.5",
     "@tanstack/react-table": "8.21.3",
-    "@tanstack/react-virtual": "3.14.22",
+    "@tanstack/react-virtual": "3.13.12",
     "@tiptap/extension-code-block": "3.32.0",
     "@tiptap/extension-hard-break": "3.32.0",
     "@tiptap/extension-highlight": "3.32.0",
@@ -142,9 +142,9 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.2",
-    "@biomejs/cli-darwin-arm64": "2.6.2",
-    "@hey-api/openapi-ts": "0.99.0",
+    "@biomejs/biome": "2.0.4",
+    "@biomejs/cli-darwin-arm64": "2.2.4",
+    "@hey-api/openapi-ts": "0.48.3",
     "@hookform/devtools": "4.4.0",
     "@playwright/test": "1.64.1",
     "@shadcn/helpers": "0.3.0",
@@ -185,11 +185,11 @@
       }
     },
     "overrides": {
-      "@ai-sdk/provider-utils": "5.0.51",
+      "@ai-sdk/provider-utils": "5.0.67",
       "@ai-sdk/provider-utils>undici": "7.30.1",
-      "@tiptap/core": "3.30.5",
-      "@tiptap/extension-bubble-menu": "3.30.5",
-      "@tiptap/extension-floating-menu": "3.30.5",
+      "@tiptap/core": "3.32.0",
+      "@tiptap/extension-bubble-menu": "3.32.0",
+      "@tiptap/extension-floating-menu": "3.32.0",
       "baseline-browser-mapping": "2.11.0",
       "brace-expansion": "5.0.12",
       "browserslist": "4.28.7",

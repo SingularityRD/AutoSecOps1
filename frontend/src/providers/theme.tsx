@@ -1,7 +1,9 @@
 "use client"
 
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-import type { ThemeProviderProps } from "next-themes/dist/types"
+import {
+  ThemeProvider as NextThemesProvider,
+  type ThemeProviderProps,
+} from "next-themes"
 
 /** App-wide theme provider backed by next-themes (class-based dark mode). */
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
