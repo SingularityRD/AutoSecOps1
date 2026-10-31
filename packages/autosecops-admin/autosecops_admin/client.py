@@ -9,6 +9,7 @@ import httpx
 
 from autosecops_admin.config import Config, get_config, load_cookies
 from autosecops_admin.schemas import (
+    LicenseClockResetRead,
     OrganizationTierRead,
     OrgRead,
     OrgRegistryRepositoryRead,
@@ -107,6 +108,12 @@ class AdminClient:
                 status_code=response.status_code,
             )
         return response
+
+    # License endpoints
+    async def reset_license_clock(self) -> LicenseClockResetRead:
+        """Reset the license clock high-water mark to the server's current time."""
+        response = await self._request("POST", "/admin/license/clock/reset")
+        return LicenseClockResetRead.model_validate(response.json())
 
     # User endpoints
     async def list_users(self) -> list[UserRead]:

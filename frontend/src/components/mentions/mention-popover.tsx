@@ -6,6 +6,7 @@ import { useMemo } from "react"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import type { MentionSection, MentionSuggestion } from "@/hooks/use-mentions"
 import type { MentionKind } from "@/lib/mentions"
+import { planLabel } from "@/lib/plans"
 import type { CaretCoordinates } from "@/lib/textarea-caret"
 import { cn } from "@/lib/utils"
 
@@ -16,13 +17,13 @@ const POPOVER_COPY: Record<
   agent: {
     loading: "Loading agents...",
     empty: "No agents found",
-    locked: "Agent mentions are an Enterprise feature",
+    locked: `Agent mentions need the ${planLabel("agent_addons")}`,
     error: "Could not load agents. Try again.",
   },
   workflow: {
     loading: "Loading workflows...",
     empty: "No workflows found",
-    locked: "Workflow commands are an Enterprise feature",
+    locked: `Workflow commands need the ${planLabel("case_addons")}`,
     error: "Could not load workflows. Try again.",
   },
 }
@@ -36,7 +37,7 @@ const POPOVER_COPY: Record<
  * the caller, so Radix never dismisses the popover on its own.
  *
  * An org without the entitlement still gets the popover, showing a single inert
- * Enterprise row instead of suggestions. It is deliberately not a dialog
+ * plan upgrade row instead of suggestions. It is deliberately not a dialog
  * trigger: the user opened this by typing a character, not by clicking.
  */
 export function MentionPopover({
@@ -60,7 +61,7 @@ export function MentionPopover({
   itemCount: number
   activeIndex: number
   isLoading: boolean
-  /** Show the Enterprise lock row instead of suggestions. */
+  /** Show the plan lock row instead of suggestions. */
   locked?: boolean
   /** Say the lookup failed rather than claiming there is nothing to show. */
   hasError?: boolean

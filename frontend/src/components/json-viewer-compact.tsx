@@ -107,6 +107,7 @@ export function CompactJsonViewer({
         </TooltipContent>
       </Tooltip>
       <button
+        type="button"
         onClick={handleCopy}
         className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
         aria-label="Copy JSON"

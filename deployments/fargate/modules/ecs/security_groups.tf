@@ -129,6 +129,19 @@ resource "aws_security_group" "core" {
     self        = true
   }
 
+  # Opt-in Prometheus scraping: only the listed collector security groups, and
+  # never the ALB or Caddy. 9090 is Temporal SDK metrics, 9100 API metrics.
+  dynamic "ingress" {
+    for_each = var.metrics_enabled && length(var.metrics_scraper_security_group_ids) > 0 ? toset([9090, 9100]) : toset([])
+    content {
+      description     = "Allow Prometheus scrapers to read metrics on port ${ingress.value}"
+      from_port       = ingress.value
+      to_port         = ingress.value
+      protocol        = "tcp"
+      security_groups = var.metrics_scraper_security_group_ids
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

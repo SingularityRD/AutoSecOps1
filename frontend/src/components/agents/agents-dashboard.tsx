@@ -1672,10 +1672,9 @@ const AgentToolSources = memo(function AgentToolSources({
       {mcpSlugs.length > 0 ? (
         <>
           {namespaces.length > 0 ? (
-            <span
-              role="separator"
+            <hr
               aria-orientation="vertical"
-              className="mx-1 h-3.5 w-px bg-border"
+              className="mx-1 h-3.5 w-px shrink-0 border-0 bg-border"
             />
           ) : null}
           <ToolSourceTiles

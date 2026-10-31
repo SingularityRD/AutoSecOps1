@@ -82,6 +82,7 @@ import {
   UNAVAILABLE_ROW_CLASS_RULES,
 } from "@/lib/cases/case-rows"
 import { getApiErrorDetail } from "@/lib/errors"
+import { planFeatureTitle, planLabel } from "@/lib/plans"
 import { cn } from "@/lib/utils"
 
 /**
@@ -129,7 +130,7 @@ export interface CaseLinkedTableProps {
   canEditCells: boolean
   /**
    * Whether the org has `case_addons`, `undefined` while entitlements load.
-   * Without it, *View related cases* opens the Enterprise-only dialog.
+   * Without it, *View related cases* opens the plan upgrade dialog.
    */
   canViewRelatedCases: boolean | undefined
   onLinkRows: () => void
@@ -527,8 +528,8 @@ export function CaseLinkedTable({
         <LockedFeatureModal
           open={lockedDialogOpen}
           onOpenChange={setLockedDialogOpen}
-          title="Enterprise only"
-          description="Related cases are only available on enterprise plans."
+          title={planFeatureTitle("case_addons")}
+          description={`Related cases need the ${planLabel("case_addons")} or higher.`}
           bullets={[]}
         />
       </>

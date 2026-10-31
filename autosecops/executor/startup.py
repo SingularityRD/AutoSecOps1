@@ -4,9 +4,22 @@ import os
 from collections.abc import Iterator
 from contextlib import AbstractAsyncContextManager, contextmanager
 from pathlib import Path
+from typing import Protocol
 
 from autosecops import config
-from autosecops.temporal.worker_lifecycle import WORKER_READY_FILE, worker_readiness
+from autosecops.temporal.worker_lifecycle import (
+    WORKER_READY_FILE,
+    ReadinessCheck,
+    worker_readiness,
+)
+
+
+class WorkerReadiness(Protocol):
+    """``worker_readiness`` bound to the executor's ready file."""
+
+    def __call__(
+        self, *, check: ReadinessCheck | None = None
+    ) -> AbstractAsyncContextManager[None]: ...
 
 
 def validate_execution_backend() -> None:
@@ -46,16 +59,23 @@ def validate_execution_backend() -> None:
 
 
 @contextmanager
-def executor_lifecycle() -> Iterator[AbstractAsyncContextManager[None]]:
+def executor_lifecycle() -> Iterator[WorkerReadiness]:
     """Validate startup and provide readiness for the initialized worker.
 
-    Enter the yielded context after the Temporal worker so readiness is removed
-    before Temporal drains. The outer context also cleans up on startup failure.
+    Call the yielded factory with the worker's ``ReadinessCheck`` and enter the
+    resulting context after the Temporal worker, so readiness is removed before
+    Temporal drains. The outer context also cleans up on startup failure.
     """
     path = WORKER_READY_FILE
     path.unlink(missing_ok=True)
     validate_execution_backend()
     try:
-        yield worker_readiness(path)
+
+        def readiness(
+            *, check: ReadinessCheck | None = None
+        ) -> AbstractAsyncContextManager[None]:
+            return worker_readiness(path, check=check)
+
+        yield readiness
     finally:
         path.unlink(missing_ok=True)

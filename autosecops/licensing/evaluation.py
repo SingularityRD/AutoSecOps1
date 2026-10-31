@@ -29,6 +29,11 @@ from autosecops.tiers.enums import Entitlement
 LICENSE_GRACE_PERIOD = timedelta(days=14)
 """How long paid entitlements keep working after a license expires."""
 
+MULTI_TENANT_LAPSE_LIMIT = timedelta(days=30)
+"""How long after its grace period an expired multi-tenant license keeps
+multi-tenant mode on, in ``MultiTenantMode.LAPSED``. After that the API refuses
+to start until a renewed license is installed."""
+
 LICENSE_CLOCK_SKEW = timedelta(minutes=5)
 """How far ``issued_at`` may lie in the future before a license is rejected."""
 
@@ -162,3 +167,47 @@ def license_grants_multi_tenant(
         check_deployment=False,
     )
     return LicenseGrant.MULTI_TENANT in state.grants
+
+
+def license_permits_multi_tenant_mode(
+    token: str | None, *, now: datetime | None = None
+) -> bool:
+    """Whether ``token`` lets ``AUTOSECOPS__EE_MULTI_TENANT=true`` take effect.
+
+    True when the license verifies, is not otherwise invalid, and lists
+    ``multi_tenant``, including for ``MULTI_TENANT_LAPSE_LIMIT`` after its
+    grace period ends. A multi-tenant deployment whose license lapses must not
+    silently fall back to single-tenant mode on its next restart: that would
+    cut every organization but the default one off from SSO and organization
+    selection. Instead it keeps running multi-tenant in
+    ``MultiTenantMode.LAPSED``, where existing organizations keep working and
+    tier and organization changes are blocked. The API startup check (see
+    ``autosecops.licensing.multi_tenant``) allows that only on a deployment
+    that ran multi-tenant under the same license while it was valid, so an
+    expired key cannot turn multi-tenant mode on for a fresh install.
+
+    Like ``license_grants_multi_tenant``, this runs at import time, before the
+    database is reachable, so it does not check a ``deployment_id`` claim.
+    """
+    if not token:
+        return False
+    at = now or datetime.now(UTC)
+    state = evaluate_license(
+        token,
+        now=at,
+        public_key=load_public_key(keys.LICENSE_PUBLIC_KEY_PEM),
+        check_deployment=False,
+    )
+    claims = state.claims
+    if claims is None or state.status is LicenseStatus.INVALID:
+        return False
+    if LicenseGrant.MULTI_TENANT.value not in claims.entitlements:
+        return False
+    if state.status is LicenseStatus.EXPIRED:
+        return at < multi_tenant_lapse_ends_at(claims)
+    return True
+
+
+def multi_tenant_lapse_ends_at(claims: LicenseClaims) -> datetime:
+    """When an expired multi-tenant license stops keeping multi-tenant mode on."""
+    return claims.expires_at + LICENSE_GRACE_PERIOD + MULTI_TENANT_LAPSE_LIMIT

@@ -2,13 +2,38 @@
 
 ## Supported versions
 
-We always recommend using the latest version of AutoSecOps to ensure you get all security updates.
-If possible, do not expose AutoSecOps's UI and API to the public internet.
-If you need to receive webhooks from 3rd party sources, scope ingress on the `/api/webhooks` endpoint to the allowed IP addresses.
+SingularityRD supports the latest two minor release trains of AutoSecOps. A release train is one minor version and its patches, for example `1.4.0`, `1.4.1`, `1.4.2`.
 
-We also highly recommend using our `Kubernetes` deployment for production over `Docker Compose` or `AWS Fargate`.
+| Version | Supported |
+| --- | --- |
+| Newest minor release train | Yes: security and bug fixes |
+| Previous minor release train | Yes: security fixes and critical bug fixes |
+| Older trains | No |
+| Prereleases (`-alpha.N`, `-rc.N`) and `nightly-*` builds | No: evaluation only |
 
-For more hardening guidelines, check out the [self-hosting security guide](https://docs.singularityrd.com/self-hosting/security).
+Each minor version is supported for 12 months after its `.0` release, or until the second newer minor version ships, whichever comes first. Supported trains receive fixes as patch releases, which never contain database migrations. The full policy, end-of-life rules, and supported deployment targets are in the [support policy](https://docs.singularityrd.com/self-hosting/support-policy).
+
+Before production use, apply the [production hardening checklist](https://docs.singularityrd.com/self-hosting/production-hardening). Do not expose AutoSecOps's UI and API to the public internet. If you need to receive webhooks from third-party sources, expose only the `/api/webhooks` endpoint and limit it to the senders' IP addresses. Kubernetes is the recommended production target; see the [self-hosting security guide](https://docs.singularityrd.com/self-hosting/security) for more.
+
+## Response timelines
+
+Measured from the moment SingularityRD confirms a reported vulnerability, a patched release is available on every supported train within:
+
+| Severity | Patched release |
+| --- | --- |
+| Critical | 7 days |
+| High | 30 days |
+| Medium and low | The next scheduled release |
+
+An actively exploited vulnerability is fixed as soon as a fix is ready. A customer support agreement takes precedence where it states different terms.
+
+## Security advisories
+
+SingularityRD announces every fixed vulnerability through:
+
+- A GitHub security advisory on the AutoSecOps repository, with the affected and fixed versions, severity, and CVE when one is assigned.
+- An email advisory from [info@singularityrd.com](mailto:info@singularityrd.com) to the technical and security contacts on file for each deployment, sent with the patched release, plus an early warning with a mitigation for critical issues when one exists.
+- The Security section of the release notes and the [changelog](https://docs.singularityrd.com/self-hosting/changelog).
 
 ## Security Features
 
@@ -54,12 +79,14 @@ Include as much of the following as you can:
 - Any relevant logs, screenshots, or configuration, with secrets and customer data removed.
 - Whether and how you would like to be credited.
 
+You can also report through a [private GitHub security advisory](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability) on the AutoSecOps repository, if you have access to it.
+
 What to expect:
 
-1. We will acknowledge your report.
-2. The SingularityRD security team will review the report and determine whether it is a valid security issue.
-3. If it is valid, we will work with you to reproduce and fix it, and keep you informed of progress.
-4. The timeline for a fix depends on the severity of the vulnerability.
+1. We acknowledge your report.
+2. The SingularityRD security team confirms whether it is a valid security issue and rates its severity.
+3. If it is valid, we work with you to reproduce and fix it, keep you informed of progress, and ship the fix within the [response timelines](#response-timelines).
+4. We publish an advisory when the fix is available, and credit you if you wish.
 
 As part of responsible disclosure, please give us a reasonable opportunity to fix the issue before you disclose it publicly.
 

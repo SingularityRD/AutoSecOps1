@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -161,3 +162,25 @@ def system_role() -> Role:
         service_id="autosecops-api",
         scopes=frozenset({"*"}),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class CredentialRevocation:
+    """How many credentials of each kind an account recovery revoked."""
+
+    sessions: int
+    """Login sessions (access tokens) deleted."""
+    mcp_personal_access_tokens: int
+    """MCP personal access tokens revoked."""
+    mcp_refresh_tokens: int
+    """MCP OAuth refresh tokens revoked."""
+
+    def audit_data(self) -> dict[str, int]:
+        """The counts as audit event metadata."""
+        return {
+            "revoked_session_count": self.sessions,
+            "revoked_mcp_personal_access_token_count": (
+                self.mcp_personal_access_tokens
+            ),
+            "revoked_mcp_refresh_token_count": self.mcp_refresh_tokens,
+        }

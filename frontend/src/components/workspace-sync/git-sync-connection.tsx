@@ -689,7 +689,11 @@ function AppRepositoryList({
   let content: ReactNode
   if (isLoading) {
     content = (
-      <div className="space-y-2" aria-label="Loading repositories">
+      <div
+        className="space-y-2"
+        role="status"
+        aria-label="Loading repositories"
+      >
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-9 w-full" />

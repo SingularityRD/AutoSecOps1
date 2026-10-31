@@ -64,3 +64,38 @@ async def test_get_temporal_client_fails_fast_when_encryption_has_no_keyring(
 
     connect_mock.assert_not_awaited()
     assert temporal_client._client is None
+
+
+def test_metrics_runtime_is_created_once_per_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[str] = []
+    runtime = object()
+
+    def fake_init(bind_address: str) -> object:
+        created.append(bind_address)
+        return runtime
+
+    monkeypatch.setattr(temporal_client, "_metrics_runtime", None)
+    monkeypatch.setattr(temporal_client, "TEMPORAL__METRICS_PORT", "9090")
+    monkeypatch.setattr(temporal_client, "TEMPORAL__METRICS_HOST", "::")
+    monkeypatch.setattr(temporal_client, "init_runtime_with_prometheus", fake_init)
+
+    # Connection retries must reuse the runtime, which owns the bound port.
+    assert temporal_client._get_metrics_runtime() is runtime
+    assert temporal_client._get_metrics_runtime() is runtime
+    assert created == ["[::]:9090"]
+
+
+@pytest.mark.parametrize("port", [None, "", "not-a-port"])
+def test_metrics_runtime_is_disabled_without_a_valid_port(
+    monkeypatch: pytest.MonkeyPatch, port: str | None
+) -> None:
+    monkeypatch.setattr(temporal_client, "_metrics_runtime", None)
+    monkeypatch.setattr(temporal_client, "TEMPORAL__METRICS_PORT", port)
+    monkeypatch.setattr(
+        temporal_client,
+        "init_runtime_with_prometheus",
+        lambda bind_address: pytest.fail("runtime must not be created"),
+    )
+    assert temporal_client._get_metrics_runtime() is None

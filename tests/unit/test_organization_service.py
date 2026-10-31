@@ -70,6 +70,7 @@ from autosecops.invitations.service import (
     InvitationService,
     accept_invitation_for_user,
     find_invitation_by_token,
+    reveal_invitation_token,
 )
 from autosecops.organization.service import OrgService
 from tests.support.membership import (
@@ -1821,7 +1822,9 @@ class TestOrganizationServiceInvitations:
         )
 
         # Get invitation by token
-        retrieved = await find_invitation_by_token(session, invitation.token)
+        retrieved = await find_invitation_by_token(
+            session, await reveal_invitation_token(session, invitation)
+        )
         assert retrieved is not None
         assert retrieved.id == invitation.id
         assert retrieved.email == invitation.email
@@ -1957,7 +1960,9 @@ class TestOrganizationServiceInvitations:
         )
 
         accepted = await accept_invitation_for_user(
-            session, user_id=user_in_org2.id, token=invitation.token
+            session,
+            user_id=user_in_org2.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         assert accepted.id == invitation.id
@@ -2031,12 +2036,14 @@ class TestOrganizationServiceInvitations:
         await accept_invitation_for_user(
             session,
             user_id=standalone_superuser.id,
-            token=standalone_invitation.token,
+            token=await reveal_invitation_token(session, standalone_invitation),
         )
         assert await _is_org_member(session, standalone_superuser.id, org1.id)
 
         await accept_invitation_for_user(
-            session, user_id=service_superuser.id, token=service_invitation.token
+            session,
+            user_id=service_superuser.id,
+            token=await reveal_invitation_token(session, service_invitation),
         )
         assert await _is_org_member(session, service_superuser.id, org1.id)
 
@@ -2062,13 +2069,17 @@ class TestOrganizationServiceInvitations:
         )
 
         await accept_invitation_for_user(
-            session, user_id=user_in_org2.id, token=invitation.token
+            session,
+            user_id=user_in_org2.id,
+            token=await reveal_invitation_token(session, invitation),
         )
 
         # Try to accept again with the same user
         with pytest.raises(AutoSecOpsAuthorizationError, match="already been accepted"):
             await accept_invitation_for_user(
-                session, user_id=user_in_org2.id, token=invitation.token
+                session,
+                user_id=user_in_org2.id,
+                token=await reveal_invitation_token(session, invitation),
             )
 
     @pytest.mark.anyio
@@ -2110,7 +2121,9 @@ class TestOrganizationServiceInvitations:
             match="invitation was sent to a different email address",
         ):
             await accept_invitation_for_user(
-                session, user_id=different_user.id, token=invitation.token
+                session,
+                user_id=different_user.id,
+                token=await reveal_invitation_token(session, invitation),
             )
 
     @pytest.mark.anyio
@@ -2137,7 +2150,9 @@ class TestOrganizationServiceInvitations:
 
         with pytest.raises(AutoSecOpsAuthorizationError, match="has been revoked"):
             await accept_invitation_for_user(
-                session, user_id=user_in_org2.id, token=invitation.token
+                session,
+                user_id=user_in_org2.id,
+                token=await reveal_invitation_token(session, invitation),
             )
 
 

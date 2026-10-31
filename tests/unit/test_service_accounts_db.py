@@ -180,6 +180,7 @@ async def test_workspace_key_rotation_revokes_the_previous_key(
     assert body["service_account"]["api_key_counts"] == {
         "total": 2,
         "active": 1,
+        "expired": 0,
         "revoked": 1,
     }
 

@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autosecops.auth.crypto import hash_bearer_token
 from autosecops.auth.schemas import UserRole
 from autosecops.auth.types import PlatformRole
 from autosecops.db.models import (
@@ -412,7 +413,12 @@ async def test_token_endpoint_only_exposes_platform_created_invitations(
         org.id,
         platform_invitation.id,
     )
+    # Both carry the raw token; the row stores only its digest.
     assert token.token == platform_invitation.token
+    stored = await session.scalar(
+        select(Invitation.token).where(Invitation.id == platform_invitation.id)
+    )
+    assert stored == hash_bearer_token(token.token)
 
     with pytest.raises(NoResultFound):
         await service.get_organization_invitation_token(org.id, tenant_invitation.id)

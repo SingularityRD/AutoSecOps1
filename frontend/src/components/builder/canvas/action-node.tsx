@@ -738,6 +738,7 @@ function ActionNodeContent({
                 <div className="hover:cursor-pointer">
                   <span
                     className="ml-1 flex size-5 items-center justify-center rounded-full border border-rose-300 bg-rose-400 text-xs font-bold text-white shadow"
+                    role="img"
                     aria-label={`Found ${validationErrors.length} validation errors`}
                   >
                     {validationErrors.length}

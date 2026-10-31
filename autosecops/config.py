@@ -6,7 +6,7 @@ import re
 import uuid
 from collections.abc import Mapping
 from enum import StrEnum
-from ipaddress import IPv4Network, IPv6Network, ip_network
+from ipaddress import IPv4Network, IPv6Network, ip_address, ip_network
 from typing import Literal, cast
 from urllib.parse import urlsplit
 
@@ -18,7 +18,7 @@ from autosecops.agent.constants import (
 from autosecops.auth.enums import AuthType
 from autosecops.executor.enums import ExecutorBackendType
 from autosecops.feature_flags.enums import FeatureFlag
-from autosecops.licensing.evaluation import license_grants_multi_tenant
+from autosecops.licensing.evaluation import license_permits_multi_tenant_mode
 
 # === Logger === #
 logger = logging.getLogger(__name__)
@@ -676,7 +676,10 @@ TEMPORAL__TASK_TIMEOUT = os.environ.get("TEMPORAL__TASK_TIMEOUT") or "900"
 """Temporal workflow task timeout in seconds (default 900 seconds)."""
 
 TEMPORAL__METRICS_PORT = os.environ.get("TEMPORAL__METRICS_PORT")
-"""Port for the Temporal metrics server."""
+"""Port for the Temporal SDK Prometheus exporter; unset or blank disables it.
+
+The exporter binds ``TEMPORAL__METRICS_HOST`` and serves ``/metrics``.
+"""
 
 
 TEMPORAL__DISABLE_EAGER_ACTIVITY_EXECUTION = env_bool(
@@ -1079,6 +1082,79 @@ def env_no_proxy(name: str) -> tuple[str | IPv4Network | IPv6Network, ...]:
             raise ValueError(f"{name} contains an invalid entry: {stripped!r}")
         entries.append(hostname)
     return tuple(entries)
+
+
+def env_port(name: str, *, default: int) -> int:
+    """Parse one TCP port from an environment variable.
+
+    Raises:
+        ValueError: If the value is not an integer from 1 to 65535.
+    """
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    stripped = raw_value.strip()
+    try:
+        port = int(stripped)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a port number: {stripped!r}") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError(f"{name} must be a port number: {stripped!r}")
+    return port
+
+
+def env_bind_host(name: str, *, default: str) -> str:
+    """Parse a listen address for an internal server from an environment variable.
+
+    Only IP literals are accepted, so a typo cannot silently bind a server to a
+    hostname that resolves to a public interface.
+
+    Raises:
+        ValueError: If the value is not an IPv4 or IPv6 address.
+    """
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    stripped = raw_value.strip().removeprefix("[").removesuffix("]")
+    try:
+        return str(ip_address(stripped))
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an IP address: {stripped!r}") from exc
+
+
+def format_bind_address(host: str, port: int) -> str:
+    """Join a host and port, bracketing IPv6 hosts (``[::]:9090``)."""
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+
+
+AUTOSECOPS__API_METRICS_ENABLED = env_bool(
+    "AUTOSECOPS__API_METRICS_ENABLED", default=False
+)
+"""Serve Prometheus metrics for the API process on a separate internal listener.
+
+Off by default. The listener is separate from the public API port, so Caddy and
+the Helm ingress never route to it; it is reachable only on the container or
+pod network.
+"""
+
+AUTOSECOPS__API_METRICS_HOST = env_bind_host(
+    "AUTOSECOPS__API_METRICS_HOST", default="0.0.0.0"
+)
+"""IP address the API metrics listener binds to.
+
+Use ``127.0.0.1`` for a sidecar scraper, or the default ``0.0.0.0`` for a
+scraper on the container or pod network. Never publish this port.
+"""
+
+AUTOSECOPS__API_METRICS_PORT = env_port("AUTOSECOPS__API_METRICS_PORT", default=9100)
+"""Port of the API metrics listener (``/metrics``)."""
+
+TEMPORAL__METRICS_HOST = env_bind_host("TEMPORAL__METRICS_HOST", default="0.0.0.0")
+"""IP address the Temporal SDK Prometheus exporter binds to.
+
+Only used when ``TEMPORAL__METRICS_PORT`` is set. The default keeps the exporter
+reachable on the container or pod network, as before this setting existed.
+"""
 
 
 AUTOSECOPS__OUTBOUND_ALLOWED_PRIVATE_CIDRS = env_networks(
@@ -1823,13 +1899,19 @@ Read ``AUTOSECOPS__EE_MULTI_TENANT`` to know whether multi-tenant mode is on.
 
 AUTOSECOPS__EE_MULTI_TENANT = (
     AUTOSECOPS__EE_MULTI_TENANT_REQUESTED
-    and license_grants_multi_tenant(AUTOSECOPS__LICENSE_KEY)
+    and license_permits_multi_tenant_mode(AUTOSECOPS__LICENSE_KEY)
 )
 """Whether multi-tenant enterprise features are enabled.
 
-Requires ``AUTOSECOPS__EE_MULTI_TENANT=true`` and a license key that is valid
-or in its grace period and grants ``multi_tenant``, evaluated at process start.
-Otherwise the process runs single-tenant with license-based entitlements.
+Requires ``AUTOSECOPS__EE_MULTI_TENANT=true`` and a verified license key that
+grants ``multi_tenant``, evaluated at process start. For
+``MULTI_TENANT_LAPSE_LIMIT`` after its grace period, an expired license keeps
+multi-tenant mode on in a degraded state (``MultiTenantMode.LAPSED``) so
+existing tenants are not dropped at once; the API allows that only on a
+deployment that ran multi-tenant under the same license while it was valid.
+See ``autosecops.licensing.multi_tenant``. Otherwise the process runs single-tenant
+with license-based entitlements, and the API refuses to start if the database
+already holds more than one organization.
 """
 
 # === Managed tunnels (Pangolin) === #

@@ -19,7 +19,9 @@ from autosecops.config import (
     TEMPORAL__CLUSTER_NAMESPACE,
     TEMPORAL__CLUSTER_URL,
     TEMPORAL__CONNECT_RETRIES,
+    TEMPORAL__METRICS_HOST,
     TEMPORAL__METRICS_PORT,
+    format_bind_address,
 )
 from autosecops.dsl._converter import get_data_converter
 from autosecops.logger import logger
@@ -27,6 +29,7 @@ from autosecops.observability.otel import temporal_tracing_interceptor
 from autosecops.temporal.codec import ensure_temporal_payload_encryption_ready
 
 _client: Client | None = None
+_metrics_runtime: Runtime | None = None
 
 
 async def _retrieve_temporal_api_key(arn: str) -> str:
@@ -62,14 +65,7 @@ async def connect_to_temporal(plugins: list[Plugin] | None = None) -> Client:
         tls_config = True
         rpc_metadata["temporal-namespace"] = TEMPORAL__CLUSTER_NAMESPACE
 
-    runtime = None
-    # TODO: fix https://github.com/prometheus/client_python/issues/155
-    if TEMPORAL__METRICS_PORT:
-        logger.info("Initializing Prometheus runtime", port=TEMPORAL__METRICS_PORT)
-        try:
-            runtime = init_runtime_with_prometheus(port=int(TEMPORAL__METRICS_PORT))
-        except Exception as e:
-            logger.warning("Failed to initialize Prometheus runtime", error=e)
+    runtime = _get_metrics_runtime()
     interceptors = []
     if tracing_interceptor := temporal_tracing_interceptor():
         interceptors.append(tracing_interceptor)
@@ -118,10 +114,34 @@ async def get_temporal_client(plugins: list[Plugin] | None = None) -> Client:
         return _client
 
 
-def init_runtime_with_prometheus(port: int) -> Runtime:
-    # Create runtime for use with Prometheus metrics
-    return Runtime(
-        telemetry=TelemetryConfig(
-            metrics=PrometheusConfig(bind_address=f"0.0.0.0:{port}")
+def _get_metrics_runtime() -> Runtime | None:
+    """Return the process-wide Prometheus runtime, creating it on first use.
+
+    The runtime owns the exporter's listening socket, so it is created once per
+    process; connection retries reuse it instead of binding the port again.
+    """
+    global _metrics_runtime
+    if _metrics_runtime is not None or not TEMPORAL__METRICS_PORT:
+        return _metrics_runtime
+    try:
+        port = int(TEMPORAL__METRICS_PORT)
+    except ValueError:
+        logger.warning(
+            "Ignoring invalid TEMPORAL__METRICS_PORT; Temporal metrics are disabled",
+            value=TEMPORAL__METRICS_PORT,
         )
+        return None
+    bind_address = format_bind_address(TEMPORAL__METRICS_HOST, port)
+    logger.info("Initializing Temporal Prometheus exporter", bind_address=bind_address)
+    try:
+        _metrics_runtime = init_runtime_with_prometheus(bind_address=bind_address)
+    except Exception as e:
+        logger.warning("Failed to initialize Temporal Prometheus exporter", error=e)
+    return _metrics_runtime
+
+
+def init_runtime_with_prometheus(bind_address: str) -> Runtime:
+    """Create a Temporal runtime that serves SDK metrics at ``bind_address``."""
+    return Runtime(
+        telemetry=TelemetryConfig(metrics=PrometheusConfig(bind_address=bind_address))
     )

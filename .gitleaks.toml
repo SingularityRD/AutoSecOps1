@@ -43,6 +43,13 @@ paths = [
 ]
 
 [[allowlists]]
+# The support bundle redaction tests feed synthetic AWS keys, JWTs, PEM
+# headers and Stripe-style tokens through the redactor and assert none of
+# them survive, so every credential in this file is fake by design.
+description = "Synthetic credentials in support bundle redaction tests"
+paths = ['''tests/unit/test_support_bundle\.py''']
+
+[[allowlists]]
 description = "Synthetic values in unit tests"
 regexTarget = "line"
 paths = ['''tests/unit/.*\.py''']

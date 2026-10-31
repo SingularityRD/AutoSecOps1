@@ -554,17 +554,17 @@ pages:
     actions:
       - id: core.cases.link_row
         info: |
-          <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+          <Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
         examples:
           - cases-link-row
       - id: core.cases.unlink_row
         info: |
-          <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+          <Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
         examples:
           - cases-unlink-row
       - id: core.cases.insert_row
         info: |
-          <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+          <Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
 
           <Info>
             Linked rows use regular tables. Create the destination table with
@@ -575,12 +575,12 @@ pages:
           - cases-insert-row
       - id: core.cases.get_linked_case_rows
         info: |
-          <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+          <Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
         examples:
           - cases-get-linked-rows
       - id: core.cases.list_cases_by_row
         info: |
-          <Badge icon="lock" color="blue" size="lg" shape="pill">Enterprise Edition</Badge>
+          <Badge icon="lock" color="blue" size="lg" shape="pill">Team plan</Badge>
         examples:
           - cases-list-cases-by-row
 

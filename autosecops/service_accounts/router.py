@@ -146,6 +146,7 @@ def _serialize_api_key(
         revoked_by_user=users_by_id.get(api_key.revoked_by),
         last_used_at=api_key.last_used_at,
         revoked_at=api_key.revoked_at,
+        expires_at=api_key.expires_at,
         created_at=api_key.created_at,
         updated_at=api_key.updated_at,
     )
@@ -155,9 +156,7 @@ def _serialize_service_account(
     service_account, users_by_id: dict[UUID, UserReadMinimal]
 ) -> ServiceAccountRead:
     active_key = get_active_service_account_key(service_account)
-    total_keys, active_keys, revoked_keys = get_service_account_api_key_counts(
-        service_account
-    )
+    key_counts = get_service_account_api_key_counts(service_account)
     return ServiceAccountRead(
         id=service_account.id,
         organization_id=service_account.organization_id,
@@ -179,9 +178,10 @@ def _serialize_service_account(
             else None
         ),
         api_key_counts=ServiceAccountApiKeyCounts(
-            total=total_keys,
-            active=active_keys,
-            revoked=revoked_keys,
+            total=key_counts.total,
+            active=key_counts.active,
+            expired=key_counts.expired,
+            revoked=key_counts.revoked,
         ),
     )
 
@@ -266,6 +266,7 @@ async def create_organization_service_account(
             description=params.description,
             scope_ids=params.scope_ids,
             initial_key_name=params.initial_key_name,
+            initial_key_expires_at=params.initial_key_expires_at,
         )
     except Exception as exc:
         raise _translate_error(exc) from exc
@@ -413,6 +414,7 @@ async def create_organization_service_account_api_key(
         service_account, api_key, raw_key = await service.issue_api_key(
             service_account_id,
             name=params.name,
+            expires_at=params.expires_at,
         )
     except Exception as exc:
         raise _translate_error(exc) from exc
@@ -517,6 +519,7 @@ async def create_workspace_service_account(
             description=params.description,
             scope_ids=params.scope_ids,
             initial_key_name=params.initial_key_name,
+            initial_key_expires_at=params.initial_key_expires_at,
         )
     except Exception as exc:
         raise _translate_error(exc) from exc
@@ -668,6 +671,7 @@ async def create_workspace_service_account_api_key(
         service_account, api_key, raw_key = await service.issue_api_key(
             service_account_id,
             name=params.name,
+            expires_at=params.expires_at,
         )
     except Exception as exc:
         raise _translate_error(exc) from exc

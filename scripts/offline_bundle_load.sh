@@ -71,7 +71,10 @@ cmd_verify() {
     if [[ -n "$cosign_key" ]]; then
         require cosign
         [[ -f "$BUNDLE_DIR/SHA256SUMS.sig" ]] || die "SHA256SUMS.sig not found"
-        cosign verify-blob --key "$cosign_key" \
+        # The bundle is signed without a transparency-log entry, and an
+        # air-gapped host cannot reach one anyway: the public key is the
+        # trust root, so verification needs no network.
+        cosign verify-blob --key "$cosign_key" --insecure-ignore-tlog=true \
             --signature "$BUNDLE_DIR/SHA256SUMS.sig" "$BUNDLE_DIR/SHA256SUMS" ||
             die "cosign signature verification failed"
         log "SHA256SUMS.sig: valid cosign signature"
