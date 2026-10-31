@@ -26,6 +26,14 @@ export type DialogPanelSize = keyof typeof DIALOG_PANEL_HEIGHTS
 const DialogPanelContext = React.createContext(false)
 
 /**
+ * Lets a `DialogTitle` rendered anywhere inside `DialogContent`, including
+ * inside a child component, tell the content that a real title is mounted.
+ */
+const DialogTitleRegistryContext = React.createContext<
+  ((delta: number) => void) | null
+>(null)
+
+/**
  * Props that make a Dialog dismissable only through its top-right close button.
  * Blocks backdrop clicks, outside focus, and Escape.
  */
@@ -83,7 +91,16 @@ const DialogContent = React.forwardRef<
     size?: DialogPanelSize
   }
 >(({ className, children, title = "Dialog", size, ...props }, ref) => {
-  const hasTitle = containsDialogTitle(children)
+  const hasStaticTitle = containsDialogTitle(children)
+  // The static scan cannot see titles rendered by child components, so titles
+  // also register at runtime. Without this the hidden fallback would come
+  // first and name every such dialog "Dialog" for screen readers.
+  const [mountedTitles, setMountedTitles] = React.useState(0)
+  const registerTitle = React.useCallback(
+    (delta: number) => setMountedTitles((count) => count + delta),
+    []
+  )
+  const hasTitle = hasStaticTitle || mountedTitles > 0
 
   return (
     <DialogPortal>
@@ -102,10 +119,17 @@ const DialogContent = React.forwardRef<
         {...props}
       >
         <DialogPanelContext.Provider value={size !== undefined}>
-          {/* Inject a hidden title when none exists to satisfy accessibility */}
-          {!hasTitle && <DialogTitle className="sr-only">{title}</DialogTitle>}
+          <DialogTitleRegistryContext.Provider value={registerTitle}>
+            {/* Inject a hidden title when none exists to satisfy accessibility.
+                It uses the primitive so it does not register itself. */}
+            {!hasTitle && (
+              <DialogPrimitive.Title className="sr-only">
+                {title}
+              </DialogPrimitive.Title>
+            )}
 
-          {children}
+            {children}
+          </DialogTitleRegistryContext.Provider>
         </DialogPanelContext.Provider>
 
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
@@ -178,6 +202,12 @@ const DialogTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => {
   const panel = React.useContext(DialogPanelContext)
+  const registerTitle = React.useContext(DialogTitleRegistryContext)
+  React.useLayoutEffect(() => {
+    if (!registerTitle) return
+    registerTitle(1)
+    return () => registerTitle(-1)
+  }, [registerTitle])
   return (
     <DialogPrimitive.Title
       ref={ref}
