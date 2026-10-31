@@ -183,6 +183,19 @@ Removing something takes three steps, usually across three releases:
 
 Routine bumps and Low, Moderate, or High severity advisories are `build(deps):`. Reserve `security(deps):` for Critical unauthenticated remote-code-execution advisories, so the Security section stays worth dropping everything for.
 
+Every change to `uv.lock` or `frontend/pnpm-lock.yaml` regenerates the third-party notices in the same pull request, or the `Notices match lockfiles` check and the unit tests fail. Dependabot does not run the generator, so its version and security update pull requests start red on purpose: the notices ship to customers, and no bot with write access regenerates them. Regenerate them on the Dependabot branch and push; your push re-runs CI:
+
+```bash
+gh pr checkout <number>
+uv sync --all-packages && pnpm install --dir frontend --frozen-lockfile
+just gen-notices
+git add THIRD_PARTY_NOTICES.md frontend/THIRD_PARTY_NOTICES.md
+git commit -m "build(deps): regenerate third-party notices"
+git push
+```
+
+For a Dependabot security update, do this the day the pull request opens, so the fix meets the patch timelines in `SECURITY.md`.
+
 ### Where the rules live
 
 `.github/commit-conventions.toml` holds the vocabulary, and `.github/release-drafter.yml` maps labels to sections. Pull requests that touch `.github/` are closed automatically, so open an issue if a scope you need is missing.
@@ -221,10 +234,10 @@ Tags are bare versions with no leading `v`. Ordering follows semver:
 
 Stable releases, prereleases, and hotfixes all use the same direct branch flow. The [gh-release skill](.agents/skills/gh-release/SKILL.md) covers the checks and commands. Release branches are not merged into `main`, and no release pull request is needed.
 
-1. Choose a validated base commit. For a new alpha line, create its branch from merged `main`. For an alpha hotfix, reuse that alpha line's branch with reviewed fixes cherry-picked from `main`. At freeze, create the train branch; for subsequent RCs and stable patches, reuse its current tip with the reviewed fixes already cherry-picked. The branch must contain the current image-publishing workflow, including the stable-only `latest` guard.
+1. Choose a validated base commit. For a new alpha line, create its branch from merged `main`. For an alpha hotfix, reuse that alpha line's branch with reviewed fixes cherry-picked from `main`. At freeze, create the train branch; for subsequent RCs and stable patches, reuse its current tip with the reviewed fixes already cherry-picked. GitHub runs the workflows stored in the tagged commit, so the branch must carry the current `build-push-images.yml` and `build-offline-bundle.yml` from `main`, including the forward-only `latest` guard. Without it, a hotfix on an older train moves `latest` back to that train. Check before tagging, and stop on any difference: `git diff --exit-code origin/main <commit> -- .github/workflows/build-push-images.yml .github/workflows/build-offline-bundle.yml`. Whenever these workflows change on `main`, cherry-pick them onto every supported train branch through a reviewed pull request.
 2. On that branch, run `just update-version <version>`, review the diff, and commit it as `release: <version>`. The command writes the public tag to `__version__` and the PEP 440 equivalent (`1.1.0-alpha.1` becomes `1.1.0a1`) to `__pep440_version__` for Python package builds.
 3. Push the branch, then create and push an annotated version tag on that version-bump commit. Never move an existing release tag. Leave the branch in place.
-4. Wait for `.github/workflows/build-push-images.yml` to succeed for that tag and commit. It publishes `ghcr.io/singularityrd/autosecops:<tag>` and `ghcr.io/singularityrd/autosecops-ui:<tag>`. Only bare stable versions (`MAJOR.MINOR.PATCH`) also update `latest`; alphas, RCs, and nightly builds leave it unchanged. Every stable publication qualifies, including a hotfix on an older train.
+4. Wait for `.github/workflows/build-push-images.yml` to succeed for that tag and commit. It publishes `ghcr.io/singularityrd/autosecops:<tag>` and `ghcr.io/singularityrd/autosecops-ui:<tag>`. Only bare stable versions (`MAJOR.MINOR.PATCH`) also update `latest`; alphas, RCs, and nightly builds leave it unchanged. `latest` only moves forward: a stable version updates it only when it is the newest stable release tag, so a hotfix on an older train publishes its own tag and leaves `latest` on the newer train.
 5. Publish the GitHub release for the existing tag after verifying both images. Use `gh release create --verify-tag`, adding `--prerelease --latest=false` for an alpha or RC, or `--latest` for a stable release.
 
 For a manual image rebuild, run `uv run python scripts/rebuild_release_images.py <tag>` from a trusted, updated `main` checkout. The command compares the workflow stored in the remote tag with the committed publisher in your checkout before dispatching with that tag as both ref and input. A different or missing workflow is rejected, including historical publishers that could promote prereleases to `latest`. Even a harmless workflow difference requires review; this check deliberately requires an exact match. Do not bypass a rejection with a direct dispatch or rerun, or move an existing tag. Prepare a new release containing the current publisher instead.

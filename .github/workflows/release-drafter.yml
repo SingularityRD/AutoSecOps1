@@ -158,13 +158,42 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Release Drafter's own resolver drafts 0.1.0 when no release exists and
+      # can draft an already-published version after an older-train hotfix.
+      # Pin the draft to max(__version__, minor after the newest stable
+      # release) instead; see scripts/release_draft_version.py.
+      - name: Resolve the draft version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version=$(gh api --paginate "repos/${REPO}/releases" \
+            --jq '.[] | select(.draft | not) | select(.prerelease | not) | .tag_name' \
+            | python scripts/release_draft_version.py)
+          echo "draft version: ${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: Draft release
         id: draft
         uses: release-drafter/release-drafter@6a93d829887aa2e0748befe2e808c66c0ec6e4c7 # v6
         with:
           disable-autolabeler: true
+          version: ${{ steps.version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check the drafted tag
+        env:
+          EXPECTED: ${{ steps.version.outputs.version }}
+          TAG_NAME: ${{ steps.draft.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          if [ -n "${TAG_NAME}" ] && [ "${TAG_NAME}" != "${EXPECTED}" ]; then
+            echo "::error::draft tag is '${TAG_NAME}', expected '${EXPECTED}'"
+            exit 1
+          fi
 
       # Release Drafter lists a pull request under every category its labels
       # match; its own source calls that intentional. This repo wants each

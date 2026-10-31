@@ -14,9 +14,11 @@ AutoSecOps versions follow semantic versioning. Self-hosted deployments run stab
 
 You can upgrade across several versions at once. The migrations apply every intermediate revision in order. Read the release notes of every version you skip.
 
+SingularityRD supports the latest two minor release trains, each for 12 months after its release; see the [support policy](/self-hosting/support-policy). The [changelog](/self-hosting/changelog) lists the upgrade notes of every release.
+
 ## Before you upgrade
 
-1. Read the release notes on the [AutoSecOps releases page](https://github.com/SingularityRD/AutoSecOps1/releases) for every version between yours and the target. Look for upgrade notes, new required settings, and breaking changes.
+1. Read the [changelog](/self-hosting/changelog) and the release notes for every version between yours and the target. Look for upgrade notes, new required settings, and breaking changes.
 2. Note the version you run now. `GET /api/info` returns it in `version`:
 
    ```bash
@@ -73,7 +75,7 @@ You can upgrade across several versions at once. The migrations apply every inte
     cp Caddyfile Caddyfile.bak
     cp autosecops-<version>/docker-compose.yml autosecops-<version>/docker-compose.sandbox.yml .
     cp autosecops-<version>/Caddyfile .
-    cp autosecops-<version>/backup_compose.sh autosecops-<version>/restore_compose.sh .
+    cp autosecops-<version>/backup_compose.sh autosecops-<version>/restore_compose.sh autosecops-<version>/support_bundle.sh .
     ```
 
     If you pinned `AUTOSECOPS__IMAGE_TAG` in `.env`, set it to `<version>`.
@@ -287,5 +289,7 @@ Updating AutoSecOps leaves your registry as it was. To get the new integrations,
 
 - See [Backup and restore](/self-hosting/backup-restore) for the backup to take before every upgrade and the restore a rollback needs.
 - See [Security patches](/self-hosting/security-patches) for how patched releases are published and how fast to apply them.
+- See [Changelog](/self-hosting/changelog) for the upgrade notes of each release.
+- See [Support policy](/self-hosting/support-policy) for how long each release train is supported.
 - See [Docker Compose](/self-hosting/docker-compose#updating-autosecops) for the short update command list.
 - See [Air-gapped installation](/self-hosting/air-gapped#update-with-a-new-bundle) for updating from an offline bundle.

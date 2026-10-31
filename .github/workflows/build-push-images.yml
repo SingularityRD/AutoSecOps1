@@ -617,7 +617,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `latest` only ever moves forward. A hotfix on an older train (1.1.5
+      # after 1.2.0) publishes its own tag but leaves `latest` alone, so
+      # anyone pulling `latest` is never downgraded. The newest stable git
+      # tag is the reference: release tags are pushed before their images
+      # build, so a newer release in flight also holds `latest` back.
+      - name: Refuse to move latest backwards
+        id: forward
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          stable='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if ! [[ "$VERSION" =~ $stable ]]; then
+            echo "::error::Only stable versions can become latest, not '${VERSION}'."
+            exit 1
+          fi
+          tags=$(gh api --paginate "repos/${REPO}/git/matching-refs/tags/" \
+            --jq '.[].ref | ltrimstr("refs/tags/")')
+          newest=$(printf '%s\n' "$tags" | grep -E "$stable" \
+            | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1 || true)
+          if [[ -z "$newest" ]]; then
+            echo "::error::No stable release tag found; cannot tell whether ${VERSION} is the newest."
+            exit 1
+          fi
+          if [[ "$newest" == "$VERSION" ]]; then
+            echo "promote=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::${VERSION} is older than ${newest}; latest stays where it is."
+            echo "promote=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Promote both stable manifests to latest
+        if: steps.forward.outputs.promote == 'true'
         env:
           VERSION: ${{ needs.validate.outputs.tag }}
         shell: bash

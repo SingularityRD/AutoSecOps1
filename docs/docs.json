@@ -375,8 +375,12 @@
               "self-hosting/kubernetes",
               "self-hosting/air-gapped",
               "self-hosting/updating",
+              "self-hosting/changelog",
               "self-hosting/backup-restore",
               "self-hosting/security-patches",
+              "self-hosting/support-policy",
+              "self-hosting/support-bundle",
+              "self-hosting/uninstall",
               "self-hosting/temporal-retention",
               "self-hosting/architecture",
               "self-hosting/pgvector",
@@ -385,6 +389,7 @@
               "self-hosting/license",
               "self-hosting/plans",
               "self-hosting/security",
+              "self-hosting/production-hardening",
               "self-hosting/support"
             ]
           },
