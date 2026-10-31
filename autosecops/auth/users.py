@@ -63,7 +63,7 @@ from autosecops.auth.ip_allowlist_enforcement import (
 from autosecops.auth.mfa.policy import get_session_mfa_state
 from autosecops.auth.schemas import UserCreate, UserUpdate
 from autosecops.auth.secrets import get_user_auth_secret
-from autosecops.auth.types import PlatformRole, Role
+from autosecops.auth.types import CredentialRevocation, PlatformRole, Role
 from autosecops.authz.enums import ScimConnectionStatus
 from autosecops.contexts import ctx_request_audit, ctx_role
 from autosecops.db.engine import (
@@ -76,6 +76,8 @@ from autosecops.db.locks import lock_mcp_refresh_token_users
 from autosecops.db.models import (
     AccessToken,
     ExternalUser,
+    MCPPersonalAccessToken,
+    MCPRefreshToken,
     OAuthAccount,
     OrganizationDomain,
     OrganizationMembership,
@@ -175,12 +177,26 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         them may belong to whoever the change is meant to lock out.
         """
         if is_own_account:
-            keep_token = self._request_session_token(request)
             operation = CredentialOperation.PASSWORD_CHANGE
+            revoked = await self._revoke_sessions(
+                user, keep_token=self._request_session_token(request)
+            )
+            data: dict[str, AuditMetadataValue] = {
+                "operation": operation.value,
+                "changed_fields": ["password"],
+                "revoked_session_count": revoked,
+            }
         else:
-            keep_token = None
             operation = CredentialOperation.ADMIN_PASSWORD_SET
-        revoked = await self._revoke_sessions(user, keep_token=keep_token)
+            revocation = await revoke_all_user_credentials(
+                user.id, revoked_by=actor_user_id
+            )
+            revoked = revocation.sessions
+            data = {
+                "operation": operation.value,
+                "changed_fields": ["password"],
+                **revocation.audit_data(),
+            }
         self.logger.info(
             "Revoked sessions after password change",
             user_id=str(user.id),
@@ -197,11 +213,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             actor_user_id=actor_user_id,
             resource_type="user",
             action="update",
-            data={
-                "operation": operation.value,
-                "changed_fields": ["password"],
-                "revoked_session_count": revoked,
-            },
+            data=data,
             organization_id=organization_id,
         )
 
@@ -895,22 +907,26 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def on_after_reset_password(
         self, user: User, request: Request | None = None
     ) -> None:
-        """End every session of the account, then audit the reset.
+        """End every session and MCP credential of the account, then audit it.
 
         A reset is how an account is recovered from whoever holds it, so no
-        existing session survives it, including any the requester holds.
+        existing session survives it, including any the requester holds, and
+        neither do the MCP personal access tokens or MCP OAuth grants that
+        whoever held the account could have minted.
         """
-        revoked = await self._revoke_sessions(user, keep_token=None)
+        revocation = await revoke_all_user_credentials(user.id, revoked_by=None)
         self.logger.info(
-            "Revoked all sessions after password reset",
+            "Revoked all sessions and MCP credentials after password reset",
             user_id=str(user.id),
-            revoked=revoked,
+            revoked=revocation.sessions,
+            revoked_mcp_personal_access_tokens=revocation.mcp_personal_access_tokens,
+            revoked_mcp_refresh_tokens=revocation.mcp_refresh_tokens,
         )
         await self._audit_credential_event(
             user,
             action="reset",
             operation=CredentialOperation.PASSWORD_RESET,
-            revoked_session_count=revoked,
+            revocation=revocation,
         )
 
     async def _audit_credential_event(
@@ -921,14 +937,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         operation: CredentialOperation,
         status: AuditEventStatus = AuditEventStatus.SUCCESS,
         failure_reason: AuthAuditFailureReason | None = None,
-        revoked_session_count: int | None = None,
+        revocation: CredentialRevocation | None = None,
     ) -> None:
         """Audit a credential lifecycle event the account holder acted in."""
         data: dict[str, AuditMetadataValue] = {"operation": operation.value}
         if failure_reason is not None:
             data["failure_reason"] = failure_reason.value
-        if revoked_session_count is not None:
-            data["revoked_session_count"] = revoked_session_count
+        if revocation is not None:
+            data.update(revocation.audit_data())
         await emit_user_auth_event(
             user_id=user.id,
             resource_type="user",
@@ -1332,6 +1348,79 @@ async def revoke_user_sessions(
         )
     result = await session.execute(statement.returning(AccessToken.id))
     return len(result.scalars().all())
+
+
+async def revoke_user_mcp_credentials(
+    session: AsyncSession, user_id: uuid.UUID, *, revoked_by: uuid.UUID | None
+) -> tuple[int, int]:
+    """Revoke a user's MCP personal access tokens and refresh tokens.
+
+    Does not commit. Takes the user's MCP refresh-token lock first, so a
+    rotation that commits concurrently cannot leave a fresh token behind.
+    MCP access tokens already issued from a refresh token are not tracked
+    and stay valid until they expire.
+
+    Args:
+        session: A session that can see every organization's rows, such as
+            an RLS-bypass session; the caller commits.
+        user_id: The account whose MCP credentials end.
+        revoked_by: The administrator who caused the revocation, if any.
+
+    Returns:
+        The number of personal access tokens and of refresh tokens revoked.
+    """
+    await lock_mcp_refresh_token_users(session, [user_id])
+    pat_result = await session.execute(
+        update(MCPPersonalAccessToken)
+        .where(
+            MCPPersonalAccessToken.user_id == user_id,  # pyright: ignore[reportArgumentType]
+            MCPPersonalAccessToken.revoked_at.is_(None),  # pyright: ignore[reportAttributeAccessIssue]
+        )
+        .values(revoked_at=func.now(), revoked_by=revoked_by)
+        .returning(MCPPersonalAccessToken.id)
+    )
+    refresh_result = await session.execute(
+        update(MCPRefreshToken)
+        .where(
+            MCPRefreshToken.user_id == user_id,  # pyright: ignore[reportArgumentType]
+            MCPRefreshToken.status == "active",  # pyright: ignore[reportArgumentType]
+        )
+        .values(status="revoked")
+        .returning(MCPRefreshToken.id)
+    )
+    return len(pat_result.scalars().all()), len(refresh_result.scalars().all())
+
+
+async def revoke_all_user_credentials(
+    user_id: uuid.UUID, *, revoked_by: uuid.UUID | None
+) -> CredentialRevocation:
+    """End every login session and MCP credential of an account, atomically.
+
+    Used when a password is reset or set by an administrator, where every
+    credential may belong to whoever the change is meant to lock out. Runs on
+    an RLS-bypass session of its own: the request that triggers it has no
+    tenant scope that covers all of the account's organizations, and a scoped
+    session would silently skip the other organizations' tokens. Errors
+    propagate, so a failed revocation is never reported as a recovery.
+
+    Args:
+        user_id: The account whose credentials end.
+        revoked_by: The administrator who set the password, if any.
+
+    Returns:
+        How many credentials of each kind were revoked.
+    """
+    async with get_async_session_bypass_rls_context_manager() as session:
+        sessions = await revoke_user_sessions(session, user_id)
+        pats, refresh_tokens = await revoke_user_mcp_credentials(
+            session, user_id, revoked_by=revoked_by
+        )
+        await session.commit()
+    return CredentialRevocation(
+        sessions=sessions,
+        mcp_personal_access_tokens=pats,
+        mcp_refresh_tokens=refresh_tokens,
+    )
 
 
 async def single_organization_for_audit(user: User) -> OrganizationID | None:

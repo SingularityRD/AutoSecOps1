@@ -65,7 +65,7 @@ Events can continue to reach the old endpoint for up to 30 seconds after an endp
 | `user` | `demote` | Superuser access was withdrawn from a user. |
 | `user` | `promote` | A user was granted superuser access. |
 | `user` | `request` | A password reset was requested (`data.operation` is `password_reset_requested`). |
-| `user` | `reset` | A password was reset with a reset token. |
+| `user` | `reset` | A password was reset with a reset token. `data` counts the sessions, MCP personal access tokens, and MCP refresh tokens it revoked. |
 | `user` | `update` | A password was changed by its holder (`password_change`) or set by a platform administrator (`admin_password_set`). |
 
 An organization-scoped sign-in emits `auth` `sign_in` to this sink and to that organization's sink.

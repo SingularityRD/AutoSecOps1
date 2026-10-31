@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import uuid
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -23,10 +26,16 @@ from autosecops.audit.enums import AuditEventStatus
 from autosecops.auth import users as users_module
 from autosecops.auth.audit import drain_auth_audit_tasks
 from autosecops.auth.schemas import UserUpdate
-from autosecops.auth.types import Role
+from autosecops.auth.types import CredentialRevocation, Role
 from autosecops.auth.users import PermissionsException, UserManager, cookie_transport
 from autosecops.contexts import ctx_role
-from autosecops.db.models import AccessToken, User
+from autosecops.db.models import (
+    AccessToken,
+    MCPPersonalAccessToken,
+    MCPRefreshToken,
+    Organization,
+    User,
+)
 
 OLD_PASSWORD = "old-password-123456"
 NEW_PASSWORD = "new-password-654321"
@@ -188,24 +197,35 @@ async def test_platform_superuser_sets_member_password_without_current_password(
     user_db: AsyncMock,
     user: User,
     audit_events: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The org member route updates another account with safe=True."""
     admin = _role(superuser=True)
     ctx_role.set(admin)
+    revoke_all = AsyncMock(
+        return_value=CredentialRevocation(
+            sessions=2, mcp_personal_access_tokens=1, mcp_refresh_tokens=3
+        )
+    )
+    monkeypatch.setattr(users_module, "revoke_all_user_credentials", revoke_all)
 
     await manager.update(UserUpdate(password=NEW_PASSWORD), user, safe=True)
 
     assert "hashed_password" in user_db.update.await_args.args[1]
-    user_db.session.execute.assert_awaited_once()
-    user_db.session.commit.assert_awaited_once()
+    revoke_all.assert_awaited_once_with(user.id, revoked_by=admin.user_id)
     [event] = audit_events
     assert event["user_id"] == user.id
     assert event["actor_user_id"] == admin.user_id
     assert event["resource_type"] == "user"
     assert event["action"] == "update"
     assert event["organization_id"] is None
-    assert event["data"]["operation"] == "admin_password_set"
-    assert event["data"]["changed_fields"] == ["password"]
+    assert event["data"] == {
+        "operation": "admin_password_set",
+        "changed_fields": ["password"],
+        "revoked_session_count": 2,
+        "revoked_mcp_personal_access_token_count": 1,
+        "revoked_mcp_refresh_token_count": 3,
+    }
 
 
 @pytest.mark.anyio
@@ -360,6 +380,76 @@ async def _seed_user_with_sessions(
     return user, tokens, bystander
 
 
+@pytest.fixture
+def system_session(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run the RLS-bypass credential revocation on the test's session."""
+
+    @contextlib.asynccontextmanager
+    async def _bypass_session() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    monkeypatch.setattr(
+        users_module, "get_async_session_bypass_rls_context_manager", _bypass_session
+    )
+
+
+async def _seed_mcp_credentials(
+    session: AsyncSession, user_id: uuid.UUID
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """Give a user one live MCP personal access token and refresh token."""
+    suffix = uuid.uuid4().hex
+    organization = Organization(
+        id=uuid.uuid4(), name=f"Org {suffix}", slug=f"org-{suffix}", is_active=True
+    )
+    session.add(organization)
+    await session.flush()
+    pat = MCPPersonalAccessToken(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        organization_id=organization.id,
+        name="mcp",
+        key_id=uuid.uuid4().hex,
+        hashed="unused",
+        salt="unused",
+        preview="unused",
+    )
+    refresh_token = MCPRefreshToken(
+        id=uuid.uuid4(),
+        token_hash=uuid.uuid4().hex,
+        family_id=uuid.uuid4(),
+        user_id=user_id,
+        organization_id=organization.id,
+        client_id="client",
+        encrypted_metadata=b"\x00",
+        status="active",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+    session.add_all([pat, refresh_token])
+    await session.commit()
+    return pat.id, refresh_token.id
+
+
+async def _mcp_credential_state(
+    session: AsyncSession, pat_id: uuid.UUID, refresh_token_id: uuid.UUID
+) -> tuple[bool, str]:
+    """Whether the PAT is revoked, and the refresh token's status."""
+    revoked_at = (
+        await session.execute(
+            select(MCPPersonalAccessToken.revoked_at).where(
+                MCPPersonalAccessToken.id == pat_id  # pyright: ignore[reportArgumentType]
+            )
+        )
+    ).scalar_one()
+    status = (
+        await session.execute(
+            select(MCPRefreshToken.status).where(
+                MCPRefreshToken.id == refresh_token_id  # pyright: ignore[reportArgumentType]
+            )
+        )
+    ).scalar_one()
+    return revoked_at is not None, status
+
+
 async def _remaining_tokens(session: AsyncSession, tokens: list[str]) -> set[str]:
     result = await session.execute(
         select(AccessToken).where(
@@ -390,12 +480,21 @@ async def test_revoke_user_sessions_keeps_only_the_named_token(
 
 
 @pytest.mark.anyio
+@pytest.mark.usefixtures("system_session")
 async def test_admin_password_set_revokes_every_session(
     session: AsyncSession, audit_events: list[dict[str, Any]]
 ) -> None:
     """A password an admin sets locks out whoever holds the old sessions."""
     user, tokens, bystander = await _seed_user_with_sessions(session, token_count=2)
-    ctx_role.set(_role(superuser=True))
+    pat_id, refresh_id = await _seed_mcp_credentials(session, user.id)
+    admin = User(
+        id=uuid.uuid4(),
+        email=f"admin-{uuid.uuid4().hex}@example.com",
+        hashed_password="unused",
+    )
+    session.add(admin)
+    await session.commit()
+    ctx_role.set(_role(superuser=True, user_id=admin.id))
     manager = UserManager(SQLAlchemyUserDatabase(session, User))
 
     await manager.update(
@@ -407,14 +506,41 @@ async def test_admin_password_set_revokes_every_session(
     )
 
     assert await _remaining_tokens(session, [*tokens, bystander]) == {bystander}
-    assert audit_events[-1]["data"]["revoked_session_count"] == 2
+    # MCP credentials minted by whoever held the account end with it.
+    assert await _mcp_credential_state(session, pat_id, refresh_id) == (
+        True,
+        "revoked",
+    )
+    revoked_by = (
+        await session.execute(
+            select(MCPPersonalAccessToken.revoked_by).where(
+                MCPPersonalAccessToken.id == pat_id  # pyright: ignore[reportArgumentType]
+            )
+        )
+    ).scalar_one()
+    assert revoked_by == admin.id
+    data = audit_events[-1]["data"]
+    assert data["revoked_session_count"] == 2
+    assert data["revoked_mcp_personal_access_token_count"] == 1
+    assert data["revoked_mcp_refresh_token_count"] == 1
 
 
 @pytest.mark.anyio
+@pytest.mark.usefixtures("system_session")
 async def test_password_reset_revokes_every_session(
     session: AsyncSession, audit_events: list[dict[str, Any]]
 ) -> None:
+    """A reset recovers the account from whoever holds it, MCP access included."""
     user, tokens, bystander = await _seed_user_with_sessions(session, token_count=3)
+    pat_id, refresh_id = await _seed_mcp_credentials(session, user.id)
+    other = User(
+        id=uuid.uuid4(),
+        email=f"other-{uuid.uuid4().hex}@example.com",
+        hashed_password="unused",
+    )
+    session.add(other)
+    await session.commit()
+    other_pat_id, other_refresh_id = await _seed_mcp_credentials(session, other.id)
     manager = UserManager(SQLAlchemyUserDatabase(session, User))
 
     await manager.on_after_reset_password(
@@ -422,6 +548,14 @@ async def test_password_reset_revokes_every_session(
     )
 
     assert await _remaining_tokens(session, [*tokens, bystander]) == {bystander}
+    assert await _mcp_credential_state(session, pat_id, refresh_id) == (
+        True,
+        "revoked",
+    )
+    assert await _mcp_credential_state(session, other_pat_id, other_refresh_id) == (
+        False,
+        "active",
+    )
     [event] = audit_events
     assert event["kind"] == "user"
     assert event["resource_type"] == "user"
@@ -430,6 +564,8 @@ async def test_password_reset_revokes_every_session(
     assert event["data"] == {
         "operation": "password_reset",
         "revoked_session_count": 3,
+        "revoked_mcp_personal_access_token_count": 1,
+        "revoked_mcp_refresh_token_count": 1,
     }
 
 
