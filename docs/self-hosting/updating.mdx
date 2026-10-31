@@ -228,12 +228,21 @@ Run these checks right after every upgrade:
 5. A case with an attachment opens and the attachment downloads.
 6. Scheduled workflows fire on their next interval.
 
+## Agent workers during a rolling upgrade
+
+Kubernetes and Fargate replace agent worker replicas one at a time, so for a few minutes old and new agent workers share the same Temporal task queue. A new release can add an agent activity, such as the [model lookup by name](/agents/custom-llm-providers#credentials) for agent configurations without a `catalog_id`. When an old worker receives that activity, it fails the attempt as not registered, and AutoSecOps retries it for up to 10 minutes until an upgraded worker takes it.
+
+- Let the agent worker rollout finish within 10 minutes. `kubectl -n autosecops rollout status deployment/autosecops-agent-worker` reports progress on Kubernetes.
+- An agent run whose activity is not picked up within 10 minutes fails with an activity timeout. Rerun it after the rollout completes.
+
 ## Roll back
 
 AutoSecOps migrations are forward-only. A release that ran migrations cannot run on an older image: the older migrations step fails with `Can't locate revision identified by '<revision>'`, and the API never starts.
 
 - To roll back a patch upgrade on the same train, set the image tag back to the earlier patch and restart. Patches contain no migrations.
 - To roll back any other upgrade, restore the pre-upgrade backup, then deploy the previous version.
+
+Agent runs that started on the newer version and are still open, such as runs waiting for a tool approval, can include steps the older version does not recognize. On the older version, Temporal retries their workflow tasks without making progress, and the runs resume after you upgrade again. Before an image-only rollback, let open agent runs finish or cancel them.
 
 On Docker Compose:
 

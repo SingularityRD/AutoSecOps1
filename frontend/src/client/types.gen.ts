@@ -9961,6 +9961,7 @@ export type RuntimeErrorKind =
   | "agent.configuration.invalid"
   | "agent.preparation.failed"
   | "agent.session.initialization_failed"
+  | "agent.approval.persistence_failed"
   | "agent.llm.gateway_auth_failed"
   | "agent.llm.provider_auth_failed"
   | "agent.llm.budget_exceeded"
@@ -17754,12 +17755,6 @@ export type EditorValidateExpressionData = {
 }
 
 export type EditorValidateExpressionResponse = ExpressionValidationResponse
-
-export type EditorFieldSchemaData = {
-  workspaceId: string
-}
-
-export type EditorFieldSchemaResponse = EditorComponent
 
 export type RegistryRepositoriesSyncRegistryRepositoryData = {
   repositoryId: string
@@ -26224,21 +26219,6 @@ export type $OpenApiTs = {
          * Successful Response
          */
         200: ExpressionValidationResponse
-        /**
-         * Validation Error
-         */
-        422: HTTPValidationError
-      }
-    }
-  }
-  "/workspaces/{workspace_id}/editor/field-schema": {
-    get: {
-      req: EditorFieldSchemaData
-      res: {
-        /**
-         * Successful Response
-         */
-        200: EditorComponent
         /**
          * Validation Error
          */

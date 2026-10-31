@@ -1843,6 +1843,9 @@ async def svc_workspace(
             )
             await global_session.commit()
 
+    # Read the ID now: a test that rolls the session back expires `workspace`,
+    # and a lazy refresh cannot run from this synchronous attribute access.
+    workspace_id = workspace.id
     try:
         yield workspace
     finally:
@@ -1862,7 +1865,7 @@ async def svc_workspace(
                 # Core DELETE lets FK ON DELETE CASCADE do the work in one
                 # statement instead of the ORM loading every child collection.
                 await global_cleanup_session.execute(
-                    delete(Workspace).where(Workspace.id == workspace.id)
+                    delete(Workspace).where(Workspace.id == workspace_id)
                 )
                 await global_cleanup_session.commit()
         except Exception as e:
