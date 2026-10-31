@@ -17,9 +17,11 @@ Key features:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import os
 import shutil
+import socket
 import sys
 import tempfile
 import time
@@ -37,10 +39,15 @@ from pydantic_core import to_json
 
 from autosecops import config
 from autosecops.contexts import ctx_secret_masks
+from autosecops.executor.action_env import (
+    build_direct_action_env,
+    local_registry_import_paths,
+)
 from autosecops.executor.action_gateway.config import (
     ACTION_GATEWAY_SANDBOX_SOCKET,
     action_gateway_socket_path,
 )
+from autosecops.executor.minimal_runner import RUNNER_READY
 from autosecops.executor.registry_artifacts import RegistryArtifactCache
 from autosecops.executor.schemas import (
     ExecutorActionErrorInfo,
@@ -52,6 +59,7 @@ from autosecops.executor.secret_preprocessors import (
 )
 from autosecops.logger import logger
 from autosecops.outbound import TUNNEL_PROXY_ENV
+from autosecops.process_env import which_trusted
 from autosecops.sandbox.cgroup import sandbox_cgroup
 from autosecops.sandbox.exceptions import (
     raise_for_sandbox_error_code,
@@ -155,10 +163,137 @@ def _sandbox_failure_message(
             return f"{message}. Workload stderr (tail):\n{masked_tail}"
 
 
+_RUNNER_OUTPUT_DRAIN_SECONDS = 10.0
+"""Seconds to collect output still buffered after the action tree is gone."""
+
+
+def _shutdown_quietly(sock: socket.socket, how: int) -> None:
+    """Shut a socket down, ignoring a peer that is already gone."""
+    with contextlib.suppress(OSError):
+        sock.shutdown(how)
+
+
+async def _read_until_eof(sock: socket.socket, buffer: bytearray) -> None:
+    """Append everything the peer sends until it closes or fails."""
+    loop = asyncio.get_running_loop()
+    while True:
+        try:
+            chunk = await loop.sock_recv(sock, 1 << 16)
+        except OSError:
+            return
+        if not chunk:
+            return
+        buffer += chunk
+
+
+async def _exchange_with_runner(
+    payload_socket: socket.socket,
+    payload: bytes,
+    output: bytearray,
+    *,
+    ready_timeout: float,
+) -> None:
+    """Send the runner its payload once it is protected, then collect its result.
+
+    The runner's stdin and stdout are this one socket. A runner that dies while
+    the payload is in flight is not an error here: whatever it wrote before
+    dying, such as a resource-limit envelope, is still collected.
+
+    Args:
+        payload_socket: The executor's end of the runner's stdin/stdout socket.
+        payload: The serialized payload, including secrets.
+        output: Receives the runner's stdout after the ready byte.
+        ready_timeout: Seconds the runner may take to become ready.
+    """
+    loop = asyncio.get_running_loop()
+    try:
+        async with asyncio.timeout(ready_timeout):
+            ready = await loop.sock_recv(payload_socket, len(RUNNER_READY))
+    except TimeoutError:
+        logger.error("Action runner did not become ready", timeout=ready_timeout)
+        _shutdown_quietly(payload_socket, socket.SHUT_RDWR)
+        return
+    except OSError:
+        return
+    if ready != RUNNER_READY:
+        # The runner exited or misbehaved before asking: it gets no payload.
+        _shutdown_quietly(payload_socket, socket.SHUT_WR)
+        output += ready
+    else:
+        try:
+            await loop.sock_sendall(payload_socket, payload)
+        except OSError as e:
+            logger.warning(
+                "Action runner stopped reading its payload", error=type(e).__name__
+            )
+        _shutdown_quietly(payload_socket, socket.SHUT_WR)
+    await _read_until_eof(payload_socket, output)
+
+
+async def _communicate_with_runner(
+    proc: asyncio.subprocess.Process,
+    *,
+    payload_socket: socket.socket,
+    stderr_socket: socket.socket,
+    payload: bytes,
+    timeout: float,
+    ready_timeout: float,
+) -> tuple[bytes, bytes]:
+    """Run the runner's socket protocol while containing its process group.
+
+    Args:
+        proc: The supervised runner process.
+        payload_socket: The executor's end of the runner's stdin/stdout socket.
+        stderr_socket: The executor's end of the runner's stderr socket.
+        payload: The serialized payload.
+        timeout: Seconds before the whole process group is killed.
+        ready_timeout: Seconds the runner may take to become ready.
+
+    Returns:
+        The runner's stdout (after the ready byte) and stderr.
+
+    Raises:
+        TimeoutError: If the process outlives ``timeout``.
+    """
+    stdout = bytearray()
+    stderr = bytearray()
+    payload_socket.setblocking(False)
+    stderr_socket.setblocking(False)
+    io_tasks = [
+        asyncio.create_task(
+            _exchange_with_runner(
+                payload_socket, payload, stdout, ready_timeout=ready_timeout
+            )
+        ),
+        asyncio.create_task(_read_until_eof(stderr_socket, stderr)),
+    ]
+    try:
+        await communicate_process_group(
+            proc,
+            timeout=timeout,
+            terminate=terminate_supervised_process,
+            captured=False,
+        )
+        # The whole action tree is gone, so the sockets reach EOF once their
+        # buffered output is read.
+        await asyncio.wait(io_tasks, timeout=_RUNNER_OUTPUT_DRAIN_SECONDS)
+    finally:
+        for task in io_tasks:
+            task.cancel()
+        # The I/O tasks handle socket errors themselves; only cancellation
+        # can come back here.
+        await asyncio.gather(*io_tasks, return_exceptions=True)
+    return bytes(stdout), bytes(stderr)
+
+
 def _direct_subprocess_command(minimal_runner_path: Path) -> list[str]:
     """Build a contained direct-action command with privileges disabled."""
-    runner_command = [sys.executable, str(minimal_runner_path)]
-    setpriv = shutil.which("setpriv")
+    # Isolated mode (-I) ignores PYTHONPATH, the user site directory and the
+    # working directory, all of which action code can write; the runner adds
+    # the registry import roots itself. -B keeps bytecode out of those roots.
+    runner_command = [sys.executable, "-I", "-B", str(minimal_runner_path)]
+    # Only directories this user cannot write may supply setpriv.
+    setpriv = which_trusted("setpriv")
     if setpriv is None:
         raise RuntimeError("setpriv is required for direct action subprocess isolation")
 
@@ -457,26 +592,20 @@ class ActionRunner:
         """
         timeout = timeout or config.AUTOSECOPS__EXECUTOR_CLIENT_TIMEOUT
 
-        # Prepare input JSON for subprocess
-        payload: dict[str, Any] = {"input": input, "role": role}
-        if resolved_context is not None:
-            payload["resolved_context"] = resolved_context
-            payload["secret_env"] = secret_projection.env
-            masks = ctx_secret_masks.get()
-            payload["secret_mask_values"] = sorted(masks.values) if masks else []
-        payload["timeout_seconds"] = timeout
-        input_json = to_json(payload)
-        # The runner times the function call; this only backstops startup and
-        # serialization around it.
-        hard_timeout = timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
-
-        # Build environment with registry paths in PYTHONPATH
-        env = os.environ.copy()
-        # Platform ingestion credentials belong to the worker, not action code.
-        env.pop("SENTRY_DSN", None)
+        # Actions start from an allowlist, never the executor's environment:
+        # it carries platform credentials (DB URI, encryption and service keys).
+        env = build_direct_action_env(
+            os.environ,
+            passthrough=config.AUTOSECOPS__EXECUTOR_ENV_PASSTHROUGH,
+        )
         if env_vars:
             env.update(env_vars)
         env.pop(TUNNEL_PROXY_ENV, None)
+        # Credentials travel in the stdin payload, not the process environment,
+        # and the runner applies them only after it is protected from other
+        # same-user processes. A process's initial environment stays readable
+        # through /proc until then, and its supervisor's for its whole life.
+        runtime_env: dict[str, str] = {}
 
         # Ensure SDK context is available for registry actions executed by minimal_runner.
         if resolved_context is not None:
@@ -486,18 +615,36 @@ class ActionRunner:
             env["AUTOSECOPS__RUN_ID"] = resolved_context.run_id
             env["AUTOSECOPS__WF_EXEC_ID"] = str(input.run_context.wf_exec_id)
             env["AUTOSECOPS__ENVIRONMENT"] = input.run_context.environment
-            env["AUTOSECOPS__EXECUTOR_TOKEN"] = resolved_context.executor_token
             env["AUTOSECOPS__ACTION_GATEWAY_SOCKET"] = str(action_gateway_socket_path())
+            runtime_env["AUTOSECOPS__EXECUTOR_TOKEN"] = resolved_context.executor_token
             if route := _tunnel_route(input, resolved_context):
-                env.update(tunnel_proxy_env(route[0]))
+                proxy_env = tunnel_proxy_env(route[0])
+                for name in proxy_env:
+                    env.pop(name, None)
+                runtime_env.update(proxy_env)
         elif effective_tunnel(input):
             raise TunnelRouteError("Tunneled actions require a resolved tunnel route")
+
+        # Prepare input JSON for subprocess
+        payload: dict[str, Any] = {"input": input, "role": role}
+        if resolved_context is not None:
+            payload["resolved_context"] = resolved_context
+            payload["secret_env"] = secret_projection.env
+            masks = ctx_secret_masks.get()
+            payload["secret_mask_values"] = sorted(masks.values) if masks else []
+        payload["runtime_env"] = runtime_env
+        payload["timeout_seconds"] = timeout
+        input_json = to_json(payload)
+        # The runner times the function call; this only backstops startup and
+        # serialization around it.
+        hard_timeout = timeout + config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
 
         # Build PYTHONPATH with multiple registry paths (deterministic order)
         pythonpath_parts = [str(p) for p in registry_paths if p.exists()]
         existing_pythonpath = env.get("PYTHONPATH", "")
         if existing_pythonpath:
             pythonpath_parts.append(existing_pythonpath)
+        pythonpath_parts.extend(local_registry_import_paths())
         env["PYTHONPATH"] = ":".join(pythonpath_parts) if pythonpath_parts else ""
         env["PYTHONDONTWRITEBYTECODE"] = "1"
 
@@ -524,21 +671,40 @@ class ActionRunner:
         )
 
         start_time = time.monotonic()
-        proc = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
-            start_new_session=True,
-        )
+        # The runner's stdio are sockets, not pipes: same-user code can open a
+        # dumpable process's pipe through /proc/<pid>/fd and read the payload
+        # (workspace secrets, executor token) or forge the result, but Linux
+        # refuses to open a socket that way. stdin and stdout share one socket,
+        # and the runner asks for the payload only after protecting itself.
+        payload_socket, runner_socket = socket.socketpair()
+        stderr_socket, runner_stderr = socket.socketpair()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *command,
+                stdin=runner_socket.fileno(),
+                stdout=runner_socket.fileno(),
+                stderr=runner_stderr.fileno(),
+                env=env,
+                start_new_session=True,
+            )
+        except BaseException:
+            payload_socket.close()
+            stderr_socket.close()
+            raise
+        finally:
+            runner_socket.close()
+            runner_stderr.close()
 
         try:
-            stdout, stderr = await communicate_process_group(
+            stdout, stderr = await _communicate_with_runner(
                 proc,
-                input=input_json,
+                payload_socket=payload_socket,
+                stderr_socket=stderr_socket,
+                payload=input_json,
                 timeout=hard_timeout,
-                terminate=terminate_supervised_process,
+                ready_timeout=min(
+                    hard_timeout, config.AUTOSECOPS__EXECUTOR_SUBPROCESS_STARTUP_GRACE
+                ),
             )
             elapsed_ms = (time.monotonic() - start_time) * 1000
             logger.info(
@@ -564,6 +730,9 @@ class ActionRunner:
                 filename="<subprocess>",
                 function="execute_action",
             )
+        finally:
+            payload_socket.close()
+            stderr_socket.close()
         # Check for subprocess crash
         if proc.returncode != 0:
             logger.error(

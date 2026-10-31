@@ -11,7 +11,6 @@ keeps worker start-up short.
 from __future__ import annotations
 
 import asyncio
-import multiprocessing
 import os
 from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor
@@ -20,6 +19,8 @@ from dataclasses import dataclass, replace
 from typing import Final
 
 from autosecops.logger import logger
+from autosecops.process_hardening import protect_process_from_inspection
+from autosecops.process_spawn import SCRUBBED_SPAWN_SUPPORTED, scrubbed_spawn_context
 from autosecops.robot_edr import rendering
 from autosecops.robot_edr.crypto import verify_strict
 from autosecops.robot_edr.ndjson import FindingSignature, parse_line
@@ -36,9 +37,15 @@ DETAIL_MAX: Final = 300
 
 # Worker processes for large batches; 0 checks every batch in the API process.
 # The API process only waits while the workers run, so they may use every CPU.
-CHECK_WORKERS: Final = int(
-    os.environ.get("AUTOSECOPS__ROBOT_EDR_CHECK_WORKERS")
-    or (min(4, os.cpu_count() or 1) if (os.cpu_count() or 1) > 1 else 0)
+# Workers start without the API's credentials; where that is not supported,
+# every batch is checked in the API process instead.
+CHECK_WORKERS: Final = (
+    int(
+        os.environ.get("AUTOSECOPS__ROBOT_EDR_CHECK_WORKERS")
+        or (min(4, os.cpu_count() or 1) if (os.cpu_count() or 1) > 1 else 0)
+    )
+    if SCRUBBED_SPAWN_SUPPORTED
+    else 0
 )
 # Below this many lines a batch is checked in the API process: shipping the
 # lines to the workers would cost more than it saves.
@@ -121,7 +128,13 @@ def _get_pool() -> ProcessPoolExecutor:
     if _pool is None:
         _pool = ProcessPoolExecutor(
             max_workers=CHECK_WORKERS,
-            mp_context=multiprocessing.get_context("spawn"),
+            # The API environment holds platform credentials; workers get only
+            # what the checks read, and refuse same-user /proc access.
+            mp_context=scrubbed_spawn_context(
+                names={"LOG_LEVEL", "AUTOSECOPS__LOG_FORMAT", "AUTOSECOPS__APP_ENV"},
+                prefixes=("AUTOSECOPS__ROBOT_EDR_",),
+            ),
+            initializer=protect_process_from_inspection,
         )
     return _pool
 

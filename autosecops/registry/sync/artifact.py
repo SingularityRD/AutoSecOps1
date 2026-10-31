@@ -27,6 +27,12 @@ import autosecops_registry
 from autosecops import config
 from autosecops.git.constants import GIT_SSH_URL_REGEX
 from autosecops.logger import logger
+from autosecops.process_env import (
+    tool_subprocess_env,
+    trusted_path,
+    uv_subprocess_env,
+)
+from autosecops.sandbox.utils import communicate_process_group
 from autosecops.storage import blob
 
 if TYPE_CHECKING:
@@ -134,7 +140,7 @@ def _create_squashfs_image(
     if not config.AUTOSECOPS__REGISTRY_SYNC_SQUASHFS_ENABLED:
         return False
 
-    mksquashfs = shutil.which("mksquashfs")
+    mksquashfs = shutil.which("mksquashfs", path=trusted_path())
     if mksquashfs is None:
         logger.warning("Skipping SquashFS image build; mksquashfs is not installed")
         return False
@@ -198,7 +204,9 @@ def subprocess_run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     Kept as a small wrapper so tests can monkeypatch SquashFS creation without
     shelling out.
     """
-    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+    return subprocess.run(
+        cmd, capture_output=True, text=True, check=False, env=tool_subprocess_env()
+    )
 
 
 def get_builtin_registry_source_path() -> Path:
@@ -400,42 +408,51 @@ async def build_artifact_from_path(
         output_dir=str(output_dir),
     )
 
-    # Step 1: Create a minimal venv using uv
-    venv_cmd = ["uv", "venv", str(venv_dir), "--python", python_version]
-    process = await asyncio.create_subprocess_exec(
-        *venv_cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=str(package_path),
-    )
-    _, stderr = await process.communicate()
+    # uv runs the package's build backends: they get no platform credentials,
+    # a cache no other build shares, and their process group dies with ours.
+    with tempfile.TemporaryDirectory(prefix="autosecops-uv-cache-") as uv_cache:
+        uv_env = uv_subprocess_env(Path(uv_cache))
 
-    if process.returncode != 0:
-        error_msg = stderr.decode().strip()
-        logger.error("Failed to create venv", error=error_msg)
-        raise RegistryArtifactBuildError(f"Failed to create venv: {error_msg}")
+        # Step 1: Create a minimal venv using uv
+        venv_cmd = ["uv", "venv", str(venv_dir), "--python", python_version]
+        process = await asyncio.create_subprocess_exec(
+            *venv_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(package_path),
+            env=uv_env,
+            start_new_session=True,
+        )
+        _, stderr = await communicate_process_group(process)
 
-    # Step 2: Install the package and all dependencies into the venv
-    install_cmd = [
-        "uv",
-        "pip",
-        "install",
-        "--python",
-        str(venv_dir / "bin" / "python"),
-        str(package_path),
-    ]
-    process = await asyncio.create_subprocess_exec(
-        *install_cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=str(package_path),
-    )
-    _, stderr = await process.communicate()
+        if process.returncode != 0:
+            error_msg = stderr.decode().strip()
+            logger.error("Failed to create venv", error=error_msg)
+            raise RegistryArtifactBuildError(f"Failed to create venv: {error_msg}")
 
-    if process.returncode != 0:
-        error_msg = stderr.decode().strip()
-        logger.error("Failed to install package into venv", error=error_msg)
-        raise RegistryArtifactBuildError(f"Failed to install package: {error_msg}")
+        # Step 2: Install the package and all dependencies into the venv
+        install_cmd = [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            str(venv_dir / "bin" / "python"),
+            str(package_path),
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *install_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(package_path),
+            env=uv_env,
+            start_new_session=True,
+        )
+        _, stderr = await communicate_process_group(process)
+
+        if process.returncode != 0:
+            error_msg = stderr.decode().strip()
+            logger.error("Failed to install package into venv", error=error_msg)
+            raise RegistryArtifactBuildError(f"Failed to install package: {error_msg}")
 
     # Step 3: Locate the site-packages directory (PYTHONPATH entry)
     site_packages = venv_dir / "lib" / f"python{python_version}" / "site-packages"
@@ -466,6 +483,7 @@ async def build_artifact_from_path(
         *compile_cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=tool_subprocess_env(),
     )
     await process.communicate()
     # Ignore errors - bytecode compilation is optional optimization
@@ -555,7 +573,7 @@ async def build_artifact_from_git(
         )
 
         # Set up environment for git operations
-        git_env = os.environ.copy()
+        git_env = tool_subprocess_env()
         if env:
             git_env.update(env.to_dict())
 
